@@ -65,8 +65,6 @@ export default defineConfig({
         'apps/api/src/db/migrations/**',
         'apps/api/src/db/seeders/**',
         'apps/web/src/app/layout.tsx',
-        // Marcador temporal del andamiaje (T-03). Se borra en T-18.
-        'apps/api/src/placeholder.ts',
       ],
       // R-09: 80 % de líneas en general y 90 % en packages/shared y en los services de la API.
       thresholds: {
