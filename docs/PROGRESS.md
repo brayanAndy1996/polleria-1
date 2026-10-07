@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 001-base-monorepo.
-- Paso: 5 de 9, implementación (backend-dev T-17 a T-22, frontend-dev T-23 a T-25). Tests en rojo verificados: 18 archivos fallan por módulo o export inexistente; los 32 AC tienen test.
+- Paso: 5 de 9. Implementación T-17 a T-25 terminada; falta verificar contra PostgreSQL (22 tests de integración y 4 E2E) porque no existe apps/api/.env.
 - Rama: feat/001-base-monorepo.
 
 ## Tabla de funcionalidades
@@ -39,12 +39,16 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 ## Deuda técnica y hallazgos medios/bajos
 
-- apps/api/src/placeholder.ts es temporal (lo exige tsc mientras no haya módulos). Se borra en T-18.
 - Next 16.4.0 genera apps/web/AGENTS.md cuando un agente corre next dev. Se desactivará con agentRules: false en T-23.
 - Aviso de peer opcional: @vitest/mocker 5.0.3 declara msw ^2.4.9 y el proyecto usa msw 3.0.2. Funciona (verificado por backend-dev).
 - apps/web necesita zod (librería ya aprobada en el stack) para loadWebServerConfig (T-23); se agrega zod 4.6.5, la misma versión que en api y shared.
+- Arbitraje 2026-10-07: backend-dev reportó un glob sin barra en apps/api/tests/migrator.test.ts; el orquestador lo verificó y test-writer lo corrigió (commit 7c19265) sin cambiar aserciones.
+- Si la base no responde, el E2E falla por timeout de 120 s del webServer sin una pista clara; se sugiere que la API registre una línea en su log al no poder conectar (bajo).
+- Un cuerpo con Content-Encoding desconocido produce 415 en body-parser y la API responde 500 INTERNAL_ERROR (sin código definido en la spec; bajo, lo revisará el adversarial-tester).
+- Web: un 503 con status ok, o un 200 con status error, se interpreta como unreachable (frontend-dev exige que coincidan el código HTTP y el status).
+- Producción: los rewrites de Next se calculan en next build, así que API_INTERNAL_URL debe estar definida al compilar (para la guía de instalación).
 - R-09: en Vitest 5 el umbral global de 80 % incluye también shared y services; es más estricto que el texto de la spec, sin efecto práctico.
 
 ## Bloqueos
 
-Ninguno.
+- 2026-10-07: falta apps/api/.env con la clave real (lo crea el usuario). Sin él no se pueden ejecutar los tests que usan polleria_test ni los E2E, ni verificar db:migrate y db:seed sobre polleria_dev.

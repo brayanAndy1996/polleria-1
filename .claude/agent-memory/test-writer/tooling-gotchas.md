@@ -16,5 +16,9 @@ Reglas aprendidas escribiendo la fase roja de la spec 001. Evitan repetir errore
 - Playwright no resuelve `@polleria/shared` desde `e2e/` (la raíz no lo declara). Importar por ruta relativa: `../packages/shared/src/index.ts`. Tampoco hay tipos DOM en el tsconfig raíz: usar `page.evaluate<T>('expresión como texto')`.
 - El tool Bash falla ("unexpected EOF") con algunos heredocs largos con comillas y plantillas; crear los archivos con Write en su lugar.
 - umzug 3.8.3 usa tinyglobby: un glob absoluto con barras normales (`C:/.../*.ts`) funciona en Windows.
+- Globs armados con `path.join(dir, carpeta)` no llevan barra final: concatenar `/*.ts` (con barra), nunca `*.ts`. El error (`.../migrations*.ts`) pasó sin detectarse en `migrator.test.ts` porque esos tests necesitan PostgreSQL y no se ejecutaron en la fase roja.
+  **Why:** devolvía `[]` sin error y habría roto 5 tests (AC-22, AC-23) aunque el migrador estuviera bien; lo halló backend-dev.
+  **How to apply:** en tests que dependen de la base, comprobar a mano cualquier glob o ruta con umzug de almacenamiento en memoria (sin base) desde el scratchpad: `new Umzug({ migrations: { glob }, context: {}, storage: <objeto en memoria> }).pending()`.
+- En scripts de Bash con heredoc, la barra invertida (`'\\'`) se pierde: para scripts de prueba en el scratchpad usar Write y `String.fromCharCode(92)`.
 - Fixtures de migraciones/seeders: sin imports de valores de `sequelize` (solo `import type`), SQL directo con `context.sequelize.query`. Cargan bien con el type stripping de Node 24.1.
 - `no-unsafe-*` de ESLint (recommendedTypeChecked) marca en cascada todo valor que viene de un módulo inexistente: en fase roja `pnpm lint` no puede dar 0. Se demuestra que es solo cascada validando contra una implementación desechable (ver [[validar-rojo-con-copia-desechable]]).

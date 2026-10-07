@@ -1,1 +1,1 @@
-- [Gotchas de herramientas web](web-tooling-gotchas.md) — next dev genera AGENTS.md, globals.css de HeroUI v3, Playwright en Windows
+- [Gotchas de herramientas web](web-tooling-gotchas.md) — Next config, HeroUI Chip, Playwright en Windows, commits en paralelo con backend-dev
