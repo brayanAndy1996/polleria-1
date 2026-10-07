@@ -6,14 +6,14 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 001-base-monorepo.
-- Paso: 4 de 9. Antes de los tests en rojo va el andamiaje de configuración (T-01 a T-06 de tasks.md).
+- Paso: 4 de 9, tests en rojo (test-writer, T-07 a T-16). Andamiaje T-01 a T-06 terminado y verificado por el orquestador.
 - Rama: feat/001-base-monorepo.
 
 ## Tabla de funcionalidades
 
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
-| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Spec aprobada; andamiaje en curso | feat/001-base-monorepo | — |
+| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Tests en rojo | feat/001-base-monorepo | — |
 | 002 | printer-service (PrinterService con driver file) | 0 | Pendiente | feat/002-printer-service | — |
 
 ## Decisiones del usuario
@@ -39,7 +39,10 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 ## Deuda técnica y hallazgos medios/bajos
 
-Ninguna por ahora.
+- apps/api/src/placeholder.ts es temporal (lo exige tsc mientras no haya módulos). Se borra en T-18.
+- Next 16.4.0 genera apps/web/AGENTS.md cuando un agente corre next dev. Se desactivará con agentRules: false en T-23.
+- Aviso de peer opcional: @vitest/mocker 5.0.3 declara msw ^2.4.9 y el proyecto usa msw 3.0.2. Funciona (verificado por backend-dev).
+- R-09: en Vitest 5 el umbral global de 80 % incluye también shared y services; es más estricto que el texto de la spec, sin efecto práctico.
 
 ## Bloqueos
 

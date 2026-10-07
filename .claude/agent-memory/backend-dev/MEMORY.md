@@ -1,0 +1,1 @@
+- [Notas de Vitest 5 en este monorepo](project_vitest_5_setup.md) — peer de msw esperado, umbrales, JSX con oxc, fetch relativo en jsdom
