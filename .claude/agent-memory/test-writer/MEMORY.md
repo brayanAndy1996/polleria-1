@@ -1,0 +1,2 @@
+- [Trampas de herramientas](tooling-gotchas.md) — MSW 3, Vite en jsdom, Playwright, Bash heredocs y lint en fase roja
+- [Validar el rojo con copia desechable](validar-rojo-con-copia-desechable.md) — receta para comprobar que las pruebas son aprobables sin tocar el repo
