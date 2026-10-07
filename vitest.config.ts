@@ -44,6 +44,8 @@ export default defineConfig({
           name: 'web',
           environment: 'jsdom',
           include: ['apps/web/{src,tests}/**/*.test.{ts,tsx}'],
+          // MSW, jest-dom y la limpieza de React Testing Library (T-15).
+          setupFiles: ['apps/web/tests/setup.ts'],
         },
       },
     ],
