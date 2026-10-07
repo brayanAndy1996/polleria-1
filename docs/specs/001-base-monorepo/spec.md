@@ -1,6 +1,6 @@
 # Spec 001 — Base del monorepo, salud de la API y web mínima
 
-- Estado: Borrador
+- Estado: Aprobada (2026-10-07, por el usuario; preguntas abiertas resueltas en la sección 15)
 - Fase: 0 (Base del proyecto)
 - Rama: feat/001-base-monorepo
 - Cubre: RNF-05 (funciona en la red local sin internet), RNF-07 (Chrome en Android 9+ y Windows 10+), RNF-12 (configuración sin tocar código; en esta fase, por variables de entorno). No cubre ningún RF.
@@ -605,6 +605,16 @@ dotenv (se usa `--env-file-if-exists` y `process.loadEnvFile`), tsx y ts-node (t
 5. ¿Códigos de error en inglés (INSUFFICIENT_STOCK) o mantener STOCK_INSUFICIENTE como dice backend-dev.md? Conviene corregir uno de los dos para que no haya contradicción (S-09).
 6. ¿Te parece bien que para correr `pnpm test:e2e` haya que detener `pnpm dev`? La alternativa es que los E2E usen una compilación de producción, que es más lenta (alrededor de un minuto más por corrida) (S-07).
 7. ¿Los datos de demostración (seeds) deben aplicarse una sola vez, o prefieres poder recargarlos desde cero cuando quieras? (S-06)
+
+### Respuestas del usuario (2026-10-07)
+
+1. Chrome de los celulares: se acepta el supuesto S-01 (Chrome 111 o superior). Se confirmará con el dueño.
+2. Prefijo /api y mismo origen sin CORS: aprobado (S-02, S-08).
+3. Dependencias de soporte: aprobadas 12.1 y 12.2, y también las dos opcionales de 12.3 (eslint-plugin-react-hooks y @testing-library/jest-dom).
+4. Node: se mantiene 24.1.0 y jsdom 29.1.1 (S-11).
+5. Códigos de error en inglés (S-09). Se corrigió .claude/agents/backend-dev.md: STOCK_INSUFICIENTE pasa a INSUFFICIENT_STOCK.
+6. Se acepta detener  ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND  No package.json (or package.yaml, or package.json5) was found in "C:UsersrayaDesktopproyectos1polleria". antes de  ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND  No package.json (or package.yaml, or package.json5) was found in "C:UsersrayaDesktopproyectos1polleria". (S-07).
+7. Los seeds se aplican una sola vez (S-06). En la Fase 6 se decidirá si hace falta recargar la demo.
 
 ## 16. Verificación manual sugerida (para el usuario)
 

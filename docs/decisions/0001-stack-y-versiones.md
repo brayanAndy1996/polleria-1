@@ -1,6 +1,6 @@
 # ADR 0001 — Stack, versiones y dependencias de soporte
 
-- Estado: Propuesto
+- Estado: Aceptado (2026-10-07, aprobado por el usuario junto con la spec 001, incluidas las dependencias opcionales eslint-plugin-react-hooks y @testing-library/jest-dom)
 - Fecha: 2026-10-07
 - Spec relacionada: docs/specs/001-base-monorepo/spec.md
 - Decide: el usuario (aprobación pendiente). Al cerrar la spec 001, el orquestador registra en CLAUDE.md las versiones finalmente instaladas.
@@ -136,8 +136,8 @@ dotenv, tsx, ts-node, nodemon, concurrently, cross-env, cors, sequelize-cli, pg-
 - Negativas: sintaxis TypeScript limitada (sin enum ni decoradores); ExperimentalWarning oculto con una opción de Node; `pnpm dev` debe detenerse antes de `pnpm test:e2e`; jsdom queda una versión mayor atrás mientras se use Node 24.1.0.
 - Riesgos: type stripping en estado "release candidate" en Node 24; posible fricción de peerDependencies entre TypeScript 6 y herramientas que aún declaran `^5.x`; piso de Chrome 111 frente a celulares Android 9 sin actualizar.
 
-## Pendientes
+## Resolución (2026-10-07)
 
-- Aprobación del usuario de las listas A y B, y elección sobre la lista C.
-- Respuesta del usuario sobre actualizar Node a la última 24.x (permitiría jsdom 30).
-- Al cerrar la spec 001, registrar en CLAUDE.md las versiones finales (`pnpm -r ls --depth 0`) y cambiar este ADR a "Aceptado".
+- El usuario aprobó las listas A y B y las dos dependencias opcionales de la lista C (eslint-plugin-react-hooks 7.1.1 y @testing-library/jest-dom 7.0.1).
+- Se mantiene Node 24.1.0; por eso jsdom queda en 29.1.1.
+- Pendiente para el orquestador: al cerrar la spec 001, registrar en CLAUDE.md las versiones finales (No projects found in "C:UsersrayaDesktopproyectos1polleria").

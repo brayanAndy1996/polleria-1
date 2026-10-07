@@ -6,14 +6,14 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 001-base-monorepo.
-- Paso: 3 de 9, esperando aprobación de la spec por el usuario.
+- Paso: 4 de 9. Antes de los tests en rojo va el andamiaje de configuración (T-01 a T-06 de tasks.md).
 - Rama: feat/001-base-monorepo.
 
 ## Tabla de funcionalidades
 
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
-| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Spec en aprobación | feat/001-base-monorepo | — |
+| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Spec aprobada; andamiaje en curso | feat/001-base-monorepo | — |
 | 002 | printer-service (PrinterService con driver file) | 0 | Pendiente | feat/002-printer-service | — |
 
 ## Decisiones del usuario
@@ -21,6 +21,15 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | Fecha | Decisión |
 | --- | --- |
 | 2026-10-07 | Iniciar la Fase 0. |
+| 2026-10-07 | Spec 001 aprobada con las recomendaciones del orquestador. |
+| 2026-10-07 | API con prefijo /api, mismo origen que la web vía rewrites de Next.js, sin CORS. La API escucha solo en 127.0.0.1. |
+| 2026-10-07 | Dependencias de soporte de la spec 001 aprobadas, incluidas las opcionales eslint-plugin-react-hooks y @testing-library/jest-dom (ADR 0001 aceptado). |
+| 2026-10-07 | Códigos de error en inglés (por ejemplo INSUFFICIENT_STOCK); mensajes en español. Se corrigió backend-dev.md. |
+| 2026-10-07 | Se mantiene Node 24.1.0 (jsdom 29.1.1). |
+| 2026-10-07 | Para correr los E2E hay que detener pnpm dev antes. |
+| 2026-10-07 | Los seeds se aplican una sola vez; recargar la demo se evaluará en la Fase 6. |
+| 2026-10-07 | Se asume Chrome 111 o superior en los celulares de los mozos; se confirmará con el dueño. |
+| 2026-10-07 | El usuario confirma que existen el rol polleria y las bases polleria_dev y polleria_test en PostgreSQL 17 (puerto 5432). |
 
 ## Notas técnicas del orquestador
 
