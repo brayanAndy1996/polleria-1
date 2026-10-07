@@ -1,0 +1,1 @@
+- [Gotchas de herramientas web](web-tooling-gotchas.md) — next dev genera AGENTS.md, globals.css de HeroUI v3, Playwright en Windows
