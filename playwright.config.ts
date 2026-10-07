@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import { defineConfig, devices } from '@playwright/test';
+import { assertTestDatabase } from './apps/api/src/db/assert-test-database.ts';
 
 // Los E2E usan su propia API (127.0.0.1:4100) y su propia web (puerto 3100), ambas conectadas a
 // polleria_test. Nunca reutilizan servidores ya levantados (RN-001-03): si lo hicieran, podrían
@@ -32,9 +33,11 @@ function readDatabaseUrlTest(): string {
     );
   }
 
-  // TODO(T-25): verificar este valor con assertTestDatabase (apps/api/src/db/assert-test-database.ts)
-  // antes de declarar los webServer. Mientras tanto, la API en modo test (NODE_ENV=test) también
-  // rechaza una base que no termine en _test.
+  // Guardia de las pruebas (RN-001-02): si la base no termina en _test, esta línea lanza un error
+  // en español (sin la URL ni la clave) y Playwright aborta antes de levantar ningún servidor.
+  // Además, la API en modo test (NODE_ENV=test) vuelve a verificarlo al arrancar.
+  assertTestDatabase(value);
+
   return value;
 }
 
