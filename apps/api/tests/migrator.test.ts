@@ -14,7 +14,7 @@ import {
 /** Glob absoluto con barras normales (también en Windows) hacia los fixtures de este test. */
 function fixtureGlob(folder: 'migrations' | 'seeders'): string {
   const directory = path.join(import.meta.dirname, 'fixtures', folder);
-  return `${directory.replaceAll('\\', '/')}*.ts`;
+  return `${directory.replaceAll('\\', '/')}/*.ts`;
 }
 
 const MIGRATIONS_OPTIONS = { glob: fixtureGlob('migrations'), tableName: 'FixtureMeta' };
