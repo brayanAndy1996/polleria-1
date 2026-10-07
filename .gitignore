@@ -1,0 +1,41 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Pruebas y cobertura
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Comandas generadas por el driver file
+tmp/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Sistema y editores
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Configuración local de Claude Code
+.claude/settings.local.json
