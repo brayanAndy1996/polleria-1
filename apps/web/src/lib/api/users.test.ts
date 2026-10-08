@@ -28,7 +28,7 @@ describe('004: funciones de la API de usuarios', () => {
     );
     await expect(getUsers()).resolves.toEqual([ADMIN_USER]);
   });
-  it.each([{ users: [{ ...ADMIN_USER, pinHash: 'x' }] }, { users: [] , extra: 1 }, { lista: [] }])(
+  it.each([{ users: [{ ...ADMIN_USER, pinHash: 'x' }] }, { users: [], extra: 1 }, { lista: [] }])(
     'AC-19: getUsers rechaza la respuesta mal formada %s',
     async (body) => {
       server.use(http.get('*/api/users', () => HttpResponse.json(body)));
@@ -79,7 +79,9 @@ describe('004: funciones de la API de usuarios', () => {
     });
     expect(seen).toHaveBeenCalledExactlyOnceWith({ isActive: false });
     server.use(
-      http.patch('*/api/users/2', () => HttpResponse.json({ ...ADMIN_USER, id: 2 }, { status: 201 })),
+      http.patch('*/api/users/2', () =>
+        HttpResponse.json({ ...ADMIN_USER, id: 2 }, { status: 201 }),
+      ),
     );
     await expect(updateUser(2, { isActive: false })).rejects.toMatchObject({
       code: 'UNEXPECTED_RESPONSE',
@@ -103,14 +105,52 @@ describe('004: funciones de la API de usuarios', () => {
     });
   });
   it.each([
-    ['createUser', () => createUser({ username: 'ana', displayName: 'Ana', pin: '3968', roles: ['waiter'] }), '*/api/users', http.post, 409, 'USERNAME_TAKEN', 'Ese nombre de usuario ya existe.', null],
-    ['updateUser', () => updateUser(2, { roles: ['waiter'] }), '*/api/users/2', http.patch, 409, 'LAST_ADMIN_REQUIRED', 'Debe quedar al menos un administrador activo.', null],
-    ['updateUser', () => updateUser(2, { isActive: false }), '*/api/users/2', http.patch, 404, 'USER_NOT_FOUND', 'Ese usuario no existe.', null],
-    ['resetUserPin', () => resetUserPin(2, '5846'), '*/api/users/2/pin', http.post, 400, 'VALIDATION_ERROR', 'Los datos enviados no son v\u00E1lidos.', { issues: [{ path: 'pin', message: 'Ese PIN es muy f\u00E1cil de adivinar. Elige otro.' }] }],
+    [
+      'createUser',
+      () => createUser({ username: 'ana', displayName: 'Ana', pin: '3968', roles: ['waiter'] }),
+      '*/api/users',
+      http.post,
+      409,
+      'USERNAME_TAKEN',
+      'Ese nombre de usuario ya existe.',
+      null,
+    ],
+    [
+      'updateUser',
+      () => updateUser(2, { roles: ['waiter'] }),
+      '*/api/users/2',
+      http.patch,
+      409,
+      'LAST_ADMIN_REQUIRED',
+      'Debe quedar al menos un administrador activo.',
+      null,
+    ],
+    [
+      'updateUser',
+      () => updateUser(2, { isActive: false }),
+      '*/api/users/2',
+      http.patch,
+      404,
+      'USER_NOT_FOUND',
+      'Ese usuario no existe.',
+      null,
+    ],
+    [
+      'resetUserPin',
+      () => resetUserPin(2, '5846'),
+      '*/api/users/2/pin',
+      http.post,
+      400,
+      'VALIDATION_ERROR',
+      'Los datos enviados no son v\u00E1lidos.',
+      { issues: [{ path: 'pin', message: 'Ese PIN es muy f\u00E1cil de adivinar. Elige otro.' }] },
+    ],
   ])(
     'AC-19: %s conserva code, message y details del error de la API',
     async (_name, call, path, method, status, code, message, details) => {
-      server.use(method(path, () => HttpResponse.json(errorBody(code, message, details), { status })));
+      server.use(
+        method(path, () => HttpResponse.json(errorBody(code, message, details), { status })),
+      );
       await expect(call()).rejects.toMatchObject({
         status,
         code,

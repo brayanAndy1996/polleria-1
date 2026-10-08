@@ -47,9 +47,7 @@ function fillForm(pin = '3968', pin2 = pin) {
 }
 async function renderForm() {
   show(<NuevoPage />);
-  expect(
-    await screen.findByRole('heading', { name: 'Agregar usuario', level: 1 }),
-  ).toBeVisible();
+  expect(await screen.findByRole('heading', { name: 'Agregar usuario', level: 1 })).toBeVisible();
 }
 
 describe('004: formulario de alta de usuario', () => {
@@ -73,9 +71,7 @@ describe('004: formulario de alta de usuario', () => {
     await waitFor(() => {
       expect(mocks.replace).toHaveBeenCalledWith('/caja');
     });
-    expect(
-      screen.queryByRole('heading', { name: 'Agregar usuario' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Agregar usuario' })).not.toBeInTheDocument();
     mocks.replace.mockClear();
     server.use(
       http.get('*/api/auth/me', () =>
@@ -98,7 +94,9 @@ describe('004: formulario de alta de usuario', () => {
       expect(screen.getByRole('checkbox', { name: role })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Crear usuario' })).toBeEnabled();
     expect(
-      screen.getByText('Letras min\u00FAsculas sin tilde, n\u00FAmeros, punto, guion o guion bajo.'),
+      screen.getByText(
+        'Letras min\u00FAsculas sin tilde, n\u00FAmeros, punto, guion o guion bajo.',
+      ),
     ).toBeVisible();
   });
 
@@ -144,10 +142,12 @@ describe('004: formulario de alta de usuario', () => {
 
   it('AC-22: valida en local PIN iguales y al menos un rol sin llamar a la API', async () => {
     const calls = vi.fn();
-    server.use(http.post('*/api/users', () => {
-      calls();
-      return HttpResponse.json(CREATED, { status: 201 });
-    }));
+    server.use(
+      http.post('*/api/users', () => {
+        calls();
+        return HttpResponse.json(CREATED, { status: 201 });
+      }),
+    );
     await renderForm();
     fillForm('3968', '3969');
     fireEvent.click(screen.getByRole('checkbox', { name: 'Mozo' }));
@@ -180,9 +180,7 @@ describe('004: formulario de alta de usuario', () => {
       const client = new QueryClient({
         defaultOptions: { queries: { retry: false, gcTime: 0 } },
       });
-      server.use(
-        http.post('*/api/users', () => HttpResponse.json(body as object, { status })),
-      );
+      server.use(http.post('*/api/users', () => HttpResponse.json(body as object, { status })));
       show(<NuevoPage />, client);
       await renderForm();
       fillForm();
@@ -209,7 +207,9 @@ describe('004: formulario de alta de usuario', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Cocina' }));
     fireEvent.click(screen.getByRole('button', { name: 'Crear usuario' }));
     expect(
-      await screen.findByText('Sin conexi\u00F3n con el servidor. Revisa el wifi e intenta de nuevo.'),
+      await screen.findByText(
+        'Sin conexi\u00F3n con el servidor. Revisa el wifi e intenta de nuevo.',
+      ),
     ).toBeVisible();
     expect(screen.getByLabelText('PIN')).toHaveValue('');
     expect(mocks.replace).not.toHaveBeenCalled();

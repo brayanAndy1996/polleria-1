@@ -79,9 +79,27 @@ describe('004: servicio de administración de usuarios sobre polleria_test', () 
     await sequelize.query("UPDATE users SET is_active = false WHERE username = 'inactivo'");
     const users = await service.listUsers();
     expect(users).toEqual([
-      { id: ana.id, username: 'ana', displayName: 'ana', roles: ['waiter', 'cashier'], isActive: true },
-      { id: dueno.id, username: 'dueno', displayName: 'Don Carlos', roles: ['admin'], isActive: true },
-      { id: inactivo.id, username: 'inactivo', displayName: 'Inactivo', roles: ['waiter'], isActive: false },
+      {
+        id: ana.id,
+        username: 'ana',
+        displayName: 'ana',
+        roles: ['waiter', 'cashier'],
+        isActive: true,
+      },
+      {
+        id: dueno.id,
+        username: 'dueno',
+        displayName: 'Don Carlos',
+        roles: ['admin'],
+        isActive: true,
+      },
+      {
+        id: inactivo.id,
+        username: 'inactivo',
+        displayName: 'Inactivo',
+        roles: ['waiter'],
+        isActive: false,
+      },
       { id: zoila.id, username: 'zoila', displayName: 'Zoila', roles: ['waiter'], isActive: true },
     ]);
     for (const user of users) {
@@ -211,9 +229,9 @@ describe('004: servicio de administración de usuarios sobre polleria_test', () 
     const dueno = await createUser('dueno', 'Don Carlos', ['admin']);
     await createUser('admin2', 'Segunda', ['admin']);
     await sequelize.query("UPDATE users SET is_active = false WHERE username = 'admin2'");
-    await expect(
-      service.updateUser(dueno.id, { isActive: false }),
-    ).rejects.toMatchObject(LAST_ADMIN_REQUIRED);
+    await expect(service.updateUser(dueno.id, { isActive: false })).rejects.toMatchObject(
+      LAST_ADMIN_REQUIRED,
+    );
   });
   it('AC-11: tocar a un inactivo o a un no administrador nunca dispara la guardia', async () => {
     await createUser('dueno', 'Don Carlos', ['admin']);

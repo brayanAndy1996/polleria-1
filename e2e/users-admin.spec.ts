@@ -63,9 +63,7 @@ test.describe('004: gestión de usuarios desde la web', () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chrome', 'Solo aplica a desktop-chrome.');
     await page.goto('/login');
-    await expect(
-      page.getByRole('button', { name: /^Gesti\u00F3n E2E Dos/ }),
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Gesti\u00F3n E2E Dos/ })).toBeVisible();
     await loginAsAdmin(page);
     await goToAdmin(page);
     const gestion2Id = await userIdByUsername(page, 'e2e.gestion2');

@@ -68,17 +68,14 @@ describe('004: cliente PATCH', () => {
     [409, 'LAST_ADMIN_REQUIRED', null],
     [409, 'USERNAME_TAKEN', null],
     [400, 'VALIDATION_ERROR', { issues: [{ path: 'pin', message: 'Mensaje.' }] }],
-  ])(
-    'AC-19: PATCH conserva code y details del error %s %s',
-    async (status, code, details) => {
-      server.use(
-        http.patch('*/api/users/3', () =>
-          HttpResponse.json(errorBody(code, details), { status }),
-        ),
-      );
-      await expect(
-        createApiClient().request('/users/3', { method: 'PATCH' }),
-      ).rejects.toMatchObject({ status, code, details });
-    },
-  );
+  ])('AC-19: PATCH conserva code y details del error %s %s', async (status, code, details) => {
+    server.use(
+      http.patch('*/api/users/3', () => HttpResponse.json(errorBody(code, details), { status })),
+    );
+    await expect(createApiClient().request('/users/3', { method: 'PATCH' })).rejects.toMatchObject({
+      status,
+      code,
+      details,
+    });
+  });
 });

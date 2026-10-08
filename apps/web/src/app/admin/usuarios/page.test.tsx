@@ -68,9 +68,7 @@ describe('004: lista de usuarios', () => {
     await waitFor(() => {
       expect(mocks.replace).toHaveBeenCalledWith('/caja');
     });
-    expect(
-      screen.queryByRole('heading', { name: 'Usuarios', level: 1 }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Usuarios', level: 1 })).not.toBeInTheDocument();
     mocks.replace.mockClear();
     server.use(
       http.get('*/api/auth/me', () =>
@@ -81,9 +79,7 @@ describe('004: lista de usuarios', () => {
     await waitFor(() => {
       expect(hardNavigate).toHaveBeenCalledWith('/login');
     });
-    expect(
-      screen.queryByRole('heading', { name: 'Usuarios', level: 1 }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Usuarios', level: 1 })).not.toBeInTheDocument();
   });
 
   it('AC-21: muestra "Cargando usuarios..." mientras llega la lista', async () => {

@@ -231,15 +231,12 @@ describe('004: esquemas de gestión de usuarios', () => {
   it('AC-04: resetPinRequestSchema acepta un PIN fuerte', () => {
     expect(resetPinRequestSchema.parse({ pin: '3968' })).toEqual({ pin: '3968' });
   });
-  it.each([
-    {},
-    { pin: '123' },
-    { pin: 2468 },
-    { pin: '3968', pin2: '3968' },
-    undefined,
-  ])('AC-04: resetPinRequestSchema rechaza %s', (input) => {
-    expect(resetPinRequestSchema.safeParse(input).success).toBe(false);
-  });
+  it.each([{}, { pin: '123' }, { pin: 2468 }, { pin: '3968', pin2: '3968' }, undefined])(
+    'AC-04: resetPinRequestSchema rechaza %s',
+    (input) => {
+      expect(resetPinRequestSchema.safeParse(input).success).toBe(false);
+    },
+  );
   it.each(['1234', '2512'])(
     'AC-04: resetPinRequestSchema rechaza el PIN fácil %s con el mensaje único',
     (pin) => {
@@ -251,9 +248,10 @@ describe('004: esquemas de gestión de usuarios', () => {
   );
 
   it('AC-05: adminUserSchema ordena los roles y exige isActive', () => {
-    expect(
-      adminUserSchema.parse({ ...ADMIN_USER, roles: ['cashier', 'waiter'] }),
-    ).toEqual({ ...ADMIN_USER, roles: ['waiter', 'cashier'] });
+    expect(adminUserSchema.parse({ ...ADMIN_USER, roles: ['cashier', 'waiter'] })).toEqual({
+      ...ADMIN_USER,
+      roles: ['waiter', 'cashier'],
+    });
   });
   it.each([
     { ...ADMIN_USER, id: 0 },
