@@ -15,5 +15,7 @@ Ataque a la 002 (servicio de impresión) el 2026-10-08, commit 0c62834 en feat/0
 
 Sin fallas (regresión en verde): barrido de los 1,1 M de puntos de código (ninguno sale fuera de los 114 imprimibles), fuzz con semilla, ESC/POS hasta el disco, TOCTOU, drivers tramposos, jobId con trucos de Windows/unicode, 1000-2000 impresiones simultáneas, fallas en writeFile/datasync/close, rutas > 260, printer:test con secretos, Lima = UTC-5 desde 1994-04 con TZ exóticas.
 
+Estado: el 2026-10-08 el usuario los aceptó como DEUDA para la Fase 3. Sus 7 tests quedaron como `it.fails` (commit 4bc01ac), con el comentario "Deuda aceptada por el usuario el 2026-10-08". Cuando se corrija uno, su test fallará y hay que volver a `it(...)`. ADV-002-01 es estable como `it.fails`: la reimpresión tarda de 6,2 a 6,6 s, unas 3 veces el umbral.
+
 **Why:** registro para el orquestador/reviewer y para reatacar en la Fase 3 (comandas y driver escpos).
-**How to apply:** verifica contra el código antes de asumir que siguen abiertos. En la Fase 3 reataca ADV-002-02 (driver escpos) y ADV-002-01 (límite de largo de observaciones).
+**How to apply:** verifica contra el código antes de asumir que siguen abiertos. En la Fase 3 reataca ADV-002-02 (driver escpos) y ADV-002-01 (límite de largo de observaciones); al cerrarlos, quita la marca `.fails`.

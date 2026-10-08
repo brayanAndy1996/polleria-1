@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 002-printer-service. La 001 se integró a main el 2026-10-07.
-- Paso: 6 de 9. Ataque de la 002 terminado: 0 críticos, 0 altos, 2 medios y 3 bajos (7 tests adversariales en rojo). Esperando decisión del usuario.
+- Paso: 7 de 9, revisión de la 002 (reviewer). Los 5 hallazgos de la 002 quedaron como deuda por decisión del usuario; sus 7 tests están marcados con it.fails (commit 4bc01ac). Vitest: 549 pasan y 7 fallas esperadas (556).
 - Rama: feat/002-printer-service.
 
 ## Tabla de funcionalidades
@@ -14,7 +14,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
-| 002 | printer-service (PrinterService con driver file) | 0 | Ataque adversarial | feat/002-printer-service | — |
+| 002 | printer-service (PrinterService con driver file) | 0 | Revisión | feat/002-printer-service | — |
 
 ## Decisiones del usuario
 
@@ -32,6 +32,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | 2026-10-07 | Corregir ahora los 6 hallazgos adversariales medios y bajos de la 001 (enmienda 1 de la spec), sin nueva aprobación salvo que cambie lo que ve el usuario final. |
 | 2026-10-07 | Integrar la 001 a main con commit de merge (--no-ff), conservando el historial. |
 | 2026-10-07 | Spec 002 aprobada con las recomendaciones: escpos detiene el arranque hasta la Fase 3, corte duro en 48 columnas, caracteres sin equivalente se imprimen como ?. Pendiente para la Fase 3: marca y modelo de la impresora del dueño. |
+| 2026-10-08 | Dejar como deuda, para la Fase 3, los 5 hallazgos medios y bajos de la 002 (ADV-002-01 a 05). Sus tests se marcan como falla conocida (it.fails). |
 | 2026-10-07 | El usuario confirma que existen el rol polleria y las bases polleria_dev y polleria_test en PostgreSQL 17 (puerto 5432). |
 
 ## Notas técnicas del orquestador
@@ -59,11 +60,13 @@ Hallazgos adversariales de la 002 (2026-10-08, commit 0c62834; tests en apps/api
 
 | ID | Severidad | Hallazgo | Estado |
 | --- | --- | --- | --- |
-| ADV-002-01 | Medio | Una línea válida con miles de acentos combinantes desordenados hace que normalizar tarde más de 2 s y bloquee Node (AC-17). | Abierto |
-| ADV-002-02 | Medio | createPrinterDriver se exporta desde index.ts y su print escribe tal cual ESC, GS y NUL si alguien lo usa sin el servicio. | Abierto |
-| ADV-002-03 | Bajo | El límite de 500 líneas se aplica después de recorrer todo el arreglo (100 000 líneas se leen enteras). | Abierto |
-| ADV-002-04 | Bajo | En Windows, PRINTER_FILE_DIR como Q:comandas o C: depende de la carpeta actual o cae en la raíz del monorepo. | Abierto |
-| ADV-002-05 | Bajo | toLimaDateTimeParts confunde años antes y después de Cristo (año 0 y año 1 dan 0001). | Abierto |
+| ADV-002-01 | Medio | Una línea válida con miles de acentos combinantes desordenados hace que normalizar tarde más de 2 s y bloquee Node (AC-17). | Deuda (Fase 3), test con it.fails |
+| ADV-002-02 | Medio | createPrinterDriver se exporta desde index.ts y su print escribe tal cual ESC, GS y NUL si alguien lo usa sin el servicio. | Deuda (Fase 3), test con it.fails |
+| ADV-002-03 | Bajo | El límite de 500 líneas se aplica después de recorrer todo el arreglo (100 000 líneas se leen enteras). | Deuda (Fase 3), test con it.fails |
+| ADV-002-04 | Bajo | En Windows, PRINTER_FILE_DIR como Q:comandas o C: depende de la carpeta actual o cae en la raíz del monorepo. | Deuda (Fase 3), test con it.fails |
+| ADV-002-05 | Bajo | toLimaDateTimeParts confunde años antes y después de Cristo (año 0 y año 1 dan 0001). | Deuda (Fase 3), test con it.fails |
+
+Condiciones de la deuda de la 002: ADV-002-02 debe corregirse antes de crear el driver escpos en la Fase 3 (si no, sería inyección de comandos en la impresora: Crítico). ADV-002-01 sube a Alto si las observaciones de los ítems aceptan más de unos 200 caracteres sin limitar acentos combinantes seguidos. ADV-002-01 depende de la velocidad de la máquina (en una PC unas 3 veces más rápida podría dejar de fallar y it.fails avisaría). Nota: it.fails da por buena cualquier falla, no solo la del hallazgo.
 
 Ataques de la 002 sin fallas (regresión en verde): ningún punto de código Unicode sale fuera de los 114 imprimibles; comandos ESC/POS reales y trucos bidi, ZWJ y BOM no llegan al archivo por el servicio; jobId con trucos de rutas y nombres reservados de Windows se rechazan; 1000 impresiones simultáneas sin colisiones; fallas de escritura no dejan .txt ni .tmp; printer:test sin fugas de clave; Lima siempre UTC-5.
 
