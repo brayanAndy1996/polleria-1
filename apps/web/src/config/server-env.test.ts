@@ -79,6 +79,68 @@ describe('loadWebServerConfig', () => {
   });
 });
 
+// Enmienda 1 (D-14): apiInternalUrl es siempre el origen de la URL.
+describe('loadWebServerConfig: API_INTERNAL_URL se reduce a su origen', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it.each([
+    ['http://127.0.0.1:4000/base', 'http://127.0.0.1:4000'],
+    ['http://127.0.0.1:4000/?x=1', 'http://127.0.0.1:4000'],
+    ['http://127.0.0.1:4000/#frag', 'http://127.0.0.1:4000'],
+    ['http://127.0.0.1:4000/api/', 'http://127.0.0.1:4000'],
+    ['http://192.168.1.50:4000/', 'http://192.168.1.50:4000'],
+    ['HTTP://Servidor-Local:4000/x', 'http://servidor-local:4000'],
+    ['http://127.0.0.1:80/', 'http://127.0.0.1'],
+    ['https://api.local:443/x?y=1#z', 'https://api.local'],
+    ['http://[::1]:4000/x', 'http://[::1]:4000'],
+  ])('AC-45: API_INTERNAL_URL=%s da apiInternalUrl %s', (value, expected) => {
+    expect(() => loadWebServerConfig({ API_INTERNAL_URL: value })).not.toThrow();
+    expect(loadWebServerConfig({ API_INTERNAL_URL: value }).apiInternalUrl).toBe(expected);
+  });
+
+  it('AC-45: el rewrite de next.config.ts con API_INTERNAL_URL=http://127.0.0.1:4000/base apunta a http://127.0.0.1:4000/api/:path*', async () => {
+    vi.stubEnv('API_INTERNAL_URL', 'http://127.0.0.1:4000/base');
+    vi.resetModules();
+
+    const { default: nextConfig } = await import('../../next.config.ts');
+    const rewrites = await nextConfig.rewrites?.();
+
+    expect(rewrites).toEqual([
+      { source: '/api/:path*', destination: 'http://127.0.0.1:4000/api/:path*' },
+    ]);
+  });
+
+  it.each([
+    ['ftp://192.168.1.50', 'un protocolo que no es http'],
+    ['no-es-url', 'un texto que no es URL'],
+  ])('AC-45: API_INTERNAL_URL=%s (%s) sigue lanzando el mismo error de AC-28', (value) => {
+    const error = getError({ API_INTERNAL_URL: value });
+
+    expect(error.message).toBe(
+      `${ERROR_PREFIX}\n- API_INTERNAL_URL: debe ser una URL http o https (por ejemplo http://127.0.0.1:4000).`,
+    );
+  });
+});
+
+describe('loadWebServerConfig: API_INTERNAL_URL con usuario o clave', () => {
+  it.each([
+    ['usuario y clave', 'http://admin:Secreta_123@127.0.0.1:4000'],
+    ['solo usuario', 'http://admin@127.0.0.1:4000'],
+  ])('AC-46: API_INTERNAL_URL con %s se rechaza sin mostrar el valor', (_caso, value) => {
+    const error = getError({ API_INTERNAL_URL: value });
+
+    expect(error.message.startsWith(ERROR_PREFIX)).toBe(true);
+    expect(error.message.split('\n')).toContain(
+      '- API_INTERNAL_URL: no debe incluir usuario ni clave.',
+    );
+    expect(error.message).not.toContain('Secreta_123');
+    expect(error.message).not.toContain('admin');
+  });
+});
+
 describe('apps/web/.env.example', () => {
   function readEnvExample(): Record<string, string> {
     return parseEnv(readFileSync(ENV_EXAMPLE_PATH, 'utf8')) as Record<string, string>;

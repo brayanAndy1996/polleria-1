@@ -3,6 +3,7 @@ import express from 'express';
 import type { Express } from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
 import { z } from 'zod';
 import { AppError } from '../errors/app-error.ts';
 import { errorHandler, notFoundHandler } from './error-handler.ts';
@@ -204,6 +205,52 @@ describe('errorHandler con una app de prueba', () => {
       expect(second.status).toBe(409);
     });
   });
+});
+
+// Enmienda 1 (D-11): la clasificación de 415 y 400 INVALID_BODY es solo para los errores que entrega
+// el lector del cuerpo. Esta app no tiene lector: un error que solo "parece" de cliente (trae una
+// propiedad status 4xx) sigue siendo un error inesperado.
+describe('errorHandler sin lector del cuerpo: la clasificación nueva no aplica', () => {
+  let consoleError: MockInstance<typeof console.error>;
+
+  beforeEach(() => {
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    consoleError.mockRestore();
+  });
+
+  function buildAppThatThrows(error: Error): Express {
+    const app = express();
+    app.get('/falla-con-estado', () => {
+      throw error;
+    });
+    app.use(errorHandler);
+    return app;
+  }
+
+  it.each([400, 413, 415])(
+    'AC-37: un error con status %i que no viene del lector responde 500 INTERNAL_ERROR, no filtra su mensaje y se registra',
+    async (status) => {
+      const app = buildAppThatThrows(
+        Object.assign(new Error('fallo con estado'), {
+          status,
+          statusCode: status,
+          expose: true,
+        }),
+      );
+
+      const response = await request(app).get('/falla-con-estado');
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual(INTERNAL_ERROR_BODY);
+      expect(errorResponseSchema.safeParse(response.body as unknown).success).toBe(true);
+      expect(response.text).not.toContain('fallo con estado');
+      // Se registra como error inesperado, igual que AC-20.
+      expect(consoleError).toHaveBeenCalled();
+    },
+  );
 });
 
 describe('notFoundHandler con una app de prueba', () => {

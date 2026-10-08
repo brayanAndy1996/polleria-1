@@ -133,6 +133,43 @@ describe('ERROR_CODES', () => {
     });
   });
 
+  it('AC-38: incluye UNSUPPORTED_MEDIA_TYPE e INVALID_BODY, cada uno con un valor igual a su nombre, además de los cinco de AC-03', () => {
+    expect(ERROR_CODES).toMatchObject({
+      NOT_FOUND: 'NOT_FOUND',
+      INTERNAL_ERROR: 'INTERNAL_ERROR',
+      VALIDATION_ERROR: 'VALIDATION_ERROR',
+      INVALID_JSON: 'INVALID_JSON',
+      PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+      UNSUPPORTED_MEDIA_TYPE: 'UNSUPPORTED_MEDIA_TYPE',
+      INVALID_BODY: 'INVALID_BODY',
+    });
+  });
+
+  it.each([
+    [
+      'UNSUPPORTED_MEDIA_TYPE',
+      {
+        error: {
+          code: 'UNSUPPORTED_MEDIA_TYPE',
+          message: 'La codificación del cuerpo de la solicitud no es compatible.',
+          details: null,
+        },
+      },
+    ],
+    [
+      'INVALID_BODY',
+      {
+        error: {
+          code: 'INVALID_BODY',
+          message: 'No se pudo leer el cuerpo de la solicitud.',
+          details: null,
+        },
+      },
+    ],
+  ])('AC-38: errorResponseSchema acepta el cuerpo de error %s', (_code, value) => {
+    expect(errorResponseSchema.safeParse(value).success).toBe(true);
+  });
+
   it('AC-03: todas las claves de ERROR_CODES valen igual que su nombre y siguen MAYÚSCULAS_CON_GUION_BAJO', () => {
     const entries = Object.entries(ERROR_CODES);
 
