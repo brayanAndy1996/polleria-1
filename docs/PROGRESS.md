@@ -5,16 +5,16 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 ## Estado actual
 
 - Fase: 0 de 6, base del proyecto.
-- Funcionalidad: 002-printer-service (por iniciar). La 001 se integró a main el 2026-10-07.
-- Paso: 1 de 9 de la 002 (crear rama y delegar la spec).
-- Rama: feat/002-printer-service (por crear desde main).
+- Funcionalidad: 002-printer-service. La 001 se integró a main el 2026-10-07.
+- Paso: 3 de 9, esperando aprobación de la spec 002 por el usuario (31 AC, sin dependencias nuevas).
+- Rama: feat/002-printer-service.
 
 ## Tabla de funcionalidades
 
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
-| 002 | printer-service (PrinterService con driver file) | 0 | Pendiente | feat/002-printer-service | — |
+| 002 | printer-service (PrinterService con driver file) | 0 | Spec en aprobación | feat/002-printer-service | — |
 
 ## Decisiones del usuario
 
