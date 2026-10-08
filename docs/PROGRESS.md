@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: 004-users-admin (ciclo completo, lista para integrar).
-- Paso: 9 de 9. Spec 004 aprobada el 2026-10-08 con las respuestas recomendadas a las 6 preguntas (27 AC; OpenAPI 0.4.0; Aclaración 1: '/admin' no es puesto de trabajo). Adversariales: 53 casos, 9 hallazgos corregidos y revalidados (1 alto ADV-004-10, 2 medios, 6 bajos; abiertos 0). Reviewer independiente: APROBADO. Verificación personal del orquestador completada.
-- Siguiente acción: pedir permiso para integrar feat/004-users-admin a main; después el spec-writer prepara la propuesta 005 (productos y precios de la carta). Conservar los pendientes manuales documentados.
-- Rama: feat/004-users-admin (creada desde main tras integrar la 003; main contiene hasta la 003).
+- Funcionalidad: 004-users-admin (cerrada). Siguiente: propuesta 005.
+- Paso: 004 terminada e integrada a main el 2026-10-08 (merge 35334d6). Spec aprobada con las 6 respuestas recomendadas (27 AC; OpenAPI 0.4.0; Aclaración 1: '/admin' no es puesto de trabajo). Adversariales: 53 casos, 9 hallazgos corregidos y revalidados (abiertos 0). Reviewer: APROBADO; verificación del orquestador completada.
+- Siguiente acción: encargar al spec-writer la propuesta 005 (productos y precios de la carta) en una rama feat/005-*; el usuario la aprueba antes de tests e implementación. Conservar los pendientes manuales documentados.
+- Rama: main (integradas la 003 y la 004).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -19,7 +19,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
 | 002 | printer-service (PrinterService con driver file, pnpm printer:test) | 0 | Cerrada (APROBADO; 1 vuelta; 5 hallazgos como deuda) | feat/002-printer-service | 2026-10-08 |
 | 003 | users-pin-login (usuarios con varios roles, login con PIN, sesión en la base, requireAuth/requireRole, áreas por rol) | 1 | Cerrada (APROBADO; 44 AC cubiertos; 44 adversariales verdes; integrada a main en el merge 80340c3; pendientes manuales registrados) | feat/003-users-pin-login | 2026-10-08 |
-| 004 | users-admin (alta/edición de usuarios con varios roles, PIN fuerte, activar/desactivar, restablecer PIN, guardia del último admin; /admin/usuarios*) | 1 | Lista para integrar: APROBADO; 27 AC cubiertos; 53 adversariales propias; 9 hallazgos corregidos y revalidados (abiertos 0); verificación del orquestador completada | feat/004-users-admin | — |
+| 004 | users-admin (alta/edición de usuarios con varios roles, PIN fuerte, activar/desactivar, restablecer PIN, guardia del último admin; /admin/usuarios*) | 1 | Cerrada (APROBADO; 27 AC; 53 adversariales; 9 hallazgos corregidos; integrada a main en el merge 35334d6; pendientes manuales registrados) | feat/004-users-admin | 2026-10-08 |
 | 005 | (propuesta) productos y precios de la carta | 1 | Pendiente | — | — |
 | 006 | (propuesta) presentaciones y partes con consumo en octavos (RF-19) | 1 | Pendiente | — | — |
 | 007 | (propuesta) combos | 1 | Pendiente | — | — |
@@ -59,6 +59,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-08 | Autoriza preparar los commits e integrar la 003 a main: cuatro commits por responsabilidad (test, feat shared/API, feat web, docs) y merge --no-ff 80340c3. Confirma que los subagentes de implementación y revisión usaron el modelo de la ventana principal (los de exploración, el modelo del enrutador). |
 | 2026-10-08 | Spec 004 aprobada con las 6 respuestas recomendadas: PIN escrito dos veces por el admin, lista de PIN fáciles (repetidos, secuencias circulares, años 1900-2099, fechas DDMM/DDMMAA, '2580'), autodesactivación solo si queda otro admin activo (409 LAST_ADMIN_REQUIRED), users:create-admin también rechaza PIN fáciles, username inmutable, sin botón Desbloquear. |
 | 2026-10-08 | Autoriza corregir los 8 hallazgos adversariales de la 004 (1 alto, 2 medios, 5 bajos) y después el residual bajo ADV-004-25 (no-store en rutas con mayúsculas). Todos revalidados en verde. |
+| 2026-10-08 | Autoriza integrar la 004 a main (merge --no-ff 35334d6). |
 
 ## Notas técnicas del orquestador
 
@@ -83,7 +84,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 - La 003 se integró a main el 2026-10-08 (merge 80340c3): test/spec-003 e883802, feat shared/API de8f723, feat web 3dae0e7, docs f0d9c14. La prueba manual del PIN oculto en PowerShell y la validación desde un celular del local siguen pendientes.
 - Ciclo 004 ejecutado íntegramente con subagentes separados: spec-writer (borrador + aprobación + aclaración), test-writer (rojo: 149 casos nuevos; arbitrajes AC-26 PIN fuerte y AC-39 conteo dinámico), backend-dev (T-06..T-09 + 3 fixes), frontend-dev (T-10..T-14 + 1 fix; descubrió y documentó la tensión '/admin'), adversarial-tester (53 casos; revalidación completa), reviewer (APROBADO verificado personalmente).
 - Verificación final del orquestador de la 004: pnpm test 1036 verdes + 7 fallas esperadas de la 002 (1043); pnpm lint, pnpm typecheck y pnpm test:coverage con código 0 (global 98,38 % líneas; shared 98,38 %; services/users 96,61 %; services/auth 98,48 %); pnpm test:e2e 16/16 con 4 no aplicables por proyecto. Nada de la 004 tocó polleria_dev.
-- Sin commits ni merge pendientes de autorización para la 004 todavía: la rama está lista; falta el permiso del usuario para integrar feat/004-users-admin a main.
+- La 004 se integró a main el 2026-10-08 (merge 35334d6). El árbol quedó limpio; no hay commits ni merges pendientes.
 
 
 - 2026-10-07: el entorno tiene Windows 11, Node 24.1.0 (LTS), pnpm 10.12.1, Git 2.49 y PostgreSQL 17.5 en localhost:5432. También hay un PostgreSQL 18 en el puerto 5433, que el proyecto no usa.
