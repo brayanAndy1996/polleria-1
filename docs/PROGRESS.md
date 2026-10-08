@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). Fase 0 cerrada y aprobada por el usuario el 2026-10-08.
 - Funcionalidad: 003-users-pin-login.
-- Paso: 3 de 9, esperando aprobación de la spec 003 (39 AC, ADR 0002 propuesto: sesión en la base en lugar de JWT, bcrypt 6.0.0 y @types/bcrypt 6.0.0).
+- Paso: 2 de 9 (revisión). El usuario aprobó la spec 003 salvo un cambio: varios roles por persona. Spec-writer revisa la spec; luego se muestra el cambio al usuario.
 - Rama: feat/003-users-pin-login.
 
 ## Tabla de funcionalidades
@@ -15,7 +15,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
 | 002 | printer-service (PrinterService con driver file) | 0 | Cerrada (APROBADO; 1 vuelta; 5 hallazgos como deuda) | feat/002-printer-service | 2026-10-08 |
-| 003 | users-pin-login (usuarios, roles, login con PIN, sesión, requireRole) | 1 | Spec en aprobación | feat/003-users-pin-login | — |
+| 003 | users-pin-login (usuarios, roles, login con PIN, sesión, requireRole) | 1 | Spec en revisión (varios roles) | feat/003-users-pin-login | — |
 | 004 | (propuesta) gestión de usuarios por el administrador | 1 | Pendiente | — | — |
 | 005 | (propuesta) productos y precios de la carta | 1 | Pendiente | — | — |
 | 006 | (propuesta) presentaciones y partes con consumo en octavos (RF-19) | 1 | Pendiente | — | — |
@@ -41,6 +41,11 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | 2026-10-08 | Dejar como deuda, para la Fase 3, los 5 hallazgos medios y bajos de la 002 (ADV-002-01 a 05). Sus tests se marcan como falla conocida (it.fails). |
 | 2026-10-08 | Integrar la 002 a main con commit de merge (--no-ff). |
 | 2026-10-08 | Fase 0 aprobada en el punto de control de fin de fase; iniciar la Fase 1. |
+| 2026-10-08 | Spec 003: sesión guardada en la base (token aleatorio con SHA-256, sin JWT); ADR 0002 aceptado (bcrypt 6.0.0 y @types/bcrypt 6.0.0). Se corrigieron backend-dev.md y adversarial-tester.md. |
+| 2026-10-08 | Spec 003: 5 intentos fallidos bloquean 15 min; sesión de 16 h; cocina puede iniciar sesión (pantalla vacía); PIN fáciles se tratan en la 004. |
+| 2026-10-08 | PIN de 4 a 6 dígitos con botón Entrar. |
+| 2026-10-08 | En /login el trabajador toca su nombre en una lista de usuarios activos. |
+| 2026-10-08 | Una persona puede tener VARIOS roles (cambia el supuesto S-003-04 de la spec 003). |
 | 2026-10-07 | El usuario confirma que existen el rol polleria y las bases polleria_dev y polleria_test en PostgreSQL 17 (puerto 5432). |
 
 ## Notas técnicas del orquestador

@@ -1,6 +1,6 @@
 # ADR 0002 — Sesión guardada en la base, PIN con bcrypt y límite de intentos propio
 
-- Estado: Propuesto
+- Estado: Aceptado (2026-10-08, aprobado por el usuario junto con la spec 003: sesión en la base sin JWT, bcrypt 6.0.0 y @types/bcrypt 6.0.0)
 - Fecha: 2026-10-08
 - Spec relacionada: docs/specs/003-users-pin-login/spec.md (D-003-01 a D-003-05, sección 13)
 - Decide: el usuario, en el punto de control de la spec 003.

@@ -37,7 +37,7 @@ Pedidos y comandas
 Seguridad y permisos
 - Cada endpoint con cada rol: un mozo no puede cobrar, anular sin autorización, cambiar precios ni ver reportes.
 - Acceso a recursos ajenos cambiando IDs en la URL o el cuerpo (IDOR).
-- Sin sesión, sesión expirada, JWT manipulado.
+- Sin sesión, sesión expirada o cerrada, cookie de sesión manipulada o inventada (la sesión es un token aleatorio guardado como hash en la tabla sessions; ver ADR 0002).
 - Fuerza bruta de PIN: debe existir límite de intentos.
 - Entradas maliciosas: inyección SQL en filtros, campos extra en el cuerpo (asignación masiva), tipos incorrectos.
 
