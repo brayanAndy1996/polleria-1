@@ -3,6 +3,7 @@
 - Estado: Aprobada (2026-10-07, por el usuario; preguntas abiertas resueltas en la sección 15)
 - Enmienda 1 aprobada por el usuario el 2026-10-07 (corregir hallazgos medios y bajos). Ver la sección 17: agrega AC-33 a AC-46 y no cambia lo que ve el usuario final.
 - La spec 002 (servicio de impresión) actualiza AC-04, AC-07, R-04, R-09 y la sección 11 (config/env.ts): suma las variables PRINTER_DRIVER y PRINTER_FILE_DIR. Ver docs/specs/002-printer-service/spec.md, sección 12.
+- La spec 003 (usuarios e inicio de sesión) cambia la nota de sesión de D-01 (token guardado en la base, no JWT), R-04, R-09, R-12, la sección 10 (enlace 'Iniciar sesión') y el helper de limpieza de las pruebas de migraciones; no agrega variables de entorno. Ver docs/specs/003-users-pin-login/spec.md, sección 12.
 - Fase: 0 (Base del proyecto)
 - Rama: feat/001-base-monorepo
 - Cubre: RNF-05 (funciona en la red local sin internet), RNF-07 (Chrome en Android 9+ y Windows 10+), RNF-12 (configuración sin tocar código; en esta fase, por variables de entorno). No cubre ningún RF.
@@ -31,7 +32,7 @@ Estas decisiones aplican desde esta spec. Las que no confirmó el usuario están
 - La API (Express) escucha en 127.0.0.1:4000 por defecto (variables HOST y PORT). Los celulares no hablan directo con la API.
 - Todas las rutas de la API cuelgan del prefijo /api. La web reenvía /api/:path* a API_INTERNAL_URL/api/:path* con rewrites de Next.js. El navegador solo ve un origen (el de la web), por lo que:
   - No hay CORS ni paquete cors. La API no envía Access-Control-Allow-Origin.
-  - La futura sesión JWT en cookie httpOnly funcionará en el mismo origen (SameSite=Lax o Strict) sin depender de la IP de la PC.
+  - La futura sesión JWT en cookie httpOnly funcionará en el mismo origen (SameSite=Lax o Strict) sin depender de la IP de la PC. (Spec 003: la sesión es un token aleatorio guardado como hash en la base, no un JWT, en la cookie httpOnly polleria_session con SameSite=Strict; ver D-003-01 y D-003-02.)
   - Socket.IO (fase posterior) usará la misma vía: se agregará un rewrite de /socket.io/:path*. Se verificó en el código de Next 16.4.0 que los rewrites hacia un destino externo reenvían también las conexiones WebSocket (upgradeHandler y proxyRequest en router-server). Si la conexión WebSocket fallara, Socket.IO cae a long-polling por HTTP, que también pasa por el rewrite.
 - En el contrato OpenAPI la ruta se escribe /health con servidor base /api. La URL real es /api/health tanto en la API (puerto 4000) como desde la web (puerto 3000). En esta spec, "GET /api/health" es la URL completa.
 - API_INTERNAL_URL por defecto es http://127.0.0.1:4000 (no localhost: en Windows localhost puede resolver primero a ::1 y la API escucha solo en IPv4). La web usa solo su origen (protocolo, host y puerto); ver D-14 en la enmienda 1 (sección 17).

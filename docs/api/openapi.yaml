@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.2.0
+  version: 0.3.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -21,6 +21,16 @@ info:
       400 INVALID_JSON, 400 INVALID_BODY, 413 PAYLOAD_TOO_LARGE o 415 UNSUPPORTED_MEDIA_TYPE, aunque la
       operación no los repita. El cuerpo puede venir comprimido con gzip, deflate o br; el límite de
       100 KB se mide después de descomprimir. Solo se acepta un charset UTF (utf-8 por defecto).
+
+    Autenticación (spec 003):
+    - La sesión viaja en la cookie httpOnly polleria_session (esquema de seguridad sessionCookie). La
+      crea POST /auth/login y la borra POST /auth/logout. Es un token aleatorio; la API guarda solo su
+      SHA-256. Dura 16 horas desde que se inicia, sin renovación.
+    - Rutas públicas: /health, /auth/users, /auth/login y /auth/logout. Toda otra ruta exige sesión:
+      sin sesión válida responde 401 UNAUTHENTICATED; con sesión pero sin el rol requerido, 403 FORBIDDEN.
+      Cada operación protegida indica en su descripción los roles permitidos.
+    - Todas las respuestas de /auth/* llevan Cache-Control: no-store, también las de error.
+    - Roles: waiter (mozo), kitchen (cocina), cashier (cajero) y admin (administrador).
 servers:
   - url: http://localhost:3000/api
     description: A través de la web, en el mismo origen. Es lo que usan los navegadores (PC de caja y celulares).
@@ -29,6 +39,8 @@ servers:
 tags:
   - name: system
     description: Estado del sistema.
+  - name: auth
+    description: Inicio de sesión con usuario y PIN, sesión actual y cierre de sesión (spec 003).
 paths:
   /health:
     get:
@@ -69,7 +81,149 @@ paths:
                 timestamp: '2026-10-07T20:00:00.000Z'
         '500':
           $ref: '#/components/responses/InternalError'
+  /auth/users:
+    get:
+      tags: [auth]
+      operationId: listLoginUsers
+      summary: Usuarios activos para la pantalla de inicio de sesión
+      description: |
+        Público: la pantalla /login muestra un botón por usuario para tocar su nombre en lugar de
+        escribirlo. Devuelve solo usuarios activos, ordenados por displayName en español sin distinguir
+        mayúsculas ni tildes (los empates, por username). Nunca incluye id, rol, estado ni nada del PIN.
+      security: []
+      responses:
+        '200':
+          description: Lista de usuarios activos (puede estar vacía).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginUsersResponse'
+              example:
+                users:
+                  - username: caja.ana
+                    displayName: Ana
+                  - username: mozo.juan
+                    displayName: Juan
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Iniciar sesión con usuario y PIN
+      description: |
+        Público. Si el usuario existe, está activo y el PIN es correcto, crea una sesión de 16 horas,
+        la envía en la cookie polleria_session y responde los datos del usuario.
+
+        - El username se recorta y se pasa a minúsculas antes de validar.
+        - Usuario inexistente, usuario inactivo o PIN incorrecto responden el mismo 401
+          INVALID_CREDENTIALS.
+        - Después de 5 intentos fallidos seguidos de un mismo usuario, ese usuario queda bloqueado
+          15 minutos (429 TOO_MANY_ATTEMPTS, aunque el PIN sea correcto). Después del primer bloqueo,
+          cada intento fallido vuelve a bloquearlo 15 minutos; un inicio de sesión exitoso borra el
+          conteo. Los errores 400 no cuentan como intentos.
+        - Un inicio de sesión exitoso borra las sesiones vencidas de cualquier usuario.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: mozo.juan
+              pin: '2468'
+      responses:
+        '200':
+          description: Sesión iniciada.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/SetSessionCookie'
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+              example:
+                user:
+                  id: 3
+                  username: mozo.juan
+                  displayName: Juan
+                  role: waiter
+                expiresAt: '2026-10-09T07:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/InvalidCredentials'
+        '429':
+          $ref: '#/components/responses/TooManyAttempts'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/me:
+    get:
+      tags: [auth]
+      operationId: getCurrentSession
+      summary: Sesión actual
+      description: |
+        Roles: cualquiera con sesión válida (waiter, kitchen, cashier, admin).
+        Devuelve el usuario con sus datos actuales (rol y nombre leídos de la base en cada solicitud)
+        y el vencimiento de la sesión. La web lo usa para decidir qué pantalla mostrar.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: La sesión es válida.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+              example:
+                user:
+                  id: 3
+                  username: mozo.juan
+                  displayName: Juan
+                  role: waiter
+                expiresAt: '2026-10-09T07:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Cerrar sesión en este dispositivo
+      description: |
+        Público e idempotente: si la cookie trae una sesión, la borra; con o sin sesión responde 204 y
+        borra la cookie. Solo cierra la sesión de este dispositivo; las demás sesiones del mismo usuario
+        siguen. No lleva cuerpo.
+      security: []
+      responses:
+        '204':
+          description: Sesión cerrada (o no había sesión). La cookie queda borrada.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/ClearSessionCookie'
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: polleria_session
+      description: |
+        Token de sesión aleatorio de 43 caracteres (base64url) que crea POST /auth/login. Cookie
+        HttpOnly, SameSite=Strict, Path=/, Max-Age=57600, sin Secure (el local usa HTTP en la red).
   schemas:
     HealthStatus:
       type: string
@@ -89,11 +243,90 @@ components:
           format: date-time
           description: Hora del servidor en ISO 8601 UTC (con sufijo Z).
           examples: ['2026-10-07T20:00:00.000Z']
+    UserRole:
+      type: string
+      enum: [waiter, kitchen, cashier, admin]
+      description: Rol del usuario. waiter = mozo, kitchen = cocina, cashier = cajero, admin = administrador.
+    Username:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$'
+      description: |
+        Nombre de usuario guardado: de 3 a 32 caracteres, letras minúsculas sin tilde, números, punto,
+        guion o guion bajo; empieza y termina con letra o número. Único.
+      examples: [mozo.juan]
+    Pin:
+      type: string
+      pattern: '^[0-9]{4,6}$'
+      description: PIN de 4 a 6 dígitos (texto, conserva los ceros a la izquierda). Nunca se devuelve.
+      examples: ['2468']
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, pin]
+      properties:
+        username:
+          type: string
+          description: |
+            Nombre de usuario tal como lo envía la web. La API lo recorta y lo pasa a minúsculas antes de
+            validarlo contra el patrón de Username.
+          examples: [mozo.juan]
+        pin:
+          $ref: '#/components/schemas/Pin'
+    AuthUser:
+      type: object
+      additionalProperties: false
+      required: [id, username, displayName, role]
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        username:
+          $ref: '#/components/schemas/Username'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: Nombre que ve la gente (letras, números, espacios, punto, apóstrofo o guion).
+          examples: [Juan]
+        role:
+          $ref: '#/components/schemas/UserRole'
+    SessionResponse:
+      type: object
+      additionalProperties: false
+      required: [user, expiresAt]
+      properties:
+        user:
+          $ref: '#/components/schemas/AuthUser'
+        expiresAt:
+          type: string
+          format: date-time
+          description: Vencimiento de la sesión en ISO 8601 UTC (con sufijo Z); 16 horas después del inicio.
+          examples: ['2026-10-09T07:00:00.000Z']
+    LoginUser:
+      type: object
+      additionalProperties: false
+      required: [username, displayName]
+      properties:
+        username:
+          $ref: '#/components/schemas/Username'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 40
+    LoginUsersResponse:
+      type: object
+      additionalProperties: false
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoginUser'
     ErrorCode:
       type: string
       pattern: '^[A-Z][A-Z0-9_]*$'
       description: |
-        Código estable para que la web decida qué hacer. Códigos definidos hasta la spec 001 (con la enmienda 1):
+        Código estable para que la web decida qué hacer. Códigos definidos hasta la spec 003:
         - NOT_FOUND (404): la ruta no existe.
         - INVALID_JSON (400): el cuerpo no es un JSON válido.
         - INVALID_BODY (400): el cuerpo no se pudo leer (compresión corrupta o incompleta, solicitud cortada).
@@ -101,6 +334,11 @@ components:
         - PAYLOAD_TOO_LARGE (413): el cuerpo supera 100 KB (medido después de descomprimir).
         - UNSUPPORTED_MEDIA_TYPE (415): Content-Encoding distinto de identity, gzip, deflate y br, o charset no soportado.
         - INTERNAL_ERROR (500): error no controlado; nunca incluye detalles internos.
+        - INVALID_CREDENTIALS (401, spec 003): usuario inexistente, inactivo o PIN incorrecto (siempre el mismo mensaje).
+        - UNAUTHENTICATED (401, spec 003): la ruta exige sesión y no hay una válida (sin cookie, token inválido, sesión vencida o usuario desactivado).
+        - FORBIDDEN (403, spec 003): la sesión es válida pero el rol no tiene permiso.
+        - TOO_MANY_ATTEMPTS (429, spec 003): usuario bloqueado por intentos fallidos; details.retryAfterSeconds.
+        - USERNAME_TAKEN (409, spec 003): el nombre de usuario ya existe. Lo usará la gestión de usuarios (spec 004).
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
       examples: [NOT_FOUND]
     ValidationIssue:
@@ -117,7 +355,9 @@ components:
           minLength: 1
           description: Explicación en español.
     ErrorDetails:
-      description: Información adicional del error, o null si no hay. En VALIDATION_ERROR es { issues }.
+      description: |
+        Información adicional del error, o null si no hay. En VALIDATION_ERROR es { issues }; en
+        TOO_MANY_ATTEMPTS es { retryAfterSeconds }.
       oneOf:
         - type: 'null'
         - type: object
@@ -127,6 +367,11 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/ValidationIssue'
+            retryAfterSeconds:
+              type: integer
+              minimum: 1
+              maximum: 900
+              description: Segundos que faltan para que termine el bloqueo, redondeados hacia arriba.
     ErrorResponse:
       type: object
       additionalProperties: false
@@ -151,6 +396,25 @@ components:
       schema:
         type: string
         const: no-store
+    SetSessionCookie:
+      description: |
+        Crea la cookie de sesión: polleria_session=<token de 43 caracteres>; Max-Age=57600; Path=/;
+        Expires=<fecha>; HttpOnly; SameSite=Strict. Sin Secure ni Domain.
+      schema:
+        type: string
+      example: polleria_session=Q2hpY2hhTW9yYWRhQ29uUG9sbG9BTGFCcmFzYTEyMzQ; Max-Age=57600; Path=/; Expires=Fri, 09 Oct 2026 07:00:00 GMT; HttpOnly; SameSite=Strict
+    ClearSessionCookie:
+      description: Borra la cookie de sesión (valor vacío y fecha en el pasado).
+      schema:
+        type: string
+      example: polleria_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict
+    RetryAfter:
+      description: Segundos que faltan para poder intentar de nuevo (igual a details.retryAfterSeconds).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 900
+      example: 900
   responses:
     InvalidJson:
       description: El cuerpo de la solicitud no es un JSON válido. Aplica a cualquier ruta que reciba cuerpo.
@@ -227,6 +491,67 @@ components:
               code: PAYLOAD_TOO_LARGE
               message: La solicitud es demasiado grande.
               details: null
+    InvalidCredentials:
+      description: |
+        Usuario inexistente, usuario inactivo o PIN incorrecto. El cuerpo es siempre el mismo para no
+        revelar la causa. No crea sesión ni envía Set-Cookie.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INVALID_CREDENTIALS
+              message: Usuario o PIN incorrecto.
+              details: null
+    Unauthenticated:
+      description: |
+        La ruta exige sesión y no hay una válida: sin cookie, token inexistente o mal formado, sesión
+        vencida o usuario desactivado. La web vuelve a /login.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: UNAUTHENTICATED
+              message: Debes iniciar sesión para continuar.
+              details: null
+    Forbidden:
+      description: |
+        La sesión es válida pero el rol del usuario no tiene permiso para esta operación (requireRole).
+        La usarán las rutas protegidas por rol de las specs siguientes.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: FORBIDDEN
+              message: No tienes permiso para realizar esta acción.
+              details: null
+    TooManyAttempts:
+      description: |
+        El usuario está bloqueado por intentos fallidos. Responde así aunque el PIN sea correcto, hasta
+        que pasen los segundos indicados. No envía Set-Cookie.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TOO_MANY_ATTEMPTS
+              message: Demasiados intentos fallidos. Espera unos minutos e intenta de nuevo.
+              details:
+                retryAfterSeconds: 900
     InternalError:
       description: Error no controlado. No incluye el mensaje interno ni la traza.
       content:
