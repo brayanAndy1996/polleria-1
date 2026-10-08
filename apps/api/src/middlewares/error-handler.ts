@@ -2,12 +2,56 @@ import { ERROR_CODES } from '@polleria/shared';
 import type { ErrorRequestHandler, Request, RequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { AppError } from '../errors/app-error.ts';
+import { BodyReaderError } from '../errors/body-reader-error.ts';
 
-/** Tipo de los errores del lector de JSON de Express (body-parser), por ejemplo entity.too.large. */
-function getBodyParserErrorType(error: unknown): string | undefined {
-  if (typeof error === 'object' && error !== null && 'type' in error) {
-    return typeof error.type === 'string' ? error.type : undefined;
+/** Lee una propiedad de un error de body-parser / raw-body / http-errors sin asumir su forma. */
+function readErrorProperty(error: unknown, property: 'type' | 'status'): unknown {
+  if (typeof error === 'object' && error !== null && property in error) {
+    return error[property];
   }
+  return undefined;
+}
+
+/**
+ * Clasifica un error que entregó el lector del cuerpo (spec 001, 9.2 y D-11). Devuelve undefined
+ * si es un error de programación o inesperado (estado 5xx o sin estado): ese se responde como 500
+ * y se registra. Los mensajes no incluyen el valor recibido.
+ */
+function classifyBodyReaderError(cause: unknown): AppError | undefined {
+  switch (readErrorProperty(cause, 'type')) {
+    case 'entity.parse.failed':
+      return new AppError({
+        code: ERROR_CODES.INVALID_JSON,
+        message: 'El cuerpo de la solicitud no es un JSON válido.',
+        httpStatus: 400,
+      });
+    case 'entity.too.large':
+      return new AppError({
+        code: ERROR_CODES.PAYLOAD_TOO_LARGE,
+        message: 'La solicitud es demasiado grande.',
+        httpStatus: 413,
+      });
+    case 'encoding.unsupported':
+    case 'charset.unsupported':
+      return new AppError({
+        code: ERROR_CODES.UNSUPPORTED_MEDIA_TYPE,
+        message: 'La codificación del cuerpo de la solicitud no es compatible.',
+        httpStatus: 415,
+      });
+    default:
+      break;
+  }
+
+  // Cualquier otro 4xx del lector: compresión corrupta, truncada o vacía, solicitud cortada.
+  const status = readErrorProperty(cause, 'status');
+  if (typeof status === 'number' && status >= 400 && status < 500) {
+    return new AppError({
+      code: ERROR_CODES.INVALID_BODY,
+      message: 'No se pudo leer el cuerpo de la solicitud.',
+      httpStatus: 400,
+    });
+  }
+
   return undefined;
 }
 
@@ -31,30 +75,22 @@ function toAppError(error: unknown): AppError | undefined {
     });
   }
 
-  switch (getBodyParserErrorType(error)) {
-    case 'entity.parse.failed':
-      return new AppError({
-        code: ERROR_CODES.INVALID_JSON,
-        message: 'El cuerpo de la solicitud no es un JSON válido.',
-        httpStatus: 400,
-      });
-    case 'entity.too.large':
-      return new AppError({
-        code: ERROR_CODES.PAYLOAD_TOO_LARGE,
-        message: 'La solicitud es demasiado grande.',
-        httpStatus: 413,
-      });
-    default:
-      return undefined;
+  // Solo los errores del lector del cuerpo: un Error cualquiera con `status` 4xx sigue siendo
+  // inesperado (AC-37).
+  if (error instanceof BodyReaderError) {
+    return classifyBodyReaderError(error.cause);
   }
+
+  return undefined;
 }
 
 /**
  * Registra un error inesperado con su traza. No incluye el cuerpo de la solicitud ni la query
- * (RN-001-01): solo el método y la ruta.
+ * (RN-001-01): solo el método y la ruta. De un error del lector del cuerpo registra el original.
  */
 function logUnexpectedError(req: Request, error: unknown): void {
-  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  const original = error instanceof BodyReaderError ? error.cause : error;
+  const detail = original instanceof Error ? (original.stack ?? original.message) : String(original);
   console.error(`Error inesperado en ${req.method} ${req.path}:`, detail);
 }
 

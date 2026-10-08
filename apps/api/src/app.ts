@@ -2,6 +2,7 @@ import express from 'express';
 import type { Express } from 'express';
 import type { Sequelize } from 'sequelize';
 import { configureZodLocale } from './config/zod-locale.ts';
+import { createBodyReader } from './middlewares/body-reader.ts';
 import { errorHandler, notFoundHandler } from './middlewares/error-handler.ts';
 import { createApiRouter } from './routes/index.ts';
 import { createHealthService } from './services/health.service.ts';
@@ -21,7 +22,7 @@ export function createApp({ sequelize, healthTimeoutMs }: AppDependencies): Expr
   const app = express();
 
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '100kb' }));
+  app.use(createBodyReader());
   app.use('/api', createApiRouter({ healthService }));
   app.use(notFoundHandler);
   app.use(errorHandler);
