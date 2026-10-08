@@ -10,10 +10,12 @@
     "db:migrate": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts migrate",
     "db:migrate:undo": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts migrate:undo",
     "db:seed": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts seed",
-    "printer:test": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/print-test-page.ts"
+    "printer:test": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/print-test-page.ts",
+    "users:create-admin": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/create-admin.ts"
   },
   "dependencies": {
     "@polleria/shared": "workspace:*",
+    "bcrypt": "6.0.0",
     "express": "5.2.1",
     "pg": "8.23.1",
     "sequelize": "6.37.8",
@@ -21,6 +23,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@types/bcrypt": "6.0.0",
     "@types/express": "5.0.6",
     "@types/node": "24.19.1",
     "@types/supertest": "7.2.1",

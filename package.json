@@ -17,6 +17,7 @@
     "db:migrate": "pnpm --filter @polleria/api run db:migrate",
     "db:seed": "pnpm --filter @polleria/api run db:seed",
     "printer:test": "pnpm --filter @polleria/api run printer:test",
+    "users:create-admin": "pnpm --filter @polleria/api run users:create-admin",
     "format": "prettier --write ."
   },
   "devDependencies": {
