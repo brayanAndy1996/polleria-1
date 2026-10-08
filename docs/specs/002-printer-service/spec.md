@@ -1,6 +1,6 @@
 # Spec 002 — Servicio de impresión (PrinterService) con driver de archivo
 
-- Estado: Borrador
+- Estado: Aprobada (2026-10-07, por el usuario, con las respuestas recomendadas a las preguntas 1 a 3; la 4 queda pendiente para la Fase 3)
 - Fase: 0 (Base del proyecto)
 - Rama: feat/002-printer-service
 - Fecha: 2026-10-07

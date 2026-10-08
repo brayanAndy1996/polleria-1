@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 002-printer-service. La 001 se integró a main el 2026-10-07.
-- Paso: 3 de 9, esperando aprobación de la spec 002 por el usuario (31 AC, sin dependencias nuevas).
+- Paso: 4 de 9, tests en rojo de la 002 (test-writer, T-01 a T-10).
 - Rama: feat/002-printer-service.
 
 ## Tabla de funcionalidades
@@ -14,7 +14,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
-| 002 | printer-service (PrinterService con driver file) | 0 | Spec en aprobación | feat/002-printer-service | — |
+| 002 | printer-service (PrinterService con driver file) | 0 | Tests en rojo | feat/002-printer-service | — |
 
 ## Decisiones del usuario
 
@@ -31,6 +31,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | 2026-10-07 | Se asume Chrome 111 o superior en los celulares de los mozos; se confirmará con el dueño. |
 | 2026-10-07 | Corregir ahora los 6 hallazgos adversariales medios y bajos de la 001 (enmienda 1 de la spec), sin nueva aprobación salvo que cambie lo que ve el usuario final. |
 | 2026-10-07 | Integrar la 001 a main con commit de merge (--no-ff), conservando el historial. |
+| 2026-10-07 | Spec 002 aprobada con las recomendaciones: escpos detiene el arranque hasta la Fase 3, corte duro en 48 columnas, caracteres sin equivalente se imprimen como ?. Pendiente para la Fase 3: marca y modelo de la impresora del dueño. |
 | 2026-10-07 | El usuario confirma que existen el rol polleria y las bases polleria_dev y polleria_test en PostgreSQL 17 (puerto 5432). |
 
 ## Notas técnicas del orquestador
