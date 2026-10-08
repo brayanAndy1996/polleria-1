@@ -51,3 +51,24 @@ export type {
   AdminUser,
   UsersResponse,
 } from './users.ts';
+export {
+  PRODUCT_CATEGORIES,
+  productCategorySchema,
+  PRODUCT_NAME_MAX_LENGTH,
+  PRODUCT_NAME_PATTERN,
+  PRODUCT_NAME_MESSAGE,
+  productNameSchema,
+  PRICE_CENTS_MAX,
+  priceCentsSchema,
+  createProductRequestSchema,
+  updateProductRequestSchema,
+  productSchema,
+  productsResponseSchema,
+} from './products.ts';
+export type {
+  ProductCategory,
+  CreateProductRequest,
+  UpdateProductRequest,
+  Product,
+  ProductsResponse,
+} from './products.ts';
