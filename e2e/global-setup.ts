@@ -24,6 +24,10 @@ try {
       throw new Error('Conexión de pruebas no autorizada.');
     }
     await migrateAndClearAuthTables(sequelize);
+    // Limpieza autorizada (spec 004): si una corrida anterior dejó al usuario que crea AC-26,
+    // se borra para que la prueba lo dé de alta desde la interfaz. La tabla users está
+    // autorizada y la conexión ya pasó las guardias de polleria_test.
+    await sequelize.query("DELETE FROM users WHERE username = 'e2e.gestion'");
     const service = createUserService({
       models: defineModels(sequelize),
       pinHasher: createBcryptPinHasher(),
@@ -33,6 +37,7 @@ try {
       { username: 'e2e.caja', displayName: 'Caja E2E', roles: ['cashier'], pin: '1357' },
       { username: 'e2e.admin', displayName: 'Admin E2E', roles: ['admin'], pin: '135790' },
       { username: 'e2e.mozocaja', displayName: 'Mozo Caja E2E', roles: ['waiter', 'cashier'], pin: '8642' },
+      { username: 'e2e.gestion2', displayName: 'Gesti\u00F3n E2E Dos', roles: ['waiter'], pin: '5926' },
     ]) {
       await service.createUser(user);
     }

@@ -34,3 +34,20 @@ export type {
   LoginUser,
   LoginUsersResponse,
 } from './auth.ts';
+export {
+  WEAK_PIN_MESSAGE,
+  isWeakPin,
+  strongPinSchema,
+  createUserRequestSchema,
+  updateUserRequestSchema,
+  resetPinRequestSchema,
+  adminUserSchema,
+  usersResponseSchema,
+} from './users.ts';
+export type {
+  CreateUserRequest,
+  UpdateUserRequest,
+  ResetPinRequest,
+  AdminUser,
+  UsersResponse,
+} from './users.ts';

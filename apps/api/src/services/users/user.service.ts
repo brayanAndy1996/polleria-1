@@ -11,6 +11,11 @@ import { AppError } from '../../errors/app-error.ts';
 import type { Models } from '../../models/index.ts';
 import type { PinHasher } from '../auth/pin-hasher.ts';
 
+// La administración de usuarios de la spec 004 vive en el módulo hermano; se reexporta
+// aquí porque es la entrada del módulo users (las pruebas y app.ts importan de aquí).
+export { createUserAdminService } from './user-admin.service.ts';
+export type { UserAdminService } from './user-admin.service.ts';
+
 export interface CreateUserInput {
   username: string;
   displayName: string;

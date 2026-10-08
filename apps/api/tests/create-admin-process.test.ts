@@ -78,7 +78,8 @@ describe('003: comando para crear el administrador', () => {
           .send({ username: 'dueno', pin: '975310' })
       ).body,
     ).toMatchObject({ user: { roles: ['admin'] } });
-    expect((await run('dueno2\nOtra Persona\n1234\n1234\n')).code).toBe(0);
+    // La 004 exige PIN fuerte en create-admin: se usa '3968' en lugar de un PIN fácil.
+    expect((await run('dueno2\nOtra Persona\n3968\n3968\n')).code).toBe(0);
     expect(await sequelize.query('SELECT id FROM users', { type: QueryTypes.SELECT })).toHaveLength(
       2,
     );
