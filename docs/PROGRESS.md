@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 002-printer-service. La 001 se integró a main el 2026-10-07.
-- Paso: 6 de 9, ataque adversarial de la 002. Implementación T-11 a T-18 verificada por el orquestador: Vitest 490/490, cobertura de líneas 98 % (services/printer 100 %, shared 93,75 %), lint y typecheck en 0, pnpm-lock.yaml sin cambios, ningún test modificado desde ee0059e, sin escrituras en tmp/comandas durante las pruebas.
+- Paso: 6 de 9. Ataque de la 002 terminado: 0 críticos, 0 altos, 2 medios y 3 bajos (7 tests adversariales en rojo). Esperando decisión del usuario.
 - Rama: feat/002-printer-service.
 
 ## Tabla de funcionalidades
@@ -55,7 +55,19 @@ Hallazgos adversariales de la 001 (2026-10-07, commit 7be8d15; tests en apps/api
 | ADV-001-06 | Bajo | Dos migrateUp simultáneos: uno falla con un error crudo del driver (el estado final queda bien). | Cerrado (enmienda 1) |
 | ADV-001-09 | Bajo | API_INTERNAL_URL con ruta, query o fragmento rompe el destino del rewrite sin aviso. | Cerrado (enmienda 1) |
 
-Ataques sin fallas (quedan como regresión en verde): prototype pollution en JSON, 120 consultas de salud simultáneas con base disponible y caída, sin fugas de clave en errores, CLI ni salud.
+Hallazgos adversariales de la 002 (2026-10-08, commit 0c62834; tests en apps/api/tests/adversarial y packages/shared/tests/adversarial):
+
+| ID | Severidad | Hallazgo | Estado |
+| --- | --- | --- | --- |
+| ADV-002-01 | Medio | Una línea válida con miles de acentos combinantes desordenados hace que normalizar tarde más de 2 s y bloquee Node (AC-17). | Abierto |
+| ADV-002-02 | Medio | createPrinterDriver se exporta desde index.ts y su print escribe tal cual ESC, GS y NUL si alguien lo usa sin el servicio. | Abierto |
+| ADV-002-03 | Bajo | El límite de 500 líneas se aplica después de recorrer todo el arreglo (100 000 líneas se leen enteras). | Abierto |
+| ADV-002-04 | Bajo | En Windows, PRINTER_FILE_DIR como Q:comandas o C: depende de la carpeta actual o cae en la raíz del monorepo. | Abierto |
+| ADV-002-05 | Bajo | toLimaDateTimeParts confunde años antes y después de Cristo (año 0 y año 1 dan 0001). | Abierto |
+
+Ataques de la 002 sin fallas (regresión en verde): ningún punto de código Unicode sale fuera de los 114 imprimibles; comandos ESC/POS reales y trucos bidi, ZWJ y BOM no llegan al archivo por el servicio; jobId con trucos de rutas y nombres reservados de Windows se rechazan; 1000 impresiones simultáneas sin colisiones; fallas de escritura no dejan .txt ni .tmp; printer:test sin fugas de clave; Lima siempre UTC-5.
+
+Ataques de la 001 sin fallas (quedan como regresión en verde): prototype pollution en JSON, 120 consultas de salud simultáneas con base disponible y caída, sin fugas de clave en errores, CLI ni salud.
 
 Otras notas:
 
