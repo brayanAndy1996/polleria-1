@@ -6,14 +6,14 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 001-base-monorepo.
-- Paso: 7 de 9, revisión (reviewer). Vuelta 2 de 3 verificada por el orquestador: Vitest 268/268, cobertura de líneas 97 %, E2E 7 pasan y 1 omitido por diseño, lint y typecheck en 0, db:migrate y db:seed en 0. Hallazgos adversariales cerrados.
+- Paso: 9 de 9. Reviewer: APROBADO. Definición de terminado verificada por el orquestador. Esperando permiso del usuario para integrar feat/001-base-monorepo a main.
 - Rama: feat/001-base-monorepo.
 
 ## Tabla de funcionalidades
 
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
-| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Revisión | feat/001-base-monorepo | — |
+| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Lista para integrar (APROBADO) | feat/001-base-monorepo | — |
 | 002 | printer-service (PrinterService con driver file) | 0 | Pendiente | feat/002-printer-service | — |
 
 ## Decisiones del usuario
@@ -56,6 +56,10 @@ Hallazgos adversariales de la 001 (2026-10-07, commit 7be8d15; tests en apps/api
 Ataques sin fallas (quedan como regresión en verde): prototype pollution en JSON, 120 consultas de salud simultáneas con base disponible y caída, sin fugas de clave en errores, CLI ni salud.
 
 Otras notas:
+
+- Bajo (reviewer, 2026-10-07): la fila "error del lector con estado 5xx → 500 y se registra" de la tabla 9.2 no tiene test de regresión (error-handler.ts:56). Pendiente para test-writer en una spec posterior.
+- Pendiente manual (reviewer): probar R-11 (pnpm dev) y la sección 16 de la spec 001 desde un celular en el wifi del local y sin internet. Se incluye en el punto de control de fin de la Fase 0.
+- 2026-10-07: versiones exactas registradas en CLAUDE.md (sección Stack), según la Fase 0 y el ADR 0001.
 
 - Bajo (2026-10-07, reportado por backend-dev): si la clave de DATABASE_URL trae un escape % mal formado, loadConfig la acepta y createSequelize la rechaza con un mensaje seguro, pero server.ts y cli.ts terminan con un rechazo no controlado y traza. Se puede cerrar haciendo que loadConfig use getPostgresConnectionParts.
 
