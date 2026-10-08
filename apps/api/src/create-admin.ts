@@ -3,7 +3,7 @@ import type { Key } from 'node:readline';
 import { QueryTypes } from 'sequelize';
 import type { Sequelize } from 'sequelize';
 import { ZodError } from 'zod';
-import { displayNameSchema, pinSchema, usernameSchema } from '@polleria/shared';
+import { displayNameSchema, strongPinSchema, usernameSchema } from '@polleria/shared';
 import { ConfigError, loadConfig } from './config/env.ts';
 import { createSequelize } from './db/sequelize.ts';
 import { AppError } from './errors/app-error.ts';
@@ -123,7 +123,8 @@ async function main(): Promise<void> {
     const displayName = displayNameSchema.parse(
       await input.read('Nombre para mostrar (por ejemplo, Don Carlos): ', false),
     );
-    const pin = pinSchema.parse(await input.read('PIN (4 a 6 dígitos): ', true));
+    // S-004-06: el comando también rechaza PIN fáciles (es la otra puerta por donde se crean PIN).
+    const pin = strongPinSchema.parse(await input.read('PIN (4 a 6 dígitos): ', true));
     const repeatedPin = await input.read('Repite el PIN: ', true);
     if (pin !== repeatedPin) throw new AdminInputError('Los PIN no coinciden.');
     const user = await createUserService({ models, pinHasher: createBcryptPinHasher() }).createUser(
