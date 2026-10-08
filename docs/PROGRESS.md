@@ -5,15 +5,15 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 ## Estado actual
 
 - Fase: 0 de 6, base del proyecto.
-- Funcionalidad: 001-base-monorepo.
-- Paso: 9 de 9. Reviewer: APROBADO. Definición de terminado verificada por el orquestador. Esperando permiso del usuario para integrar feat/001-base-monorepo a main.
-- Rama: feat/001-base-monorepo.
+- Funcionalidad: 002-printer-service (por iniciar). La 001 se integró a main el 2026-10-07.
+- Paso: 1 de 9 de la 002 (crear rama y delegar la spec).
+- Rama: feat/002-printer-service (por crear desde main).
 
 ## Tabla de funcionalidades
 
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
-| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Lista para integrar (APROBADO) | feat/001-base-monorepo | — |
+| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
 | 002 | printer-service (PrinterService con driver file) | 0 | Pendiente | feat/002-printer-service | — |
 
 ## Decisiones del usuario
@@ -30,6 +30,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | 2026-10-07 | Los seeds se aplican una sola vez; recargar la demo se evaluará en la Fase 6. |
 | 2026-10-07 | Se asume Chrome 111 o superior en los celulares de los mozos; se confirmará con el dueño. |
 | 2026-10-07 | Corregir ahora los 6 hallazgos adversariales medios y bajos de la 001 (enmienda 1 de la spec), sin nueva aprobación salvo que cambie lo que ve el usuario final. |
+| 2026-10-07 | Integrar la 001 a main con commit de merge (--no-ff), conservando el historial. |
 | 2026-10-07 | El usuario confirma que existen el rol polleria y las bases polleria_dev y polleria_test en PostgreSQL 17 (puerto 5432). |
 
 ## Notas técnicas del orquestador
