@@ -5,6 +5,7 @@
 - Contrato: docs/api/openapi.yaml (versión 0.4.0: /users, /users/{userId} y /users/{userId}/pin; AdminUser, UserNotFound y LastAdminRequired)
 - ADR: ninguno nuevo (reutiliza las piezas del ADR 0002: sesión en la base, bcrypt, límite de intentos propio)
 - Dependencias: ninguna nueva. Sin variables de entorno nuevas ni migraciones nuevas (la tabla users de la 003 ya basta).
+- Aclaración 1 (2026-10-08): '/admin' no es un puesto de trabajo. Se sigue guardando en 'polleria:lastArea' pero vale "sin área recordada" para el aterrizaje tras login (solo aplican /mozo, /caja, /cocina) y, guardado '/admin', /login muestra la lista en vez del teclado de 'polleria:lastUsername'. Detalle en la sección 19 de la spec; lo tienen en cuenta las pruebas de componentes y E2E que toquen 'polleria:lastArea' con '/admin' (T-04, T-05, T-11 a T-14).
 
 ## Orden y por qué
 

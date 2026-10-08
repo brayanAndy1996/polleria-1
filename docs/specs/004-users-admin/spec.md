@@ -1,6 +1,7 @@
 # Spec 004 — Gestión de usuarios por el administrador
 
 - Estado: Aprobada (2026-10-08, por el usuario, con las respuestas recomendadas a las preguntas 1 a 6)
+- Aclaración 1 (2026-10-08): '/admin' se guarda en 'polleria:lastArea' pero no es un puesto de trabajo para el aterrizaje tras login ni para el usuario recordado en /login. Detalle en la sección 19.
 - Fase: 1 (Usuarios y carta)
 - Rama: feat/004-users-admin
 - Fecha: 2026-10-08
@@ -26,6 +27,8 @@ Con la 003, cada trabajador entra al sistema tocando su nombre y escribiendo su 
 ## 3. Decisiones técnicas
 
 Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Preguntas abiertas (sección 16).
+
+Aclaración 1 (2026-10-08): '/admin' no es un puesto de trabajo. El dispositivo sigue guardando la última área en 'polleria:lastArea' (incluida '/admin'), pero el aterrizaje directo tras iniciar sesión solo aplica a /mozo, /caja y /cocina, y cuando la última área fue '/admin' la pantalla /login muestra la lista de usuarios en lugar del teclado del usuario recordado. Resuelve la tensión entre AC-32, AC-43 y AC-44 de la 003 y AC-26/AC-27 de esta spec sin cambiar la letra de ningún AC ni el contrato. Detalle en la sección 19.
 
 **D-004-01. Alcance y permisos.**
 - Cuatro operaciones nuevas bajo /api/users, todas protegidas con `requireAuth` y `requireRole('admin')`: el administrador es el único que gestiona usuarios (RN-004-01). Un mozo, un cocinero, un cajero o alguien con varios de esos roles recibe 403 FORBIDDEN; sin sesión, 401 UNAUTHENTICATED.
@@ -580,3 +583,19 @@ Después de que la funcionalidad esté implementada:
 - Fase 2 (autorización con PIN de administrador para anulaciones y otros): reutilizar PinHasher y un LoginLimiter propio, como dice la sección 18 de la 003; la tabla de administradores activos ya se consulta con `roles @> '{admin}'`.
 - Auditoría (RF-27, Fase 6): los cambios de usuarios (alta, edición, desactivación, restablecimiento de PIN) son candidatos a registrarse con actor y hora.
 - Seeds de demostración (Fase 6): pueden crear los usuarios de ejemplo con createUserService; conviene que sus PIN cumplan la regla de PIN fáciles para que no choquen si createUser algún día la aplica también.
+
+## 19. Aclaración 1 (2026-10-08): '/admin' no es un puesto de trabajo
+
+Motivo: al implementar la funcionalidad se encontró una tensión entre dos partes aprobadas.
+
+- En la 003 (revisión 1), el dispositivo recuerda la última área usada en 'polleria:lastArea' y un área mostrada guarda su ruta, incluida '/admin' (AC-43); quien inicia sesión aterriza directo en la última área cuando le corresponde (AC-44) y /login abre de entrada el teclado del último usuario recordado, 'polleria:lastUsername' (AC-32).
+- En esta spec, AC-26 y AC-27 exigen que, tras gestionar usuarios en /admin y tocar 'Cerrar sesión', /login muestre la lista de usuarios —no el teclado del administrador recordado— y que el siguiente ingreso pase por /areas.
+
+Lectura que resuelve la tensión, con todas las pruebas de la 003 y la 004 en verde: '/admin' no es un puesto de trabajo.
+
+- La página /admin sigue guardando '/admin' en 'polleria:lastArea' al mostrarse (AC-43 de la 003 se cumple igual: el área mostrada guarda su ruta).
+- Un 'polleria:lastArea' con '/admin' se trata como "sin área recordada" para decidir a dónde ir (el aterrizaje tras iniciar sesión y las redirecciones de RoleGuard): el aterrizaje directo solo aplica a /mozo, /caja y /cocina, así que el siguiente ingreso pasa por /areas —o por su única área, si solo tiene una.
+- Cuando 'polleria:lastArea' es '/admin', /login muestra la lista de usuarios aunque exista 'polleria:lastUsername': la pantalla de administración la usa el dueño y deja el equipo listo para el siguiente trabajador.
+- En cualquier otro caso ('/mozo', '/caja', '/cocina' o nada guardado), /login y el aterrizaje se comportan como dicen AC-32, AC-44 y D-003-16 de la 003.
+
+Qué NO cambia: la letra de ningún AC de la 003 ni de la 004, el contrato OpenAPI 0.4.0 (esto es comportamiento de la web, no de la API) ni las claves 'polleria:lastUsername' y 'polleria:lastArea'. Si una spec futura decide que '/admin' sí es un puesto de trabajo, o que /login recuerde siempre al último usuario, esta aclaración se reemplaza.
