@@ -1,6 +1,6 @@
 # Tareas — Spec 003: usuarios, roles e inicio de sesión con PIN
 
-- Spec: docs/specs/003-users-pin-login/spec.md (Borrador, revisión 1 del 2026-10-08: varios roles por persona)
+- Spec: docs/specs/003-users-pin-login/spec.md (Aprobada el 2026-10-08, con la revisión 1: varios roles por persona)
 - Rama: feat/003-users-pin-login
 - Contrato: docs/api/openapi.yaml (versión 0.3.1: /auth/users, /auth/login, /auth/me, /auth/logout; AuthUser con roles)
 - ADR: docs/decisions/0002-sesion-pin-y-limite-de-intentos.md (Aceptado)
@@ -14,6 +14,8 @@
 4. **Cierre (T-26)**: definición de terminado y requisitos R-003-01 a R-003-09.
 
 Revisión 1 (varios roles por persona): cambian T-02, T-03, T-06, T-09, T-10, T-11, T-12, T-13, T-14, T-15, T-16, T-18, T-19, T-20, T-21, T-22, T-23, T-24, T-25 y T-26; son nuevas T-27 (test-writer) y T-28 (frontend-dev). La matriz del final las incluye.
+
+Aclaración aprobada («Corregir ambos ahora», ADV-003-06 y ADV-003-14): reset solo tras persistir la sesión (T-19) y logout exitoso exclusivamente HTTP 204 (T-22 y T-24). Las regresiones adversariales independientes ya están en rojo; los implementadores corrigen producción sin modificar esas pruebas. No se añaden AC ni tareas, ni se cambia la revisión 1, el alcance o el contrato HTTP.
 
 ## Instalación (después de la aprobación)
 
@@ -87,7 +89,7 @@ Reglas comunes:
 - Responsable: test-writer
 - Dependencias: T-06
 - AC: AC-16, AC-17
-- Descripción: apps/api/tests/auth-lockout.test.ts. Cabecera Retry-After, details.retryAfterSeconds con el reloj adelantado, independencia entre usuarios, usuario inexistente nunca 429, 20 solicitudes simultáneas (exactamente 5 respuestas 401 y 15 respuestas 429; verify 5 veces) y bloqueo repetido.
+- Descripción: apps/api/tests/auth-lockout.test.ts. Cabecera Retry-After, details.retryAfterSeconds con el reloj adelantado, independencia entre usuarios, usuario inexistente nunca 429, 20 solicitudes simultáneas (exactamente 5 respuestas 401 y 15 respuestas 429; verify 5 veces) y bloqueo repetido. AC-16 se interpreta con D-003-05: un PIN correcto sin sesión guardada no reinicia el conteo (4 PIN incorrectos, 5.º correcto con `createSession` fallando: 500 sin cookie ni fila, siguiente intento 429). La regresión adversarial ADV-003-06 ya fue autorada independientemente y está en rojo; conservarla sin cambios para la corrección de T-19.
 
 ### T-09. Sesión actual, vencimiento, cambios del usuario, cierre y limpieza
 - Responsable: test-writer
@@ -123,7 +125,7 @@ Reglas comunes:
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-33, AC-34, AC-35, AC-36
-- Descripción: pruebas de componentes que renderizan el default export de apps/web/src/app/{mozo,caja,cocina,admin}/page.tsx dentro de Providers, con /api/auth/me y /api/auth/logout simulados y localStorage vacío. AC-33 con los casos de dos roles de la revisión 1. AC-34 con la tabla de la spec (`it.each`) y la constante ROLE_LABELS (ROLE_HOME_PATHS ya no existe). AC-36 en un archivo nuevo junto a apps/web/src/app/page.tsx (no modificar page.test.tsx de la 001).
+- Descripción: pruebas de componentes que renderizan el default export de apps/web/src/app/{mozo,caja,cocina,admin}/page.tsx dentro de Providers, con /api/auth/me y /api/auth/logout simulados y localStorage vacío. AC-33 con los casos de dos roles de la revisión 1. AC-34 con la tabla de la spec (`it.each`) y la constante ROLE_LABELS (ROLE_HOME_PATHS ya no existe). AC-35 solo recarga tras 204: cualquier otro estado, incluidos 200/202 con JSON válido o de error, JSON mal formado o sin JSON, muestra el error y permite reintentar sin hardNavigate. Las regresiones adversariales ADV-003-14 ya fueron autoradas independientemente y están en rojo; conservarlas sin cambios para T-22 y T-24. AC-36 en un archivo nuevo junto a apps/web/src/app/page.tsx (no modificar page.test.tsx de la 001).
 
 ### T-14. Extremo a extremo
 - Responsable: test-writer
@@ -188,7 +190,7 @@ Reglas comunes:
 - Dependencias: T-06, T-07, T-08, T-15, T-17, T-18
 - AC: AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-24
 - Descripción:
-  - auth.service.ts con el orden de 9.2 de la spec. El chequeo del bloqueo y `registerAttempt` van juntos, sin ningún await entre ellos, antes de comparar el PIN. Hash de relleno con el mismo costo (calculado una vez o constante). Al éxito: registerSuccess, deleteExpiredSessions y createSession; la respuesta lleva los roles ordenados con sortUserRoles. listLoginUsers con `Intl.Collator('es', { sensitivity: 'base' })` y desempate por username (sin roles).
+  - auth.service.ts con el orden de 9.2 de la spec. El chequeo del bloqueo y `registerAttempt` siguen juntos y síncronos, sin ningún await entre ellos, antes de `await pinHasher.verify` (bcrypt), para conservar AC-17. Hash de relleno con el mismo costo (calculado una vez o constante). Con PIN correcto y usuario activo: esperar `deleteExpiredSessions`, esperar `createSession` y solo después del guardado correcto llamar a `registerSuccess`; cualquier fallo anterior al guardado conserva el intento y el conteo y se propaga como 500 sin cookie. Comprobar el PIN no basta para reiniciar el contador (AC-16, ADV-003-06). La respuesta lleva los roles ordenados con sortUserRoles. listLoginUsers con `Intl.Collator('es', { sensitivity: 'base' })` y desempate por username (sin roles).
   - auth.controller.ts: valida el cuerpo con loginRequestSchema (ZodError a VALIDATION_ERROR por el errorHandler), pone la cookie, y antes de pasar un TOO_MANY_ATTEMPTS fija `Retry-After` con `details.retryAfterSeconds`.
   - auth.routes.ts: un middleware que fija `Cache-Control: no-store` para todas las rutas de /auth (también los errores); GET /auth/users, POST /auth/login, GET /auth/me con requireAuth, POST /auth/logout.
   - app.ts: AppDependencies con now y pinHasher (sección 11); un LoginLimiter por app; las pruebas de la 001 con `createApp({ sequelize })` deben seguir pasando.
@@ -221,8 +223,8 @@ Reglas comunes:
 ### T-22. Navegación, cliente HTTP, funciones de auth y áreas permitidas
 - Responsable: frontend-dev
 - Dependencias: T-12, T-15, T-27
-- AC: AC-28, AC-41
-- Descripción: apps/web/src/lib/navigation.ts (hardNavigate), apps/web/src/lib/api/client.ts (createApiClient, apiClient, ApiError, DEFAULT_API_TIMEOUT_MS; AbortController para el tiempo límite; `credentials: 'same-origin'`; 401 UNAUTHENTICATED llama al manejador salvo skipAuthRedirect), apps/web/src/lib/api/auth.ts (validan con los esquemas de shared), apps/web/src/lib/auth/roles.ts, last-user.ts y (revisión 1) last-area.ts (try/catch alrededor de localStorage). roles.ts según la sección 11 de la spec (sin ROLE_HOME_PATHS; getAllowedAreas con hasAnyRole de shared y resolveLandingPath de D-003-16).
+- AC: AC-28, AC-35 (validación del contrato de logout), AC-41
+- Descripción: apps/web/src/lib/navigation.ts (hardNavigate), apps/web/src/lib/api/client.ts (createApiClient, apiClient, ApiError, DEFAULT_API_TIMEOUT_MS; AbortController para el tiempo límite; `credentials: 'same-origin'`; 401 UNAUTHENTICATED llama al manejador salvo skipAuthRedirect), apps/web/src/lib/api/auth.ts (las respuestas JSON validan con los esquemas de shared), apps/web/src/lib/auth/roles.ts, last-user.ts y (revisión 1) last-area.ts (try/catch alrededor de localStorage). Según la sección 11, añadir `expectedStatus?: number` interno y opcional: antes de resolver un 2xx, exigir el status esperado y rechazar los distintos con ApiError UNEXPECTED_RESPONSE y status HTTP real, sin alterar los errores no 2xx ni la aceptación genérica de 200 JSON válidos de AC-28. `logout` usa `{ method: 'POST', expectedStatus: 204, skipAuthRedirect: true }` y solo se resuelve tras 204; cualquier otra respuesta o error se propaga sin recarga automática y conservando su status (AC-35, ADV-003-14). No es un cambio HTTP ni una dependencia nueva. roles.ts según la sección 11 de la spec (sin ROLE_HOME_PATHS; getAllowedAreas con hasAnyRole de shared y resolveLandingPath de D-003-16).
 
 ### T-23. Pantalla de inicio de sesión
 - Responsable: frontend-dev
@@ -234,7 +236,7 @@ Reglas comunes:
 - Responsable: frontend-dev
 - Dependencias: T-13, T-22
 - AC: AC-33, AC-34, AC-35, AC-36
-- Descripción: role-guard.tsx (revisión 1: prop `area`; sin permiso, `router.replace(resolveLandingPath(...))`), logout-button.tsx y las páginas app/mozo, app/caja, app/cocina y app/admin según 10.2 (roles de AREA_ALLOWED_ROLES; línea con formatRoleLabels; sin los enlaces 'Ir a Mozo' ni 'Ir a Caja'). Enlace 'Iniciar sesión' en app/page.tsx sin cambiar lo que ya muestra (AC-27 de la 001). Cerrar sesión con `hardNavigate('/login')` solo si el logout respondió bien.
+- Descripción: role-guard.tsx (revisión 1: prop `area`; sin permiso, `router.replace(resolveLandingPath(...))`), logout-button.tsx y las páginas app/mozo, app/caja, app/cocina y app/admin según 10.2 (roles de AREA_ALLOWED_ROLES; línea con formatRoleLabels; sin los enlaces 'Ir a Mozo' ni 'Ir a Caja'). Enlace 'Iniciar sesión' en app/page.tsx sin cambiar lo que ya muestra (AC-27 de la 001). Cerrar sesión con `hardNavigate('/login')` exclusivamente tras el HTTP 204 validado por `logout` en T-22. Cualquier otro estado (también 200/202 con JSON válido o de error, JSON mal formado o sin JSON), error de red o tiempo límite muestra 'No se pudo cerrar la sesión. Intenta de nuevo.', no recarga y habilita el botón para reintentar (AC-35, ADV-003-14).
 
 ### T-28. Pantalla de áreas y cambio de área (revisión 1)
 - Responsable: frontend-dev
@@ -282,7 +284,7 @@ Reglas comunes:
 | AC-28 | T-12 | T-22 |
 | AC-41 | T-27 | T-22 |
 | AC-29 a AC-32 | T-12 | T-23 |
-| AC-33 a AC-36 | T-13 | T-24 |
+| AC-33 a AC-36 | T-13 | T-24 (AC-35 también T-22) |
 | AC-42, AC-43 | T-27 | T-28 |
 | AC-37 a AC-39, AC-44 | T-14 | T-25 (con T-19, T-21 y T-28) |
 | Ajuste del helper de limpieza (AC-21 y AC-24 de la 001, ADV-001-06) | T-03 | — |

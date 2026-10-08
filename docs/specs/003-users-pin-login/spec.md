@@ -1,6 +1,6 @@
 # Spec 003 — Usuarios, roles e inicio de sesión con PIN
 
-- Estado: Borrador
+- Estado: Aprobada (2026-10-08, por el usuario: revisión 1 con varios roles por persona, área recordada por equipo, pantalla "¿Dónde vas a trabajar?" y "Cambiar de área")
 - Revisión 1 (2026-10-08): varios roles por persona. Resumen en la sección 19.
 - Fase: 1 (Usuarios y carta)
 - Rama: feat/003-users-pin-login
@@ -27,6 +27,8 @@ Hoy cualquiera puede tomar un pedido o cobrar sin dejar rastro. Para que el sist
 ## 3. Decisiones técnicas
 
 Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Preguntas abiertas (sección 16).
+
+Aclaración aprobada por el usuario («Corregir ambos ahora», ADV-003-06 y ADV-003-14): reiniciar el contador solo después de guardar correctamente la sesión y considerar exitoso el logout exclusivamente con HTTP 204. Se precisan las reglas, AC y tareas existentes; se mantienen la revisión 1 (multirrol), los 44 AC, el alcance y OpenAPI 0.3.1, sin nuevos endpoints ni dependencias. Esta aclaración no cierra la 003 ni sustituye la revisión independiente.
 
 **D-003-01. Sesión guardada en la base, no JWT (SUPUESTO S-003-01).**
 - Al iniciar sesión, la API genera un token aleatorio de 32 bytes (`randomBytes(32)` de node:crypto, en base64url: 43 caracteres) y lo envía en una cookie httpOnly. En la base solo guarda el SHA-256 del token (64 caracteres hexadecimales), en la tabla sessions. Una copia de la base no permite entrar: el hash no sirve como cookie.
@@ -59,9 +61,9 @@ Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Pre
 
 **D-003-05. Límite de intentos por usuario, en memoria (SUPUESTO S-003-07).**
 - Política: después de 5 intentos fallidos seguidos de un mismo usuario, ese usuario queda bloqueado 15 minutos (`MAX_FAILED_LOGIN_ATTEMPTS = 5`, `LOGIN_LOCK_DURATION_MS = 900_000`). Mientras dura el bloqueo, todo intento de ese usuario (incluso con el PIN correcto) responde 429 TOO_MANY_ATTEMPTS sin comparar el PIN.
-- Bloqueo repetido: el conteo no se borra cuando termina el bloqueo, solo con un inicio de sesión exitoso. Así, después del primer bloqueo, cada intento fallido vuelve a bloquear 15 minutos: un atacante prueba como máximo unos 100 PIN por día y por usuario, y el dueño lo nota porque su cuenta queda bloqueada.
-- Qué cuenta como intento fallido: todo intento con un usuario que existe (activo o inactivo) que llega a comparar el PIN y no termina en sesión. Los errores de formato (400) no cuentan, y los intentos rechazados por el bloqueo (429) tampoco: no suman ni alargan el bloqueo. Los usuarios inexistentes no se cuentan (no hay a quién proteger y así la memoria queda limitada al número de usuarios); siempre responden 401.
-- Sin carreras: el intento se cuenta antes de comparar el PIN, en el mismo paso síncrono en que se revisa el bloqueo, y se descuenta solo si el PIN es correcto y el usuario está activo. Así 20 solicitudes simultáneas con PIN incorrecto comparan como máximo 5 PIN (AC-17).
+- Bloqueo repetido: el conteo no se borra cuando termina el bloqueo, solo con un inicio de sesión exitoso: PIN correcto, usuario activo y sesión guardada correctamente. Así, después del primer bloqueo, cada intento fallido vuelve a bloquear 15 minutos: un atacante prueba como máximo unos 100 PIN por día y por usuario, y el dueño lo nota porque su cuenta queda bloqueada.
+- Qué cuenta como intento fallido: todo intento con un usuario que existe (activo o inactivo) que llega a comparar el PIN y no termina con la sesión guardada correctamente, incluido un PIN correcto si falla la limpieza o la persistencia de la sesión. Los errores de formato (400) no cuentan, y los intentos rechazados por el bloqueo (429) tampoco: no suman ni alargan el bloqueo. Los usuarios inexistentes no se cuentan (no hay a quién proteger y así la memoria queda limitada al número de usuarios); siempre responden 401.
+- Sin carreras: el chequeo del bloqueo y `registerAttempt` van juntos en el mismo paso síncrono, sin ningún await entre ellos y antes de `await pinHasher.verify` (bcrypt). El conteo se reinicia con `registerSuccess` solo después de completar `deleteExpiredSessions` y guardar correctamente la sesión con `createSession`; cualquier fallo anterior conserva el intento y el conteo. Así 20 solicitudes simultáneas con PIN incorrecto comparan como máximo 5 PIN (AC-17).
 - Por usuario y no por IP: verificado en Next 16.4.0 que el reenvío de /api (httpxy, sin la opción xfwd) no agrega la IP del celular. La API ve todas las solicitudes desde 127.0.0.1 y una cabecera X-Forwarded-For la podría inventar cualquiera. Un límite por IP bloquearía a todo el local a la vez.
 - En memoria del proceso de la API (SUPUESTO S-003-12: una sola instancia). Reiniciar la API borra los bloqueos; un atacante en el wifi no puede reiniciarla. Guardar los bloqueos en la base queda fuera de alcance.
 - Implementación propia: express-rate-limit 8.7.1 cuenta solicitudes por IP antes de la lógica, no sabe si el PIN fue correcto ni a qué usuario pertenece, y por la razón anterior no serviría tal cual (ADR 0002).
@@ -124,7 +126,7 @@ Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Pre
 **D-003-12. Web: guardia en el cliente y cliente HTTP central.**
 - La seguridad vive en la API. La web solo decide qué pantalla mostrar: cada página de área envuelve su contenido en `RoleGuard`, que consulta GET /api/auth/me con TanStack Query (clave `['auth', 'me']`, `retry: false`). No se usa el proxy (middleware) de Next.
 - Todas las llamadas a la API pasan por un cliente central (`apps/web/src/lib/api/client.ts`): mismo origen, JSON, tiempo límite de 10 s, errores como `ApiError`. Ante un 401 UNAUTHENTICATED llama a un manejador que, por defecto, recarga la página en /login con `hardNavigate` (salvo que ya esté en /login o que la llamada pida `skipAuthRedirect`). El health de la 001 sigue con su propia función (getServerStatus).
-- Cerrar sesión y la sesión vencida recargan la página completa (`window.location.assign` dentro de `hardNavigate`), no una navegación interna: así se borra de la memoria todo lo que veía el usuario anterior, importante en la PC de caja compartida.
+- Cerrar sesión solo recarga tras confirmar HTTP 204 sin cuerpo; cualquier otra respuesta o error conserva la pantalla y permite reintentar (AC-35). Ese cierre confirmado y la sesión vencida recargan la página completa (`window.location.assign` dentro de `hardNavigate`), no una navegación interna: así se borra de la memoria todo lo que veía el usuario anterior, importante en la PC de caja compartida.
 - Al iniciar sesión, la navegación al destino de D-003-16 es interna (`useRouter().replace` de next/navigation). Cambiar de área también es una navegación interna: la sesión es la misma.
 - El tipado viene de los esquemas Zod de @polleria/shared. openapi-typescript sigue diferido: la 7.13.0 todavía declara `typescript ^5.x` (ADR 0002).
 
@@ -333,7 +335,8 @@ Datos comunes de las pruebas:
 - cuando el 6.º lleva el PIN correcto '2468', entonces responde 429 con exactamente `{ error: { code: 'TOO_MANY_ATTEMPTS', message: 'Demasiados intentos fallidos. Espera unos minutos e intenta de nuevo.', details: { retryAfterSeconds: 900 } } }`, la cabecera `Retry-After: 900` y sin Set-Cookie, y `verify` no se llamó en esa solicitud;
 - y caja.ana entra sin problema en ese momento (200);
 - con el reloj en T0 + 10 min, mozo.juan recibe 429 con `retryAfterSeconds: 300` y `Retry-After: 300`;
-- con el reloj en T0 + 15 min, mozo.juan entra con '2468' (200), y después 4 intentos con '0000' responden 401 (no 429: el éxito reinició el conteo);
+- con el reloj en T0 + 15 min, mozo.juan entra con '2468' (200 y sesión guardada), y después 4 intentos con '0000' responden 401 (no 429: solo la sesión guardada correctamente reinició el conteo);
+- el reinicio exige persistir la sesión (D-003-05): en un caso aparte, con 4 PIN incorrectos previos, el 5.º intento con PIN correcto y `createSession` fallando responde 500 sin Set-Cookie ni fila de sesión; el intento siguiente responde 429, no 401. Cualquier fallo anterior a guardar la sesión (también en `deleteExpiredSessions`) conserva el conteo;
 - y 10 intentos con el usuario 'nadie' responden todos 401, nunca 429.
 
 **AC-17. Intentos simultáneos y bloqueo repetido** (integración)
@@ -507,8 +510,8 @@ En estas pruebas `next/navigation` se simula (`useRouter` devuelve un `replace` 
 
 **AC-35. Cerrar sesión desde la web** (componente, página /mozo)
 - Dado la página /mozo con la sesión de un waiter,
-- cuando se toca 'Cerrar sesión', entonces se hace exactamente un `POST /api/auth/logout` y luego `hardNavigate('/login')` una vez; mientras espera, el botón dice 'Cerrando sesión...' y está deshabilitado;
-- y cuando el logout responde 500 o falla la red, un elemento con role="alert" muestra 'No se pudo cerrar la sesión. Intenta de nuevo.', hardNavigate no se llama y el botón vuelve a estar habilitado.
+- cuando se toca 'Cerrar sesión', entonces se hace exactamente un `POST /api/auth/logout` y, exclusivamente si responde HTTP 204 sin cuerpo, luego `hardNavigate('/login')` una vez; mientras espera, el botón dice 'Cerrando sesión...' y está deshabilitado;
+- y cuando el logout responde cualquier estado distinto de 204 (incluidos 500 y 200 o 202 con JSON válido, con `{ error: ... }`, con JSON mal formado o sin JSON), falla la red o vence el tiempo límite, un elemento con role="alert" muestra 'No se pudo cerrar la sesión. Intenta de nuevo.', hardNavigate no se llama y el botón vuelve a estar habilitado; se puede reintentar y solo un 204 posterior recarga. El error conserva el status HTTP real (200, 202, 500, etc.; 0 solo para red o tiempo límite), no se convierte en éxito por ser 2xx. AC-28 conserva su aceptación genérica de 200 JSON válidos: la exigencia de 204 es específica de logout.
 
 **AC-36. Enlace para iniciar sesión en Inicio** (componente, apps/web/src/app/page.tsx)
 - Dado la página de inicio de la 001 dentro de Providers con la salud simulada en 200,
@@ -633,7 +636,7 @@ Específicas de esta spec:
 - RN-003-01. Cada trabajador tiene su propio usuario y PIN. Un usuario tiene uno o varios roles, sin repetir, de esta lista: waiter, kitchen, cashier y admin (revisión 1). admin puede ir junto con otros roles.
 - RN-003-02. El PIN tiene de 4 a 6 dígitos y se guarda solo como hash bcrypt de costo 10. Nunca se guarda, se registra, se muestra ni se devuelve.
 - RN-003-03. Solo los usuarios activos inician sesión. La respuesta de un inicio de sesión fallido es la misma si el usuario no existe, si está inactivo o si el PIN es incorrecto.
-- RN-003-04. 5 intentos fallidos seguidos bloquean al usuario 15 minutos; después, cada fallo lo vuelve a bloquear 15 minutos; un inicio de sesión exitoso borra el conteo.
+- RN-003-04. 5 intentos fallidos seguidos bloquean al usuario 15 minutos; después, cada fallo lo vuelve a bloquear 15 minutos. Solo un inicio de sesión con PIN correcto, usuario activo y sesión guardada correctamente borra el conteo: `deleteExpiredSessions` y `createSession` deben completarse antes de `registerSuccess`; un fallo anterior al guardado conserva el conteo aunque el PIN sea correcto.
 - RN-003-05. Una sesión dura 16 horas desde que se inicia y se puede cerrar antes. Cerrar sesión cierra solo ese dispositivo. Un usuario puede tener varias sesiones a la vez.
 - RN-003-06. Los roles y el estado activo se leen de la base en cada solicitud protegida: un cambio vale desde la siguiente solicitud.
 - RN-003-07. Sin sesión válida, toda ruta protegida responde 401; con sesión válida pero sin ninguno de los roles requeridos, 403. Basta con tener uno de los roles requeridos.
@@ -767,7 +770,7 @@ Response 200 (y la cookie de D-003-02):
 
 - `roles` (revisión 1): arreglo de 1 a 4 roles, sin repetir, siempre en el orden de USER_ROLES: waiter, kitchen, cashier, admin. Por ejemplo, una moza que también cobra recibe `["waiter", "cashier"]`.
 
-Orden dentro del servicio (D-003-04 y D-003-05): (1) buscar el usuario por username; (2) si no existe, comparar contra el hash de relleno y responder 401; (3) si está bloqueado, 429 sin comparar; (4) contar el intento (en el mismo paso síncrono que el punto 3); (5) comparar el PIN; (6) si no coincide o el usuario está inactivo, 401; (7) borrar el conteo, borrar las sesiones vencidas, crear la sesión y responder.
+Orden dentro del servicio (D-003-04 y D-003-05): (1) buscar el usuario por username; (2) si no existe, comparar contra el hash de relleno y responder 401; (3) si está bloqueado, 429 sin comparar; (4) contar el intento con `registerAttempt` (junto al chequeo del punto 3, en el mismo paso síncrono, sin ningún await entre ambos); (5) comparar el PIN con `await pinHasher.verify` (bcrypt); (6) si no coincide o el usuario está inactivo, 401; (7) esperar `deleteExpiredSessions`; (8) esperar `createSession` hasta que la sesión quede guardada correctamente; (9) solo entonces `registerSuccess` borra el conteo y se devuelve la sesión para que el controller ponga la cookie y responda 200. Un fallo técnico anterior al guardado se propaga al manejador de errores (500), sin Set-Cookie, y no borra el conteo; comprobar el PIN no basta para registrar éxito.
 
 Response 429:
 
@@ -783,7 +786,7 @@ Responde el mismo SessionResponse que el login, con los datos actuales del usuar
 
 ### 9.4 POST /api/auth/logout
 
-Borra la sesión de la cookie si existe y responde 204 sin cuerpo con la Set-Cookie que la borra. Sin cookie o con una inválida responde igual (idempotente): la web siempre puede limpiar la cookie.
+Borra la sesión de la cookie si existe y responde 204 sin cuerpo con la Set-Cookie que la borra. Sin cookie o con una inválida responde igual (idempotente): la web siempre puede limpiar la cookie. El cliente confirma el cierre exclusivamente con HTTP 204; otro 2xx (por ejemplo 200 o 202, con cualquier cuerpo) incumple el contrato y es un error, nunca motivo para recargar. El contrato HTTP de OpenAPI 0.3.1 ya exige 204 y no cambia (AC-21 y AC-35).
 
 ### 9.5 Middlewares para las rutas protegidas
 
@@ -848,7 +851,7 @@ Textos en español de Perú. Componentes de HeroUI (Button y los que hagan falta
   | Error | Red u otro error | 'No se pudo verificar tu sesión.' (role="alert") y 'Reintentar' |
   | Listo | 200 con un rol que entra a esta área | El contenido; guarda la ruta del área en localStorage ('polleria:lastArea') |
 
-- 'Cerrar sesión': POST /api/auth/logout; mientras espera, 'Cerrando sesión...' deshabilitado; si sale bien, recarga en /login; si falla, 'No se pudo cerrar la sesión. Intenta de nuevo.' (role="alert").
+- 'Cerrar sesión': POST /api/auth/logout; mientras espera, 'Cerrando sesión...' deshabilitado; solo HTTP 204 sin cuerpo confirma el cierre y recarga en /login. Ante cualquier otra respuesta (también 200/202 con JSON válido, de error, mal formado o sin JSON), error de red o tiempo límite, no recarga: muestra 'No se pudo cerrar la sesión. Intenta de nuevo.' (role="alert") y vuelve a habilitar el botón para reintentar.
 
 ### 10.3 Inicio (ruta /)
 
@@ -935,11 +938,13 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
 - **apps/web/src/lib/api/client.ts**
   - `DEFAULT_API_TIMEOUT_MS` = 10000.
   - `class ApiError extends Error` con `status: number`, `code: string`, `details: unknown`.
-  - `interface ApiRequestOptions { method?: 'GET' | 'POST'; body?: unknown; skipAuthRedirect?: boolean }`.
+  - `interface ApiRequestOptions { method?: 'GET' | 'POST'; body?: unknown; skipAuthRedirect?: boolean; expectedStatus?: number }`.
   - `createApiClient(options?: { onUnauthenticated?: () => void; timeoutMs?: number }): { request(path: string, options?: ApiRequestOptions): Promise<unknown> }`. path sin el prefijo /api (por ejemplo '/auth/me').
+  - `expectedStatus` es una validación opcional interna del contrato de respuesta, no se envía por HTTP. Cuando se indica, antes de aceptar una respuesta 2xx o resolver su cuerpo, el cliente exige ese status: otro 2xx se rechaza con `ApiError`, status HTTP real, code 'UNEXPECTED_RESPONSE' y message 'Respuesta inesperada del servidor. Intenta nuevamente.', incluso si el cuerpo es JSON válido o contiene `{ error: ... }`. Las respuestas no 2xx conservan el manejo de errores y el status real de AC-28; cuando se requiere JSON, un cuerpo mal formado o sin JSON se rechaza según AC-28 y también conserva el status recibido. Sin `expectedStatus`, AC-28 no cambia: 200 JSON válido se resuelve con el objeto y 204 con undefined.
   - `apiClient`: instancia por defecto; su onUnauthenticated llama a `hardNavigate('/login')` salvo que `window.location.pathname` sea '/login'.
 - **apps/web/src/lib/api/auth.ts**
-  - `getLoginUsers(): Promise<LoginUser[]>`, `getSession(options?: { skipAuthRedirect?: boolean }): Promise<SessionResponse>`, `login(input: LoginRequest): Promise<SessionResponse>`, `logout(): Promise<void>`. Validan la respuesta con los esquemas de shared; si no cumple, ApiError UNEXPECTED_RESPONSE.
+  - `getLoginUsers(): Promise<LoginUser[]>`, `getSession(options?: { skipAuthRedirect?: boolean }): Promise<SessionResponse>`, `login(input: LoginRequest): Promise<SessionResponse>`, `logout(): Promise<void>`. Las tres funciones con respuesta JSON validan con los esquemas de shared; si no cumple, ApiError UNEXPECTED_RESPONSE.
+  - `logout` usa `request('/auth/logout', { method: 'POST', expectedStatus: 204, skipAuthRedirect: true })` y solo se resuelve con void si la respuesta es HTTP 204 (sin cuerpo, sin validación JSON). Ningún otro status se acepta como cierre, con cualquier cuerpo. `skipAuthRedirect` evita que un error del logout provoque una recarga automática por 401: todos los errores se propagan con su status real y la pantalla permite reintentar según AC-35.
 - **apps/web/src/lib/auth/roles.ts** (revisión 1: ya no exporta ROLE_HOME_PATHS)
   - `ROLE_LABELS` (valores de AC-34) y `formatRoleLabels(roles: readonly UserRole[]): string` (etiquetas en el orden de USER_ROLES, separadas por ', ').
   - `type AreaPath = '/mozo' | '/caja' | '/cocina' | '/admin'`, `AREA_PATHS: readonly AreaPath[]` (en ese orden), `AREA_LABELS: Readonly<Record<AreaPath, string>>`, `AREA_ALLOWED_ROLES: Readonly<Record<AreaPath, readonly UserRole[]>>` (D-003-07) y `AREA_SELECTOR_PATH` = '/areas'.
@@ -1016,7 +1021,7 @@ Confirmados por el usuario el 2026-10-08: S-003-01, S-003-02, S-003-03, S-003-05
 | S-003-04 | (Revisión 1) Cada usuario tiene uno o varios roles, y el administrador puede entrar a todas las áreas. Ya no es un supuesto: lo decidió el usuario. |
 | S-003-05 | Un usuario de cocina puede iniciar sesión y ve /cocina con un aviso, sin funciones. |
 | S-003-06 | La pantalla de inicio muestra la lista de usuarios activos (nombre para mostrar y nombre de usuario) sin sesión. |
-| S-003-07 | 5 intentos fallidos seguidos bloquean al usuario 15 minutos; después, cada fallo lo vuelve a bloquear; un acierto borra el conteo. Los usuarios inexistentes no se cuentan. |
+| S-003-07 | 5 intentos fallidos seguidos bloquean al usuario 15 minutos; después, cada fallo lo vuelve a bloquear; solo un inicio de sesión con PIN correcto, usuario activo y sesión guardada correctamente borra el conteo. Los usuarios inexistentes no se cuentan. |
 | S-003-08 | La cookie no lleva Secure porque el local usa HTTP en la red. |
 | S-003-09 | El mensaje de error es el mismo para usuario inexistente, inactivo o PIN incorrecto. |
 | S-003-10 | `pnpm users:create-admin` crea un administrador cada vez que se ejecuta (también sirve para recuperar el acceso). |
