@@ -7,7 +7,7 @@ import EditPage from '../../src/app/admin/usuarios/[id]/page.tsx';
 import NewUserPage from '../../src/app/admin/usuarios/nuevo/page.tsx';
 import { hardNavigate } from '../../src/lib/navigation.ts';
 import { createUser, getUsers, resetUserPin, updateUser } from '../../src/lib/api/users.ts';
-import { ApiError } from '../../src/lib/api/client.ts';
+import { ApiError, apiClient } from '../../src/lib/api/client.ts';
 import { server } from '../msw-server.ts';
 
 const mocks = vi.hoisted(() => ({ replace: vi.fn(), params: { id: '2' } }));
@@ -485,5 +485,121 @@ describe('004-adversarial: ataques a la web de administración de usuarios', () 
     show(<NewUserPage />);
     show(<NewUserPage />);
     expect(screen.getAllByRole('heading', { name: 'Agregar usuario', level: 1 })).toHaveLength(1);
+  });
+
+  it('ADV-004-42: la guardia síncrona aguanta el triple clic y se suelta tras un error', async () => {
+    // Posarreglo de ADV-004-31: las marcas `*Sending` (useRef) se activan en el
+    // mismo tick y se liberan en onSettled — ni un triple clic duplica, ni un
+    // error deja el botón muerto para siempre.
+    const patchBodies: unknown[] = [];
+    const pinBodies: unknown[] = [];
+    let patchFails = false;
+    server.use(
+      http.patch('*/api/users/2', async ({ request }) => {
+        patchBodies.push(await request.json());
+        if (patchFails)
+          return HttpResponse.json(
+            { error: { code: 'BOOM', message: 'Falla simulada.', details: null } },
+            { status: 500 },
+          );
+        return HttpResponse.json(USERS[1]);
+      }),
+      http.post('*/api/users/2/pin', async ({ request }) => {
+        pinBodies.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await renderEdit();
+    // Guardar: tres clics en el mismo tick deben producir un solo PATCH.
+    fireEvent.change(screen.getByLabelText('Nombre para mostrar'), {
+      target: { value: 'Ana María' },
+    });
+    const save = screen.getByRole('button', { name: 'Guardar cambios' });
+    act(() => {
+      fireEvent.click(save);
+      fireEvent.click(save);
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(patchBodies).toHaveLength(1));
+    await screen.findByText('Cambios guardados.');
+    // Desactivar: la confirmación con triple clic produce un solo PATCH.
+    fireEvent.click(screen.getByRole('button', { name: 'Desactivar' }));
+    const confirmOff = await screen.findByRole('button', { name: 'Sí, desactivar' });
+    act(() => {
+      fireEvent.click(confirmOff);
+      fireEvent.click(confirmOff);
+      fireEvent.click(confirmOff);
+    });
+    await waitFor(() => expect(patchBodies).toHaveLength(2));
+    // PIN: la confirmación con triple clic produce un solo POST.
+    fireEvent.change(screen.getByLabelText('PIN nuevo'), { target: { value: '5846' } });
+    fireEvent.change(screen.getByLabelText('Repetir PIN nuevo'), {
+      target: { value: '5846' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Restablecer PIN' }));
+    const confirmPin = await screen.findByRole('button', { name: 'Sí, restablecer' });
+    act(() => {
+      fireEvent.click(confirmPin);
+      fireEvent.click(confirmPin);
+      fireEvent.click(confirmPin);
+    });
+    await waitFor(() => expect(pinBodies).toHaveLength(1));
+    // Tras un 500 la marca debe liberarse en onSettled: el reintento sí sale.
+    patchFails = true;
+    fireEvent.change(screen.getByLabelText('Nombre para mostrar'), {
+      target: { value: 'Ana Dos' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    await waitFor(() => expect(patchBodies).toHaveLength(3));
+    expect(await screen.findByText('Falla simulada.')).toBeVisible();
+    patchFails = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    await waitFor(() => expect(patchBodies).toHaveLength(4));
+    await screen.findByText('Cambios guardados.');
+  });
+
+  it('ADV-004-43: tras el refactor, el status real viaja en todos los caminos del cliente', async () => {
+    // Esquema que no cuadra sobre un 200: el status real es 200 (coincide, pero
+    // ahora viaja del response y no de una constante).
+    server.use(http.get('*/api/users', () => HttpResponse.json({ users: 'x' }, { status: 200 })));
+    expect.soft(await asApiError(getUsers())).toMatchObject({
+      status: 200,
+      code: 'UNEXPECTED_RESPONSE',
+    });
+    // expectedStatus=200 pero el servidor contesta 202: se reporta el real.
+    server.use(http.patch('*/api/users/2', () => HttpResponse.json(USERS[1], { status: 202 })));
+    expect.soft(await asApiError(updateUser(2, { displayName: 'Ana' }))).toMatchObject({
+      status: 202,
+      code: 'UNEXPECTED_RESPONSE',
+    });
+    // Error sin sobre `{ error }`: status real, no un 200 ficticio ni un 0.
+    server.use(http.get('*/api/users', () => HttpResponse.json({ oops: true }, { status: 500 })));
+    expect.soft(await asApiError(getUsers())).toMatchObject({
+      status: 500,
+      code: 'UNEXPECTED_RESPONSE',
+    });
+    // Error con sobre válido: code, message y status del servidor pasan intactos.
+    server.use(
+      http.get('*/api/users', () =>
+        HttpResponse.json(
+          { error: { code: 'BOOM', message: 'Explotó.', details: null } },
+          { status: 500 },
+        ),
+      ),
+    );
+    expect(await asApiError(getUsers())).toMatchObject({
+      status: 500,
+      code: 'BOOM',
+      message: 'Explotó.',
+    });
+    // Contrato público intacto: request() devuelve el CUERPO pelado, no el
+    // envoltorio { body, status } que consume el validador de esquemas.
+    server.use(http.get('*/api/users', () => HttpResponse.json({ users: USERS })));
+    const body = (await apiClient.request('/users')) as { users: unknown[]; body?: unknown };
+    expect(body.users).toHaveLength(3);
+    expect(body.body).toBeUndefined();
+    const withStatus = await apiClient.requestWithStatus('/users');
+    expect(withStatus.status).toBe(200);
+    expect((withStatus.body as { users: unknown[] }).users).toHaveLength(3);
   });
 });

@@ -588,4 +588,78 @@ describe('004-adversarial: ataques a la administración de usuarios sobre poller
     expect((await login('mozo.juan', '5846')).status).toBe(200);
     expect(await sessionsOf(juan.id)).toHaveLength(1);
   });
+
+  it('ADV-004-25: el no-store a nivel app cubre errores tempranos, salvo la variante en mayúsculas', async () => {
+    const cookie = await adminCookie();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // Alcance sistémico del arreglo: /api/auth/* también lleva no-store en errores
+    // del lector del cuerpo (antes tampoco la llevaban).
+    const badLogin = await request(auth.app)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{"username":');
+    expect(badLogin.status).toBe(400);
+    expect(badLogin.body).toMatchObject({ error: { code: 'INVALID_JSON' } });
+    expect(badLogin.headers['cache-control']).toBe('no-store');
+    // El query string no rompe el prefijo: req.path no lo incluye.
+    const badQuery = await request(auth.app)
+      .post('/api/users?nada=1')
+      .set('Cookie', cookie)
+      .set('Content-Type', 'application/json')
+      .send('{');
+    expect(badQuery.status).toBe(400);
+    expect(badQuery.headers['cache-control']).toBe('no-store');
+    // Express enruta sin distinguir mayúsculas: con JSON válido /api/USERS entra
+    // al router de usuarios y su middleware sí le pone no-store al 401.
+    const upperRouted = await request(auth.app).get('/api/USERS');
+    expect(upperRouted.status).toBe(401);
+    expect(upperRouted.headers['cache-control']).toBe('no-store');
+    // Hueco residual: el error del lector ocurre ANTES del router y el match de
+    // prefijos a nivel app es case-sensitive — la misma ruta en mayúsculas sigue
+    // respondiendo sin no-store aunque la habría servido el router de usuarios.
+    const upperBad = await request(auth.app)
+      .post('/api/USERS')
+      .set('Cookie', cookie)
+      .set('Content-Type', 'application/json')
+      .send('{"username":');
+    expect(upperBad.status).toBe(400);
+    expect(upperBad.body).toMatchObject({ error: { code: 'INVALID_JSON' } });
+    expect(upperBad.headers['cache-control']).toBe('no-store');
+    // Rutas ajenas no se vieron afectadas por el middleware nuevo.
+    const health = await request(auth.app).get('/api/health');
+    expect(health.status).toBe(200);
+    expect(health.body).toMatchObject({ status: 'ok' });
+    // Un error de lectura fuera del prefijo sigue sin la cabecera: documenta que el
+    // match del middleware es por prefijo exacto y no una fuga a todo /api (si una
+    // decisión futura amplía el alcance a propósito, esta línea es la que se ajusta).
+    const healthBad = await request(auth.app)
+      .post('/api/health')
+      .set('Content-Type', 'application/json')
+      .send('{');
+    expect(healthBad.status).toBe(400);
+    expect(healthBad.headers['cache-control']).toBeUndefined();
+  });
+
+  it('ADV-004-26: un PATCH y un reset de PIN concurrentes sobre el mismo usuario no se interbloquean', async () => {
+    const cookie = await adminCookie();
+    const juan = await auth.createUser('mozo.juan', 'Juan', ['waiter'], '2468');
+    await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const hashBefore = (await userRow(juan.id))[0]!.pin_hash;
+    // El PATCH bloquea primero a los admins y luego a juan; el reset bloquea a juan
+    // directamente. Con el orden de bloqueos consistente uno cede: no hay deadlock.
+    const results = await Promise.all([
+      patchUser(juan.id, { isActive: false }, cookie),
+      postPin(juan.id, { pin: '5846' }, cookie),
+    ]);
+    expect(results.map((response) => response.status).sort((a, b) => a - b)).toEqual([200, 204]);
+    for (const response of results) expect.soft(response.headers['cache-control']).toBe('no-store');
+    // Estado final coherente: inactivo, sin sesiones y con el PIN ya rotado.
+    expect(await sessionsOf(juan.id)).toEqual([]);
+    const after = (await userRow(juan.id))[0]!;
+    expect(after.is_active).toBe(false);
+    expect(after.pin_hash).not.toBe(hashBefore);
+    // Ni el PIN viejo ni el nuevo entran: el usuario quedó inactivo.
+    for (const pin of ['2468', '5846'])
+      expect.soft((await login('mozo.juan', pin)).status, pin).toBe(401);
+  });
 });
