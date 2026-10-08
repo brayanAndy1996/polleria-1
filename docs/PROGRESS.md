@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 001-base-monorepo.
-- Paso: 6 de 9, ataque (adversarial-tester). Paso 5 verificado por el orquestador contra PostgreSQL: Vitest 194/194, cobertura de líneas 97,9 % (shared y services 100 %), E2E 7 pasan y 1 omitido por diseño, lint y typecheck en 0, db:migrate y db:seed sobre polleria_dev en 0.
+- Paso: 6 de 9. Ataque terminado: 0 críticos, 0 altos, 3 medios y 3 bajos (7 tests adversariales en rojo). Esperando decisión del usuario sobre corregirlos ahora o dejarlos como deuda.
 - Rama: feat/001-base-monorepo.
 
 ## Tabla de funcionalidades
@@ -39,12 +39,26 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 ## Deuda técnica y hallazgos medios/bajos
 
+Hallazgos adversariales de la 001 (2026-10-07, commit 7be8d15; tests en apps/api/tests/adversarial y apps/web/tests/adversarial):
+
+| ID | Severidad | Hallazgo | Estado |
+| --- | --- | --- | --- |
+| ADV-001-01 | Medio | Content-Encoding desconocido: body-parser lanza 415 y la API responde 500 INTERNAL_ERROR con traza en el log. | Abierto |
+| ADV-001-02 | Medio | Cuerpo que dice ser gzip y no lo es: 500 INTERNAL_ERROR con traza. | Abierto |
+| ADV-001-04 | Medio | La guardia acepta ?host=otro-servidor en una URL polleria_test y Sequelize conecta a ese host. | Abierto |
+| ADV-001-05 | Bajo | La guardia acepta ?options=-c search_path=... y Sequelize lo aplica. | Abierto |
+| ADV-001-06 | Bajo | Dos migrateUp simultáneos: uno falla con un error crudo del driver (el estado final queda bien). | Abierto |
+| ADV-001-09 | Bajo | API_INTERNAL_URL con ruta, query o fragmento rompe el destino del rewrite sin aviso. | Abierto |
+
+Ataques sin fallas (quedan como regresión en verde): prototype pollution en JSON, 120 consultas de salud simultáneas con base disponible y caída, sin fugas de clave en errores, CLI ni salud.
+
+Otras notas:
+
 - Next 16.4.0 genera apps/web/AGENTS.md cuando un agente corre next dev. Resuelto con agentRules: false en next.config.ts (T-23).
 - Aviso de peer opcional: @vitest/mocker 5.0.3 declara msw ^2.4.9 y el proyecto usa msw 3.0.2. Funciona (verificado por backend-dev).
 - apps/web necesita zod (librería ya aprobada en el stack) para loadWebServerConfig (T-23); se agrega zod 4.6.5, la misma versión que en api y shared.
 - Arbitraje 2026-10-07: backend-dev reportó un glob sin barra en apps/api/tests/migrator.test.ts; el orquestador lo verificó y test-writer lo corrigió (commit 7c19265) sin cambiar aserciones.
 - Si la base no responde, el E2E falla por timeout de 120 s del webServer sin una pista clara; se sugiere que la API registre una línea en su log al no poder conectar (bajo).
-- Un cuerpo con Content-Encoding desconocido produce 415 en body-parser y la API responde 500 INTERNAL_ERROR (sin código definido en la spec; bajo, lo revisará el adversarial-tester).
 - Web: un 503 con status ok, o un 200 con status error, se interpreta como unreachable (frontend-dev exige que coincidan el código HTTP y el status).
 - Producción: los rewrites de Next se calculan en next build, así que API_INTERNAL_URL debe estar definida al compilar (para la guía de instalación).
 - R-09: en Vitest 5 el umbral global de 80 % incluye también shared y services; es más estricto que el texto de la spec, sin efecto práctico.
