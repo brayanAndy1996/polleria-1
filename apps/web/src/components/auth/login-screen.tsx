@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getLoginUsers, getSession, login } from '../../lib/api/auth.ts';
 import { ApiError } from '../../lib/api/client.ts';
-import { readLastArea } from '../../lib/auth/last-area.ts';
+import { readLastWorkstationArea, wasLastAreaAdministration } from '../../lib/auth/last-area.ts';
 import { readLastUsername, saveLastUsername } from '../../lib/auth/last-user.ts';
 import { resolveLandingPath } from '../../lib/auth/roles.ts';
 
@@ -42,7 +42,12 @@ export function LoginScreen() {
     enabled: !session.isPending && !session.data,
     retry: false,
   });
-  const [rememberedUsername] = useState(readLastUsername);
+  // El usuario recordado solo aplica tras el uso de un puesto de trabajo. Si la última
+  // área fue Administración (/admin), /login vuelve a la lista para que cualquier
+  // trabajador elija su nombre después de la gestión (spec 004, AC-26 y AC-27).
+  const [rememberedUsername] = useState(() =>
+    wasLastAreaAdministration() ? null : readLastUsername(),
+  );
   const [chosenUsername, setChosenUsername] = useState<string | null | undefined>(undefined);
   const [pin, setPin] = useState('');
   const sending = useRef(false);
@@ -58,7 +63,10 @@ export function LoginScreen() {
     },
   });
   useEffect(() => {
-    if (session.data) router.replace(resolveLandingPath(session.data.user.roles, readLastArea()));
+    if (session.data)
+      // Se usa la última área-puesto: '/admin' no recibe aterrizaje directo, así una sesión
+      // de administración siguiente siempre elige área en /areas (spec 004, AC-27).
+      router.replace(resolveLandingPath(session.data.user.roles, readLastWorkstationArea()));
   }, [session.data, router]);
   const submit = useCallback(() => {
     if (!selected || pin.length < PIN_MIN_LENGTH || sending.current) return;

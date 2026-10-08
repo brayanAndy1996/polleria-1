@@ -17,3 +17,22 @@ export function saveLastArea(area: AreaPath): void {
     return;
   }
 }
+/**
+ * Áreas que cuentan como puesto de trabajo compartido. /admin queda fuera: es una sesión
+ * de administración, no el uso habitual del dispositivo. Por eso, tras usar /admin, el
+ * equipo no aterriza directo en esa área ni conserva el teclado del último usuario: /login
+ * vuelve a mostrar la lista y el siguiente inicio pasa por /areas (spec 004, AC-26/AC-27).
+ */
+const WORKSTATION_AREA_PATHS: readonly AreaPath[] = ['/mozo', '/caja', '/cocina'];
+/**
+ * Última área solo si fue un puesto de trabajo. Devuelve null para '/admin', para valores
+ * inválidos o si localStorage falla, igual que readLastArea.
+ */
+export function readLastWorkstationArea(): AreaPath | null {
+  const area = readLastArea();
+  return WORKSTATION_AREA_PATHS.find((workstation) => workstation === area) ?? null;
+}
+/** True cuando la última área usada en el dispositivo fue Administración (/admin). */
+export function wasLastAreaAdministration(): boolean {
+  return readLastArea() === '/admin';
+}
