@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.3.0
+  version: 0.3.1
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -27,10 +27,13 @@ info:
       crea POST /auth/login y la borra POST /auth/logout. Es un token aleatorio; la API guarda solo su
       SHA-256. Dura 16 horas desde que se inicia, sin renovación.
     - Rutas públicas: /health, /auth/users, /auth/login y /auth/logout. Toda otra ruta exige sesión:
-      sin sesión válida responde 401 UNAUTHENTICATED; con sesión pero sin el rol requerido, 403 FORBIDDEN.
-      Cada operación protegida indica en su descripción los roles permitidos.
+      sin sesión válida responde 401 UNAUTHENTICATED; con sesión pero sin ninguno de los roles
+      permitidos, 403 FORBIDDEN. Basta con tener uno de los roles permitidos. Cada operación protegida
+      indica en su descripción los roles permitidos; admin pasa solo si la operación lo incluye.
     - Todas las respuestas de /auth/* llevan Cache-Control: no-store, también las de error.
-    - Roles: waiter (mozo), kitchen (cocina), cashier (cajero) y admin (administrador).
+    - Roles: waiter (mozo), kitchen (cocina), cashier (cajero) y admin (administrador). Un usuario
+      tiene uno o varios roles, sin repetir (versión 0.3.1, revisión 1 de la spec 003). La API los
+      devuelve siempre en el orden waiter, kitchen, cashier, admin.
 servers:
   - url: http://localhost:3000/api
     description: A través de la web, en el mismo origen. Es lo que usan los navegadores (PC de caja y celulares).
@@ -89,7 +92,8 @@ paths:
       description: |
         Público: la pantalla /login muestra un botón por usuario para tocar su nombre en lugar de
         escribirlo. Devuelve solo usuarios activos, ordenados por displayName en español sin distinguir
-        mayúsculas ni tildes (los empates, por username). Nunca incluye id, rol, estado ni nada del PIN.
+        mayúsculas ni tildes (los empates, por username). Nunca incluye id, roles, estado ni nada del PIN.
+        Cada usuario aparece una sola vez, tenga los roles que tenga.
       security: []
       responses:
         '200':
@@ -153,7 +157,7 @@ paths:
                   id: 3
                   username: mozo.juan
                   displayName: Juan
-                  role: waiter
+                  roles: [waiter]
                 expiresAt: '2026-10-09T07:00:00.000Z'
         '400':
           $ref: '#/components/responses/ValidationError'
@@ -170,8 +174,9 @@ paths:
       summary: Sesión actual
       description: |
         Roles: cualquiera con sesión válida (waiter, kitchen, cashier, admin).
-        Devuelve el usuario con sus datos actuales (rol y nombre leídos de la base en cada solicitud)
-        y el vencimiento de la sesión. La web lo usa para decidir qué pantalla mostrar.
+        Devuelve el usuario con sus datos actuales (roles y nombre leídos de la base en cada solicitud;
+        roles en el orden waiter, kitchen, cashier, admin) y el vencimiento de la sesión. La web lo usa
+        para decidir qué áreas mostrar.
       security:
         - sessionCookie: []
       responses:
@@ -186,10 +191,10 @@ paths:
                 $ref: '#/components/schemas/SessionResponse'
               example:
                 user:
-                  id: 3
-                  username: mozo.juan
-                  displayName: Juan
-                  role: waiter
+                  id: 4
+                  username: moza.rosa
+                  displayName: Rosa
+                  roles: [waiter, cashier]
                 expiresAt: '2026-10-09T07:00:00.000Z'
         '401':
           $ref: '#/components/responses/Unauthenticated'
@@ -246,7 +251,20 @@ components:
     UserRole:
       type: string
       enum: [waiter, kitchen, cashier, admin]
-      description: Rol del usuario. waiter = mozo, kitchen = cocina, cashier = cajero, admin = administrador.
+      description: Un rol. waiter = mozo, kitchen = cocina, cashier = cajero, admin = administrador.
+    UserRoles:
+      type: array
+      minItems: 1
+      maxItems: 4
+      uniqueItems: true
+      items:
+        $ref: '#/components/schemas/UserRole'
+      description: |
+        Roles de un usuario (revisión 1 de la spec 003): uno o varios, sin repetir. admin puede ir junto
+        con otros roles. En las respuestas van siempre en el orden waiter, kitchen, cashier, admin.
+      examples:
+        - [waiter]
+        - [waiter, cashier]
     Username:
       type: string
       pattern: '^[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]$'
@@ -275,7 +293,7 @@ components:
     AuthUser:
       type: object
       additionalProperties: false
-      required: [id, username, displayName, role]
+      required: [id, username, displayName, roles]
       properties:
         id:
           type: integer
@@ -288,8 +306,8 @@ components:
           maxLength: 40
           description: Nombre que ve la gente (letras, números, espacios, punto, apóstrofo o guion).
           examples: [Juan]
-        role:
-          $ref: '#/components/schemas/UserRole'
+        roles:
+          $ref: '#/components/schemas/UserRoles'
     SessionResponse:
       type: object
       additionalProperties: false
@@ -336,7 +354,7 @@ components:
         - INTERNAL_ERROR (500): error no controlado; nunca incluye detalles internos.
         - INVALID_CREDENTIALS (401, spec 003): usuario inexistente, inactivo o PIN incorrecto (siempre el mismo mensaje).
         - UNAUTHENTICATED (401, spec 003): la ruta exige sesión y no hay una válida (sin cookie, token inválido, sesión vencida o usuario desactivado).
-        - FORBIDDEN (403, spec 003): la sesión es válida pero el rol no tiene permiso.
+        - FORBIDDEN (403, spec 003): la sesión es válida pero ninguno de los roles del usuario tiene permiso.
         - TOO_MANY_ATTEMPTS (429, spec 003): usuario bloqueado por intentos fallidos; details.retryAfterSeconds.
         - USERNAME_TAKEN (409, spec 003): el nombre de usuario ya existe. Lo usará la gestión de usuarios (spec 004).
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
@@ -522,8 +540,8 @@ components:
               details: null
     Forbidden:
       description: |
-        La sesión es válida pero el rol del usuario no tiene permiso para esta operación (requireRole).
-        La usarán las rutas protegidas por rol de las specs siguientes.
+        La sesión es válida pero ninguno de los roles del usuario tiene permiso para esta operación
+        (requireRole). La usarán las rutas protegidas por rol de las specs siguientes.
       content:
         application/json:
           schema:
