@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
 /**
- * Códigos de error estables definidos hasta la spec 001. Las specs siguientes agregan los suyos;
- * los clientes deben tolerar códigos desconocidos.
+ * Códigos de error estables definidos hasta la spec 001 (con su enmienda 1: UNSUPPORTED_MEDIA_TYPE
+ * e INVALID_BODY, errores al leer el cuerpo de la solicitud). Las specs siguientes agregan los
+ * suyos; los clientes deben tolerar códigos desconocidos.
  */
 export const ERROR_CODES = {
   NOT_FOUND: 'NOT_FOUND',
@@ -10,6 +11,8 @@ export const ERROR_CODES = {
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   INVALID_JSON: 'INVALID_JSON',
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+  UNSUPPORTED_MEDIA_TYPE: 'UNSUPPORTED_MEDIA_TYPE',
+  INVALID_BODY: 'INVALID_BODY',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
