@@ -1,0 +1,28 @@
+{
+  "name": "@polleria/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.ts",
+    "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts migrate",
+    "db:migrate:undo": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts migrate:undo",
+    "db:seed": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts seed"
+  },
+  "dependencies": {
+    "@polleria/shared": "workspace:*",
+    "express": "5.2.1",
+    "pg": "8.23.1",
+    "sequelize": "6.37.8",
+    "umzug": "3.8.3",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "24.19.1",
+    "@types/supertest": "7.2.1",
+    "supertest": "7.3.1"
+  }
+}

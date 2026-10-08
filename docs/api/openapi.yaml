@@ -1,0 +1,240 @@
+openapi: 3.1.0
+info:
+  title: Sistema Pollería API
+  version: 0.2.0
+  summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
+  description: |
+    Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
+
+    Convenciones (spec 001):
+    - Todas las rutas de la API cuelgan del prefijo /api. La web (puerto 3000) reenvía /api/* a la API
+      (puerto 4000) en el mismo origen, así el navegador nunca habla directo con la API.
+    - Los nombres de campos van en inglés y en camelCase, según el glosario de CLAUDE.md.
+    - Dinero en céntimos de sol como entero, con sufijo Cents (por ejemplo priceCents).
+    - Pollo en octavos como entero, con sufijo Eighths (por ejemplo stockEighths).
+    - Fechas en ISO 8601 en UTC con sufijo Z. Los cálculos de día, cierre y reportes usan America/Lima.
+    - Errores con el formato común ErrorResponse: { error: { code, message, details } }.
+      code va en inglés en MAYÚSCULAS_CON_GUION_BAJO; message va en español de Perú para mostrarse al usuario.
+    - Excepción documentada: GET /health responde 503 con HealthResponse (no con ErrorResponse) porque
+      informa un estado del sistema, no un error de la solicitud.
+    - Errores al leer el cuerpo (spec 001, enmienda 1): cualquier solicitud con cuerpo puede recibir
+      400 INVALID_JSON, 400 INVALID_BODY, 413 PAYLOAD_TOO_LARGE o 415 UNSUPPORTED_MEDIA_TYPE, aunque la
+      operación no los repita. El cuerpo puede venir comprimido con gzip, deflate o br; el límite de
+      100 KB se mide después de descomprimir. Solo se acepta un charset UTF (utf-8 por defecto).
+servers:
+  - url: http://localhost:3000/api
+    description: A través de la web, en el mismo origen. Es lo que usan los navegadores (PC de caja y celulares).
+  - url: http://127.0.0.1:4000/api
+    description: API directa. Solo accesible desde la misma PC (HOST=127.0.0.1 por defecto).
+tags:
+  - name: system
+    description: Estado del sistema.
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Estado de la API y de la base de datos
+      description: |
+        Público (no requiere sesión, tampoco cuando exista autenticación).
+        Verifica la base de datos con una consulta trivial y un tiempo límite de 2 segundos.
+        Nunca incluye la URL de la base, el usuario, la clave, el host ni el mensaje del driver.
+      security: []
+      responses:
+        '200':
+          description: La API y la base de datos responden.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+                database: ok
+                timestamp: '2026-10-07T20:00:00.000Z'
+        '503':
+          description: La API responde, pero la base de datos no responde o tardó más de 2 segundos.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: error
+                database: error
+                timestamp: '2026-10-07T20:00:00.000Z'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  schemas:
+    HealthStatus:
+      type: string
+      enum: [ok, error]
+      description: ok si el componente responde; error si no.
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status, database, timestamp]
+      properties:
+        status:
+          $ref: '#/components/schemas/HealthStatus'
+        database:
+          $ref: '#/components/schemas/HealthStatus'
+        timestamp:
+          type: string
+          format: date-time
+          description: Hora del servidor en ISO 8601 UTC (con sufijo Z).
+          examples: ['2026-10-07T20:00:00.000Z']
+    ErrorCode:
+      type: string
+      pattern: '^[A-Z][A-Z0-9_]*$'
+      description: |
+        Código estable para que la web decida qué hacer. Códigos definidos hasta la spec 001 (con la enmienda 1):
+        - NOT_FOUND (404): la ruta no existe.
+        - INVALID_JSON (400): el cuerpo no es un JSON válido.
+        - INVALID_BODY (400): el cuerpo no se pudo leer (compresión corrupta o incompleta, solicitud cortada).
+        - VALIDATION_ERROR (400): los datos no cumplen el esquema; details.issues lista los problemas.
+        - PAYLOAD_TOO_LARGE (413): el cuerpo supera 100 KB (medido después de descomprimir).
+        - UNSUPPORTED_MEDIA_TYPE (415): Content-Encoding distinto de identity, gzip, deflate y br, o charset no soportado.
+        - INTERNAL_ERROR (500): error no controlado; nunca incluye detalles internos.
+        Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
+      examples: [NOT_FOUND]
+    ValidationIssue:
+      type: object
+      additionalProperties: false
+      required: [path, message]
+      properties:
+        path:
+          type: string
+          description: Ruta del campo con partes unidas por punto (por ejemplo items.0.quantity). Vacío si el problema es del cuerpo completo.
+          examples: [name]
+        message:
+          type: string
+          minLength: 1
+          description: Explicación en español.
+    ErrorDetails:
+      description: Información adicional del error, o null si no hay. En VALIDATION_ERROR es { issues }.
+      oneOf:
+        - type: 'null'
+        - type: object
+          additionalProperties: true
+          properties:
+            issues:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationIssue'
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, details]
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+              minLength: 1
+              description: Mensaje en español de Perú, listo para mostrar al usuario.
+            details:
+              $ref: '#/components/schemas/ErrorDetails'
+  headers:
+    CacheControlNoStore:
+      description: La respuesta no se guarda en caché.
+      schema:
+        type: string
+        const: no-store
+  responses:
+    InvalidJson:
+      description: El cuerpo de la solicitud no es un JSON válido. Aplica a cualquier ruta que reciba cuerpo.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INVALID_JSON
+              message: El cuerpo de la solicitud no es un JSON válido.
+              details: null
+    InvalidBody:
+      description: |
+        El cuerpo de la solicitud no se pudo leer: la compresión (gzip, deflate o br) está corrupta,
+        incompleta o vacía, o la solicitud se cortó antes de terminar el cuerpo. Aplica a cualquier ruta
+        que reciba cuerpo.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INVALID_BODY
+              message: No se pudo leer el cuerpo de la solicitud.
+              details: null
+    UnsupportedMediaType:
+      description: |
+        La codificación del cuerpo no es compatible: Content-Encoding distinto de identity, gzip, deflate
+        y br (también varias codificaciones a la vez), o un charset que no es UTF o que no existe.
+        Aplica a cualquier ruta que reciba cuerpo.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: UNSUPPORTED_MEDIA_TYPE
+              message: La codificación del cuerpo de la solicitud no es compatible.
+              details: null
+    ValidationError:
+      description: Los datos enviados no cumplen el esquema.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Los datos enviados no son válidos.
+              details:
+                issues:
+                  - path: name
+                    message: Debe tener al menos 1 carácter.
+    NotFound:
+      description: La ruta solicitada no existe.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: NOT_FOUND
+              message: La ruta solicitada no existe.
+              details: null
+    PayloadTooLarge:
+      description: El cuerpo de la solicitud supera 100 KB (medido después de descomprimir).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: PAYLOAD_TOO_LARGE
+              message: La solicitud es demasiado grande.
+              details: null
+    InternalError:
+      description: Error no controlado. No incluye el mensaje interno ni la traza.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INTERNAL_ERROR
+              message: Ocurrió un error inesperado. Intenta nuevamente.
+              details: null

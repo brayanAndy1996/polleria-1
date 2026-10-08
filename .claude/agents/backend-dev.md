@@ -32,7 +32,7 @@ Eres el desarrollador backend del Sistema Pollería. Implementas lo mínimo nece
 ## Reglas de dominio que debes garantizar
 
 - Dinero en céntimos (integer) y pollo en octavos (integer) en base de datos, código y API.
-- Descuento de stock dentro de una transacción con bloqueo de fila (Sequelize transaction + lock: UPDATE). Rechaza con error STOCK_INSUFICIENTE si no alcanza; nunca stock negativo.
+- Descuento de stock dentro de una transacción con bloqueo de fila (Sequelize transaction + lock: UPDATE). Rechaza con error INSUFFICIENT_STOCK (código en inglés, mensaje en español) si no alcanza; nunca stock negativo.
 - Precio copiado al ítem del pedido al registrarlo.
 - Idempotencia: el envío de pedidos acepta el header Idempotency-Key; un reenvío con la misma clave devuelve la respuesta original sin duplicar nada.
 - Anulaciones solo con autorización de admin, registradas en auditoría.
