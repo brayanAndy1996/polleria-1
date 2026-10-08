@@ -1,6 +1,7 @@
 # Spec 001 — Base del monorepo, salud de la API y web mínima
 
 - Estado: Aprobada (2026-10-07, por el usuario; preguntas abiertas resueltas en la sección 15)
+- Enmienda 1 aprobada por el usuario el 2026-10-07 (corregir hallazgos medios y bajos). Ver la sección 17: agrega AC-33 a AC-46 y no cambia lo que ve el usuario final.
 - Fase: 0 (Base del proyecto)
 - Rama: feat/001-base-monorepo
 - Cubre: RNF-05 (funciona en la red local sin internet), RNF-07 (Chrome en Android 9+ y Windows 10+), RNF-12 (configuración sin tocar código; en esta fase, por variables de entorno). No cubre ningún RF.
@@ -32,7 +33,7 @@ Estas decisiones aplican desde esta spec. Las que no confirmó el usuario están
   - La futura sesión JWT en cookie httpOnly funcionará en el mismo origen (SameSite=Lax o Strict) sin depender de la IP de la PC.
   - Socket.IO (fase posterior) usará la misma vía: se agregará un rewrite de /socket.io/:path*. Se verificó en el código de Next 16.4.0 que los rewrites hacia un destino externo reenvían también las conexiones WebSocket (upgradeHandler y proxyRequest en router-server). Si la conexión WebSocket fallara, Socket.IO cae a long-polling por HTTP, que también pasa por el rewrite.
 - En el contrato OpenAPI la ruta se escribe /health con servidor base /api. La URL real es /api/health tanto en la API (puerto 4000) como desde la web (puerto 3000). En esta spec, "GET /api/health" es la URL completa.
-- API_INTERNAL_URL por defecto es http://127.0.0.1:4000 (no localhost: en Windows localhost puede resolver primero a ::1 y la API escucha solo en IPv4).
+- API_INTERNAL_URL por defecto es http://127.0.0.1:4000 (no localhost: en Windows localhost puede resolver primero a ::1 y la API escucha solo en IPv4). La web usa solo su origen (protocolo, host y puerto); ver D-14 en la enmienda 1 (sección 17).
 - Next.js 16 bloquea en modo desarrollo los recursos /_next pedidos desde orígenes distintos de localhost (verificado en block-cross-site-dev.js de 16.4.0). Para probar con un celular en `pnpm dev`, la variable WEB_ALLOWED_DEV_ORIGINS lista las IP o nombres permitidos (por ejemplo 192.168.1.10) y se pasa a allowedDevOrigins. En producción (next start) esta restricción no existe.
 
 **D-02. TypeScript en tiempo de ejecución sin compilar.**
@@ -57,6 +58,7 @@ Estas decisiones aplican desde esta spec. Las que no confirmó el usuario están
 - Migraciones en apps/api/src/db/migrations y seeds en apps/api/src/db/seeders. Archivos `.ts` con sintaxis borrable, nombre `AAAAMMDDHHmmss-descripcion.ts`, que exportan `up({ context })` y `down({ context })`, donde context es el QueryInterface de Sequelize. Se aplican en orden alfabético del nombre.
 - Registro de migraciones aplicadas en la tabla SequelizeMeta; registro de seeds aplicados en SequelizeData (SUPUESTO S-06: cada seed se aplica una sola vez).
 - En esta funcionalidad no hay migraciones ni seeds; las carpetas existen vacías (con .gitkeep).
+- migrateUp, migrateDown y seedUp se serializan con un bloqueo consultivo de PostgreSQL de clave fija (D-13, enmienda 1).
 
 **D-06. Salud del sistema.**
 - GET /api/health es público. Responde 200 con HealthResponse si la base responde, o 503 con el mismo esquema si no responde o tarda más de 2 segundos (DEFAULT_HEALTH_TIMEOUT_MS = 2000).
@@ -67,6 +69,7 @@ Estas decisiones aplican desde esta spec. Las que no confirmó el usuario están
 - Clase AppError con code, message, httpStatus y details. Un solo middleware errorHandler arma `{ error: { code, message, details } }`.
 - code en inglés, MAYÚSCULAS_CON_GUION_BAJO (SUPUESTO S-09). message en español de Perú.
 - Los mensajes de Zod se configuran en español con la configuración regional incluida en Zod 4 (`z.config(z.locales.es())`), sin dependencias nuevas.
+- Los errores del lector del cuerpo causados por el cliente responden 4xx con un código propio; solo los 500 se registran con traza (D-11, enmienda 1).
 
 **D-08. Pruebas.**
 - Vitest con proyectos: shared (node), api-unit (node), api-integration (node, archivos en serie porque comparten polleria_test) y web (jsdom).
@@ -108,6 +111,7 @@ Cada AC tiene al menos un test cuyo nombre empieza con su ID (por ejemplo `it('A
 - entonces la validación es exitosa;
 - y falla si falta error.code, error.message o error.details, si message es una cadena vacía, o si hay un campo adicional dentro de error;
 - y ERROR_CODES contiene al menos NOT_FOUND, INTERNAL_ERROR, VALIDATION_ERROR, INVALID_JSON y PAYLOAD_TOO_LARGE, cada clave con un valor igual a su nombre.
+- (Enmienda 1: ERROR_CODES suma UNSUPPORTED_MEDIA_TYPE e INVALID_BODY; ver AC-38.)
 
 ### 4.2 Configuración de la API (RNF-12)
 
@@ -178,6 +182,8 @@ Cada AC tiene al menos un test cuyo nombre empieza con su ID (por ejemplo `it('A
 
 Regla exacta: el nombre de la base es el path de la URL sin la barra inicial, sin decodificar; es válido solo si el protocolo es postgres: o postgresql:, la URL no trae los parámetros database ni dbname, y el nombre cumple `^[a-z0-9_]+_test$`.
 
+La enmienda 1 no cambia esta regla: la guardia sigue aceptando, por ejemplo, `.../polleria_test?host=otro` y `.../polleria_test?options=...`. La protección contra esos parámetros está en createSequelize, que ignora la query del URL (D-12, AC-39 y AC-40).
+
 ### 4.4 Salud del sistema (GET /api/health)
 
 **AC-12. Salud con base disponible** (integración, apps/api, polleria_test)
@@ -217,6 +223,7 @@ Regla exacta: el nombre de la base es el path de la URL sin la barra inicial, si
 - entonces responde 400 con `{ error: { code: 'INVALID_JSON', message: 'El cuerpo de la solicitud no es un JSON válido.', details: null } }`;
 - y cuando el cuerpo es un JSON válido de 150 KB (el límite es 100 KB),
 - entonces responde 413 con `{ error: { code: 'PAYLOAD_TOO_LARGE', message: 'La solicitud es demasiado grande.', details: null } }`.
+- (Enmienda 1: los demás errores del lector del cuerpo están en AC-33 a AC-37.)
 
 **AC-18. AppError produce su código y estado HTTP** (unitaria con app de prueba, apps/api)
 - Dado una app Express de prueba que monta `errorHandler` y una ruta que lanza `new AppError({ code: 'TEST_CONFLICT', message: 'Conflicto de prueba.', httpStatus: 409, details: { field: 'x' } })`,
@@ -241,6 +248,7 @@ Regla exacta: el nombre de la base es el path de la URL sin la barra inicial, si
 - Dado polleria_test y las migraciones reales de apps/api/src/db/migrations,
 - cuando se ejecuta `migrateUp(sequelize)` dos veces seguidas,
 - entonces ninguna llamada lanza error, existe la tabla SequelizeMeta y la segunda llamada devuelve `[]`.
+- (Enmienda 1: las llamadas simultáneas se cubren en AC-42 a AC-44.)
 
 **AC-22. Aplicar y revertir migraciones en orden** (integración, apps/api, polleria_test)
 - Dado dos migraciones de prueba (fixtures del test-writer) `20260101000000-create-fixture-a.ts` y `20260101000001-create-fixture-b.ts`, que crean las tablas fixture_a y fixture_b, y la tabla de registro FixtureMeta,
@@ -297,6 +305,7 @@ Formato de salida cuando sí hay trabajo: una línea por elemento, 'Migración a
 - cuando `WEB_ALLOWED_DEV_ORIGINS=' 192.168.1.20, ,192.168.1.21 '`, devuelve allowedDevOrigins `['192.168.1.20', '192.168.1.21']`;
 - cuando `API_INTERNAL_URL` es 'ftp://192.168.1.50' o 'no-es-url', lanza un Error cuyo mensaje empieza con 'Configuración inválida de la web.' y nombra API_INTERNAL_URL;
 - y el archivo versionado apps/web/.env.example contiene exactamente las variables de WEB_CONFIG_VARIABLES (API_INTERNAL_URL y WEB_ALLOWED_DEV_ORIGINS) y sus valores pasan la validación.
+- (Enmienda 1: API_INTERNAL_URL se reduce a su origen y se rechaza si trae usuario o clave; ver AC-45 y AC-46.)
 
 ### 4.8 Extremo a extremo (Playwright, contra polleria_test)
 
@@ -367,6 +376,9 @@ Específicas de esta spec:
 - RN-001-04. La web no carga recursos de internet.
 - RN-001-05. Mensajes al usuario en español de Perú; códigos de error en inglés.
 - RN-001-06. /api/health es público y seguirá siéndolo cuando exista autenticación.
+- RN-001-07 (enmienda 1). Un error causado por el cliente (respuesta 4xx) nunca responde 500 ni se registra en el log del servidor. Solo los 500 INTERNAL_ERROR se registran, con su traza.
+- RN-001-08 (enmienda 1). Toda conexión a PostgreSQL (DATABASE_URL y DATABASE_URL_TEST) se arma solo con el protocolo, el usuario, la clave, el host, el puerto y la base del propio URL. Ningún parámetro de la query cambia a dónde ni cómo se conecta. Así, lo que revisa la guardia es exactamente a lo que se conecta.
+- RN-001-09 (enmienda 1). Las migraciones y los seeds nunca corren a la vez sobre la misma base: se serializan con un bloqueo consultivo de PostgreSQL.
 
 ## 7. Casos borde conocidos
 
@@ -385,6 +397,10 @@ Específicas de esta spec:
 - JSON inválido en una ruta inexistente responde 400 INVALID_JSON y no 404, porque el cuerpo se interpreta antes de buscar la ruta.
 - Un cuerpo JSON de exactamente 100 KB se acepta; el límite rechaza lo que lo supera.
 - Se lanza un valor que no es Error (por ejemplo una cadena): 500 INTERNAL_ERROR.
+- Cuerpo con Content-Encoding desconocido, charset no soportado, compresión corrupta o solicitud cortada a mitad del cuerpo: 415 o 400 con código propio y sin traza en el log (enmienda 1; detalle en 17.6).
+- URL de la base con parámetros como `?host=` u `?options=`: se ignoran; la conexión usa solo las partes del URL (enmienda 1; detalle en 17.6).
+- Dos `pnpm db:migrate` a la vez: el segundo espera a que termine el primero y luego informa 'No hay migraciones pendientes.' (enmienda 1; detalle en 17.6).
+- API_INTERNAL_URL con ruta, query o fragmento (por ejemplo http://127.0.0.1:4000/api): la web usa solo el origen (enmienda 1; detalle en 17.6).
 - Vitest define NODE_ENV=test en su proceso. Las pruebas que arrancan procesos (AC-08, AC-09, AC-24) arman el entorno del hijo a partir de una copia de process.env, cambiando solo las variables del caso: en Windows, sin SystemRoot fallan los sockets.
 - Node 24.1.0 muestra un ExperimentalWarning por el type stripping; los scripts lo ocultan con `--disable-warning=ExperimentalWarning`.
 - Chrome sin actualizar (110 o menor) en un Android 9: la página puede verse sin estilos (ver D-09).
@@ -401,6 +417,8 @@ Tablas técnicas que crea umzug (SequelizeStorage) al ejecutar migraciones y see
 | SequelizeData | name VARCHAR(255) | PRIMARY KEY, NOT NULL | Nombre de cada seed aplicado. |
 
 Configuración de la conexión (createSequelize): dialecto postgres, logging desactivado, `timezone: '+00:00'`, `define.underscored: true`, pool con tiempo de adquisición acotado (alrededor de 10 s) y tiempo límite de conexión acotado (alrededor de 5 s), para no colgar la API si la base no responde.
+
+Enmienda 1 (D-12): host, puerto, base, usuario y clave salen solo del URL; la query se ignora; `dialectOptions` es exactamente `{ connectionTimeoutMillis: 5000, ssl: false }`. Las migraciones y los seeds usan el bloqueo consultivo de clave 2026100701 (D-13); no crea tablas nuevas.
 
 ## 9. API
 
@@ -434,11 +452,24 @@ Configuración de la conexión (createSequelize): dialecto postgres, logging des
 | --- | --- | --- | --- |
 | NOT_FOUND | 404 | La ruta solicitada no existe. | null |
 | INVALID_JSON | 400 | El cuerpo de la solicitud no es un JSON válido. | null |
+| INVALID_BODY (enmienda 1) | 400 | No se pudo leer el cuerpo de la solicitud. | null |
 | VALIDATION_ERROR | 400 | Los datos enviados no son válidos. | `{ issues: [{ path, message }] }` |
 | PAYLOAD_TOO_LARGE | 413 | La solicitud es demasiado grande. | null |
+| UNSUPPORTED_MEDIA_TYPE (enmienda 1) | 415 | La codificación del cuerpo de la solicitud no es compatible. | null |
 | INTERNAL_ERROR | 500 | Ocurrió un error inesperado. Intenta nuevamente. | null |
 
-Orden de middlewares en createApp: (1) `app.disable('x-powered-by')`; (2) `express.json({ limit: '100kb' })`; (3) router de la API montado en /api; (4) notFoundHandler para cualquier otra ruta; (5) errorHandler. Sin middleware de CORS. Los errores inesperados se registran en el log del servidor con su traza, sin el cuerpo de la solicitud y sin URL de base de datos.
+Orden de middlewares en createApp: (1) `app.disable('x-powered-by')`; (2) `express.json({ limit: '100kb' })` (backend-dev puede envolverlo para marcar sus errores, ver D-11); (3) router de la API montado en /api; (4) notFoundHandler para cualquier otra ruta; (5) errorHandler. Sin middleware de CORS. Los errores inesperados (500) se registran en el log del servidor con su traza, sin el cuerpo de la solicitud y sin URL de base de datos. Los errores 4xx no se registran (RN-001-07).
+
+Clasificación de los errores del lector del cuerpo (enmienda 1, D-11):
+
+| Situación | Ejemplo | HTTP | code |
+| --- | --- | --- | --- |
+| JSON mal formado (también después de descomprimir) | `{"a":` | 400 | INVALID_JSON |
+| Cuerpo de más de 100 KB, medido después de descomprimir | JSON de 150 KB, con o sin gzip | 413 | PAYLOAD_TOO_LARGE |
+| Content-Encoding distinto de identity, gzip, deflate y br | `bogus`, `compress`, `gzip, gzip` | 415 | UNSUPPORTED_MEDIA_TYPE |
+| charset que no empieza con utf- o que no existe | `latin1`, `utf-99` | 415 | UNSUPPORTED_MEDIA_TYPE |
+| Cualquier otro error del lector con estado 4xx: compresión corrupta, truncada o vacía; solicitud cortada a mitad del cuerpo | `esto no es gzip` con `Content-Encoding: gzip` | 400 | INVALID_BODY |
+| Error del lector con estado 5xx (por ejemplo el cuerpo ya lo leyó otro middleware); es un error de programación | — | 500 | INTERNAL_ERROR (se registra con traza) |
 
 ### 9.3 Socket.IO
 
@@ -446,7 +477,7 @@ Sin eventos en esta spec. Socket.IO no se instala todavía.
 
 ### 9.4 Contrato
 
-docs/api/openapi.yaml (OpenAPI 3.1): path /health con servidor base /api; esquemas HealthStatus, HealthResponse, ErrorCode, ValidationIssue, ErrorDetails y ErrorResponse; cabecera CacheControlNoStore; respuestas reutilizables InvalidJson, ValidationError, NotFound, PayloadTooLarge e InternalError.
+docs/api/openapi.yaml (OpenAPI 3.1): path /health con servidor base /api; esquemas HealthStatus, HealthResponse, ErrorCode, ValidationIssue, ErrorDetails y ErrorResponse; cabecera CacheControlNoStore; respuestas reutilizables InvalidJson, InvalidBody (enmienda 1), ValidationError, NotFound, PayloadTooLarge, UnsupportedMediaType (enmienda 1) e InternalError. Versión del contrato 0.2.0 desde la enmienda 1.
 
 ## 10. Interfaz
 
@@ -479,7 +510,7 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
   - `TIME_ZONE`: 'America/Lima' (tipo literal).
   - `healthResponseSchema` (objeto Zod estricto) y `type HealthResponse`.
   - `errorResponseSchema` y `type ErrorResponse`.
-  - `ERROR_CODES` (objeto `as const`) y `type ErrorCode`.
+  - `ERROR_CODES` (objeto `as const`) y `type ErrorCode`. Desde la enmienda 1 incluye también UNSUPPORTED_MEDIA_TYPE e INVALID_BODY.
 - **apps/api/src/config/env.ts**
   - `loadConfig(env: Record<string, string | undefined>): AppConfig`.
   - `type AppConfig = { nodeEnv: 'development' | 'test' | 'production'; host: string; port: number; databaseUrl: string; databaseUrlTest: string | undefined }`.
@@ -490,10 +521,12 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
   - `class UnsafeTestDatabaseError extends Error`.
 - **apps/api/src/db/sequelize.ts**
   - `createSequelize(databaseUrl: string): Sequelize`.
+  - Enmienda 1 (D-12): misma firma. Arma la conexión solo con las partes del URL e ignora la query. Si la URL no es de PostgreSQL con nombre de base, lanza `Error` con el mensaje 'La URL de la base de datos no es válida.' (AC-39 a AC-41).
 - **apps/api/src/db/migrator.ts**
   - `migrateUp(sequelize, options?)`, `migrateDown(sequelize, options?)` (revierte solo la última) y `seedUp(sequelize, options?)`, con `options = { glob?: string; tableName?: string }`.
   - Todas devuelven `Promise<string[]>` con los nombres de archivo procesados, en orden.
   - Por defecto: migraciones en src/db/migrations con la tabla SequelizeMeta; seeds en src/db/seeders con la tabla SequelizeData.
+  - Enmienda 1 (D-13): `MIGRATION_LOCK_KEY` (number, `as const`) = 2026100701. Las tres funciones se serializan con un bloqueo consultivo de PostgreSQL con esa clave; las firmas no cambian (AC-42 a AC-44).
 - **apps/api/src/db/cli.ts**
   - Punto de entrada con los comandos `migrate`, `migrate:undo` y `seed`. Solo lee process.env.
 - **apps/api/src/errors/app-error.ts**
@@ -501,6 +534,7 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
   - Constructor: `new AppError({ code, message, httpStatus, details? })`.
 - **apps/api/src/middlewares/error-handler.ts**
   - `errorHandler` (ErrorRequestHandler) y `notFoundHandler` (RequestHandler).
+  - Enmienda 1 (D-11): mismos exports. Clasifica los errores del lector del cuerpo según la tabla de 9.2. Si backend-dev envuelve express.json para marcar sus errores, el envoltorio es interno (las pruebas no lo importan).
 - **apps/api/src/services/health.service.ts**
   - `createHealthService({ sequelize, timeoutMs?, now? })`, con `sequelize: Pick<Sequelize, 'authenticate'>` y `now: () => Date`; devuelve `{ check(): Promise<HealthResponse> }`.
   - `DEFAULT_HEALTH_TIMEOUT_MS` = 2000.
@@ -523,6 +557,9 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
 - **apps/web/src/config/server-env.ts**
   - `loadWebServerConfig(env: Record<string, string | undefined>): { apiInternalUrl: string; allowedDevOrigins: string[] }`. Lo usa next.config.ts.
   - `WEB_CONFIG_VARIABLES`: lista `as const` con API_INTERNAL_URL y WEB_ALLOWED_DEV_ORIGINS.
+  - Enmienda 1 (D-14): misma firma. apiInternalUrl es siempre el origen de la URL (protocolo, host y puerto), sin ruta, query, fragmento ni barra final (AC-45 y AC-46).
+- **apps/web/next.config.ts** (enmienda 1, la importa la prueba de AC-45)
+  - default export: objeto NextConfig cuya función `rewrites()` devuelve una lista con `{ source: '/api/:path*', destination: '<apiInternalUrl>/api/:path*' }`, donde apiInternalUrl sale de `loadWebServerConfig(process.env)` al cargar el módulo. Ya es así; la enmienda no lo cambia.
 
 Rutas sugeridas para pruebas: unitarias junto al código (`*.test.ts`, `*.test.tsx`); integración de la API en apps/api/tests/ (helpers en apps/api/tests/helpers/, fixtures en apps/api/tests/fixtures/); E2E en e2e/*.spec.ts.
 
@@ -595,6 +632,10 @@ dotenv (se usa `--env-file-if-exists` y `process.loadEnvFile`), tsx y ts-node (t
 | S-09 | Los códigos de error van en inglés (por ejemplo INSUFFICIENT_STOCK en el futuro), aunque backend-dev.md menciona STOCK_INSUFICIENTE. |
 | S-10 | Tiempos: 2 s de límite para la base en /api/health, 5 s de límite en la web y consulta cada 10 s. |
 | S-11 | Se mantiene Node 24.1.0 (ya instalado); por eso jsdom queda en 29.1.1. |
+| S-12 | (Enmienda 1) La conexión a PostgreSQL ignora todos los parámetros de la query del URL, incluido sslmode, y no usa SSL (`ssl: false`), porque PostgreSQL corre en la misma PC. Si algún día hace falta SSL, se agregará una variable explícita en una spec con ADR, no un parámetro del URL. |
+| S-13 | (Enmienda 1) Un API_INTERNAL_URL con usuario o clave (`usuario:clave@`) se rechaza al arrancar la web, en vez de descartarlos en silencio. |
+| S-14 | (Enmienda 1) Los errores 4xx no se registran en el log del servidor; solo los 500. |
+| S-15 | (Enmienda 1) Quien espera el bloqueo de migraciones espera sin límite de tiempo. Si el proceso que lo tiene muere, PostgreSQL lo libera al cerrarse su conexión. |
 
 ## 15. Preguntas abiertas para el usuario
 
@@ -613,8 +654,10 @@ dotenv (se usa `--env-file-if-exists` y `process.loadEnvFile`), tsx y ts-node (t
 3. Dependencias de soporte: aprobadas 12.1 y 12.2, y también las dos opcionales de 12.3 (eslint-plugin-react-hooks y @testing-library/jest-dom).
 4. Node: se mantiene 24.1.0 y jsdom 29.1.1 (S-11).
 5. Códigos de error en inglés (S-09). Se corrigió .claude/agents/backend-dev.md: STOCK_INSUFICIENTE pasa a INSUFFICIENT_STOCK.
-6. Se acepta detener  ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND  No package.json (or package.yaml, or package.json5) was found in "C:UsersrayaDesktopproyectos1polleria". antes de  ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND  No package.json (or package.yaml, or package.json5) was found in "C:UsersrayaDesktopproyectos1polleria". (S-07).
+6. Se acepta detener `pnpm dev` antes de `pnpm test:e2e` (S-07).
 7. Los seeds se aplican una sola vez (S-06). En la Fase 6 se decidirá si hace falta recargar la demo.
+
+Las preguntas de la enmienda 1 están en la sección 17.11. Ninguna cambia lo que ve el usuario final.
 
 ## 16. Verificación manual sugerida (para el usuario)
 
@@ -622,3 +665,278 @@ dotenv (se usa `--env-file-if-exists` y `process.loadEnvFile`), tsx y ts-node (t
 2. Detener el servicio de PostgreSQL: en menos de 15 s la página debe decir 'Sin conexión con la base de datos'. Encenderlo: vuelve a 'Conectado'.
 3. Detener solo la API: la página debe decir 'Sin conexión con el servidor'.
 4. Desde un celular Android en el mismo wifi, con la IP de la PC en WEB_ALLOWED_DEV_ORIGINS (apps/web/.env) y el firewall permitiendo Node.js: abrir http://<IP-de-la-PC>:3000 y ver 'Conectado'. Repetir con el router sin internet.
+
+## 17. Enmienda 1 (2026-10-07): correcciones de hallazgos adversariales
+
+- Estado: Aprobada por el usuario el 2026-10-07 (corregir ahora los hallazgos medios y bajos). No requiere otra aprobación porque no cambia lo que ve el usuario final: la pantalla Inicio, sus textos y sus estados quedan igual.
+- Origen: hallazgos ADV-001-01, ADV-001-02, ADV-001-04, ADV-001-05, ADV-001-06 y ADV-001-09 del adversarial-tester (commit 7be8d15; tabla en docs/PROGRESS.md).
+- Cubre: RN-001-01, RN-001-02 y las nuevas RN-001-07, RN-001-08 y RN-001-09. No agrega RF.
+- Tareas: T-26 a T-35 en tasks.md.
+
+### 17.1 Contexto
+
+El ataque a la 001 encontró seis fallas que no afectan la atención, pero conviene cerrarlas antes de construir encima: cuerpos mal codificados que responden 500 y llenan el log de trazas, parámetros en la URL de la base que desvían la conexión después de pasar la guardia, migraciones simultáneas que fallan con errores crudos de PostgreSQL y una API_INTERNAL_URL con ruta que deja a la web sin API sin ningún aviso.
+
+### 17.2 Hallazgos y corrección
+
+| Hallazgo | Severidad | Corrección | AC | Prueba adversarial que debe pasar sin modificarse |
+| --- | --- | --- | --- | --- |
+| ADV-001-01 | Medio | Content-Encoding o charset no soportado: 415 UNSUPPORTED_MEDIA_TYPE, sin traza (D-11). | AC-33, AC-37 | apps/api/tests/adversarial/common-errors.adversarial.test.ts |
+| ADV-001-02 | Medio | Cuerpo comprimido ilegible o solicitud cortada: 400 INVALID_BODY, sin traza (D-11). | AC-34, AC-35, AC-36, AC-37 | apps/api/tests/adversarial/common-errors.adversarial.test.ts |
+| ADV-001-04 | Medio | createSequelize toma el host solo del URL e ignora `?host=` (D-12). | AC-39, AC-40 | apps/api/tests/adversarial/test-database-guard.adversarial.test.ts |
+| ADV-001-05 | Bajo | createSequelize ignora `?options=` y cualquier otro parámetro de la query (D-12). | AC-39, AC-40 | apps/api/tests/adversarial/test-database-guard.adversarial.test.ts |
+| ADV-001-06 | Bajo | Migraciones y seeds serializados con un bloqueo consultivo de PostgreSQL de clave fija (D-13). | AC-42, AC-43, AC-44 | apps/api/tests/adversarial/migrate-concurrency.adversarial.test.ts |
+| ADV-001-09 | Bajo | API_INTERNAL_URL se reduce a su origen (D-14). | AC-45, AC-46 | apps/web/tests/adversarial/server-env.adversarial.test.ts |
+
+Acompañan a las correcciones AC-38 (ERROR_CODES) y AC-41 (URL inválida en createSequelize). La prueba ADV-001-03 (prototype pollution) ya está en verde y debe seguir así.
+
+### 17.3 Decisiones
+
+**D-11. Errores del lector del cuerpo.**
+- La tabla de clasificación de 9.2 se aplica a todo error que entrega el lector del cuerpo (express.json de Express 5.2.1, que usa body-parser 2.3.0 y raw-body 3.0.2).
+- Códigos y mensajes nuevos, ambos con details null:
+  - 415 UNSUPPORTED_MEDIA_TYPE: 'La codificación del cuerpo de la solicitud no es compatible.'
+  - 400 INVALID_BODY: 'No se pudo leer el cuerpo de la solicitud.'
+- INVALID_JSON y PAYLOAD_TOO_LARGE no cambian (código, estado ni mensaje).
+- Un solo mensaje para Content-Encoding y charset: para quien lee, ambos son "la codificación". details nunca devuelve el valor recibido.
+- La clasificación aplica solo a errores del lector del cuerpo. Un error que no es AppError ni ZodError y que no viene del lector sigue siendo inesperado (500 y se registra), aunque traiga una propiedad status 4xx (AC-37). Cómo reconoce el errorHandler que el error viene del lector lo decide backend-dev (por ejemplo, envolver express.json en createApp para marcar sus errores), pero no puede decidirlo solo por la propiedad status.
+- Los 4xx no escriben nada en el log (RN-001-07, SUPUESTO S-14). Los 500 se siguen registrando con traza, sin cuerpo ni URL de base.
+- El límite de 100 KB se mide después de descomprimir. body-parser ya lo hace así; AC-36 lo fija como regresión para que un gzip pequeño que se infla a más de 100 KB siga respondiendo 413.
+- Comportamiento verificado el 2026-10-07 con la app actual: los casos de AC-33, AC-34 y AC-35 responden hoy 500 INTERNAL_ERROR con traza; los de AC-36 ya responden lo esperado.
+
+**D-12. Conexión a PostgreSQL solo con las partes del URL.**
+- createSequelize valida la URL con la misma regla que loadConfig: protocolo postgres: o postgresql: y nombre de base no vacío (regla compartida en apps/api/src/db/postgres-url.ts). Si no la cumple, lanza `Error` con el mensaje 'La URL de la base de datos no es válida.', sin la URL en ninguna propiedad del error (tampoco en cause).
+- Arma la conexión así:
+
+  | Parte | Valor |
+  | --- | --- |
+  | host | hostname del URL; un IPv6 va sin corchetes (`[::1]` pasa como `::1`); si viene vacío, 'localhost' |
+  | port | puerto del URL como número; si no trae, 5432 |
+  | database | path del URL sin la barra inicial, sin decodificar (la misma regla que la guardia de AC-11) |
+  | username | usuario del URL, decodificado (`%40` pasa como `@`) |
+  | password | clave del URL, decodificada |
+
+- La query se ignora completa, sin lista blanca: host, port, options, sslmode, ssl, sslcert, sslkey, sslrootcert, application_name, client_encoding, statement_timeout, user, password, database, dbname y cualquier otro.
+- `dialectOptions` queda exactamente `{ connectionTimeoutMillis: 5000, ssl: false }`. El resto de la configuración de la sección 8 (logging, timezone, define.underscored, pool.acquire) no cambia.
+- Por qué no hay lista blanca, ni siquiera para sslmode (SUPUESTO S-12): PostgreSQL corre en la misma PC (localhost:5432) y no necesita SSL; el único valor usado hoy es sslmode=disable (AC-10), que equivale a `ssl: false`; los parámetros SSL del driver leen archivos del disco (sslcert, sslkey, sslrootcert); y con la lista vacía lo que revisa la guardia es exactamente a lo que se conecta. Si algún día hace falta SSL, se agregará una variable explícita en una spec con ADR.
+- Aplica a DATABASE_URL y a DATABASE_URL_TEST, porque toda conexión del proyecto pasa por createSequelize: server.ts, cli.ts, los helpers de pruebas y la API que levanta Playwright.
+- loadConfig y assertTestDatabase no cambian. La guardia sigue aceptando `.../polleria_test?host=...` y `.../polleria_test?options=...` (lo exige la prueba adversarial), porque esos parámetros ya no tienen efecto.
+- Nota para backend-dev (verificada en el código de Sequelize 6.37.8): cuando recibe una URL, Sequelize copia toda la query a dialectOptions y toma `?host=` como host. Por eso conviene crear la instancia con la forma de objeto (`new Sequelize({ dialect: 'postgres', host, port, database, username, password, ... })`).
+
+**D-13. Bloqueo de migraciones y seeds.**
+- migrateUp, migrateDown y seedUp toman un bloqueo consultivo exclusivo de PostgreSQL antes de leer o crear su tabla de registro (SequelizeMeta, SequelizeData o la indicada en tableName) y lo sueltan al terminar, tanto si terminan bien como si fallan.
+- Clave fija: `MIGRATION_LOCK_KEY = 2026100701` (fecha de la enmienda más 01), exportada por apps/api/src/db/migrator.ts. Se usa la forma de un argumento (bigint) de pg_advisory_lock o de pg_advisory_xact_lock; backend-dev elige cuál.
+- Las tres funciones comparten la clave, sin importar glob ni tableName: un seed nunca corre a la vez que una migración.
+- Mientras otra conexión tiene el bloqueo, la llamada espera sin error y sin límite de tiempo (SUPUESTO S-15). Al obtenerlo, lee la tabla de registro ya actualizada; por eso la segunda de dos llamadas simultáneas devuelve [] si no queda nada pendiente.
+- El bloqueo vive en una conexión dedicada durante toda la operación. Atención: un bloqueo de sesión (pg_advisory_lock) solo se suelta desde la misma conexión que lo tomó, y el pool de Sequelize puede entregar otra; hay que fijar esa conexión (por ejemplo, con una transacción que use pg_advisory_xact_lock). Las migraciones se siguen ejecutando como hoy, fuera de esa transacción.
+- La CLI no cambia sus mensajes: un segundo `pnpm db:migrate` simultáneo espera y luego escribe 'No hay migraciones pendientes.'.
+- Registro de claves de bloqueo consultivo del proyecto: 2026100701 = migraciones y seeds. Una spec futura que use bloqueos consultivos agrega aquí su clave y no reutiliza esta.
+
+**D-14. API_INTERNAL_URL se reduce a su origen.**
+- loadWebServerConfig valida igual que hoy (URL http o https, mensajes de AC-28) y devuelve como apiInternalUrl el origen de la URL: protocolo y host en minúsculas y el puerto (sin el puerto por defecto: 80 en http, 443 en https), sin ruta, query, fragmento ni barra final. Ruta, query y fragmento se descartan sin error.
+- Si la URL trae usuario o clave, lanza el Error de AC-28 con la línea '- API_INTERNAL_URL: no debe incluir usuario ni clave.' (SUPUESTO S-13: la API interna no usa usuario ni clave, y descartarlos en silencio ocultaría un error de configuración). El mensaje no incluye el valor recibido.
+- next.config.ts no cambia: el destino del rewrite queda siempre `<origen>/api/:path*`.
+
+### 17.4 Criterios de aceptación
+
+Cada AC tiene al menos una prueba cuyo nombre empieza con su ID. Las pruebas adversariales de 17.2 no se modifican; deben pasar a verde con la implementación, además de estos AC.
+
+**AC-33. Codificación o charset no soportados responden 415** (integración sin base, apps/api; corrige ADV-001-01)
+- Dado la app creada con `createApp({ sequelize })` con un sequelize que nunca se conecta (helper createUnreachableSequelize) y console.error espiado,
+- cuando se hace `POST /api/health` con el cuerpo `{"a":1}` y estas cabeceras:
+
+  | Caso | Cabeceras |
+  | --- | --- |
+  | Codificación desconocida | `Content-Type: application/json` y `Content-Encoding: bogus` |
+  | Codificación registrada pero no soportada | `Content-Type: application/json` y `Content-Encoding: compress` |
+  | Charset que no es UTF | `Content-Type: application/json; charset=latin1` |
+  | Charset UTF que no existe | `Content-Type: application/json; charset=utf-99` |
+
+- entonces responde 415 con Content-Type application/json y exactamente `{ error: { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'La codificación del cuerpo de la solicitud no es compatible.', details: null } }`, que cumple errorResponseSchema;
+- y console.error no se llama durante la solicitud.
+
+**AC-34. Cuerpo comprimido ilegible responde 400 INVALID_BODY** (integración sin base, apps/api; corrige ADV-001-02)
+- Dado la misma app y console.error espiado,
+- cuando se hace `POST /api/health` con `Content-Type: application/json` y:
+
+  | Caso | Content-Encoding | Cuerpo (bytes) |
+  | --- | --- | --- |
+  | No es gzip | gzip | el texto `esto no es gzip` |
+  | gzip truncado | gzip | los primeros 12 bytes de `zlib.gzipSync('{"a":1}')` |
+  | No es deflate | deflate | el texto `esto no es deflate` |
+  | No es brotli | br | el texto `esto no es brotli` |
+
+- entonces responde 400 con Content-Type application/json y exactamente `{ error: { code: 'INVALID_BODY', message: 'No se pudo leer el cuerpo de la solicitud.', details: null } }`, que cumple errorResponseSchema;
+- y console.error no se llama durante la solicitud.
+
+**AC-35. Solicitud cortada a mitad del cuerpo: sin traza y la API sigue atendiendo** (integración con servidor real sin base, apps/api)
+- Dado `createApp({ sequelize, healthTimeoutMs: 100 })` con un sequelize que nunca se conecta, escuchando en 127.0.0.1 en un puerto libre, y console.error espiado,
+- cuando un cliente abre una conexión TCP (node:net), envía `POST /api/health HTTP/1.1` con las cabeceras `Host`, `Content-Type: application/json` y `Content-Length: 100`, envía solo `{"a":` y destruye la conexión,
+- entonces durante los 500 ms siguientes console.error no se llama;
+- y después `GET /api/health` a ese mismo servidor responde 503 (el proceso sigue vivo y atendiendo).
+
+**AC-36. Los cuerpos comprimidos válidos siguen funcionando** (integración sin base, apps/api; regresión)
+- Dado la misma app de AC-33 y console.error espiado,
+- cuando se hace `POST /api/health` con `Content-Type: application/json` y el cuerpo `{"a":1}` comprimido de forma válida con gzip, deflate o br (con su Content-Encoding), con `Content-Encoding: GZIP` en mayúsculas, o sin comprimir con `Content-Encoding: identity`,
+- entonces responde 404 NOT_FOUND (el cuerpo se leyó bien y la ruta POST no existe);
+- cuando el cuerpo es `{"a":` comprimido con gzip, responde 400 con el cuerpo INVALID_JSON de AC-17;
+- cuando el cuerpo es un JSON válido de 150 KB comprimido con gzip, responde 413 con el cuerpo PAYLOAD_TOO_LARGE de AC-17 (el límite se mide después de descomprimir);
+- y en ningún caso se llama console.error.
+
+**AC-37. La clasificación nueva aplica solo al lector del cuerpo** (unitaria con app de prueba, apps/api)
+- Dado una app Express de prueba que monta solo `errorHandler` (sin lector del cuerpo), con console.error espiado, y una ruta que lanza `Object.assign(new Error('fallo con estado'), { status: 400, statusCode: 400, expose: true })`,
+- cuando se llama a esa ruta,
+- entonces responde 500 con `{ error: { code: 'INTERNAL_ERROR', message: 'Ocurrió un error inesperado. Intenta nuevamente.', details: null } }`, el cuerpo no contiene 'fallo con estado' y console.error se llama (se registra como error inesperado, igual que AC-20).
+
+**AC-38. ERROR_CODES incluye los códigos nuevos** (unitaria, packages/shared)
+- Dado ERROR_CODES y errorResponseSchema de @polleria/shared,
+- entonces ERROR_CODES contiene UNSUPPORTED_MEDIA_TYPE e INVALID_BODY, cada uno con un valor igual a su nombre, además de los cinco de AC-03;
+- y errorResponseSchema acepta `{ error: { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'La codificación del cuerpo de la solicitud no es compatible.', details: null } }` y `{ error: { code: 'INVALID_BODY', message: 'No se pudo leer el cuerpo de la solicitud.', details: null } }`.
+
+**AC-39. La conexión usa solo las partes del URL** (unitaria, apps/api, sin abrir conexiones; corrige ADV-001-04 y ADV-001-05)
+- Dado `createSequelize(url)` y la configuración resuelta en `sequelize.config` (crear la instancia no abre conexiones; la prueba la cierra al final),
+- cuando url es cada valor de esta tabla:
+
+  | Caso | URL | host | port | database | username | password |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | Host en la query | `postgres://polleria:clave@localhost:5432/polleria_test?host=host-ajeno.example` | 'localhost' | 5432 | 'polleria_test' | 'polleria' | 'clave' |
+  | Opciones de libpq | `postgres://polleria:clave@localhost:5432/polleria_test?options=-c%20search_path%3Devil` | 'localhost' | 5432 | 'polleria_test' | 'polleria' | 'clave' |
+  | Muchos parámetros | `postgresql://polleria:clave%40123@127.0.0.1/polleria_dev?sslmode=require&application_name=x&statement_timeout=1&port=6000&user=otro&password=otra&dbname=otra&database=otra` | '127.0.0.1' | 5432 | 'polleria_dev' | 'polleria' | 'clave@123' |
+  | IPv6 | `postgres://polleria:clave@[::1]:5433/polleria_test` | '::1' | 5433 | 'polleria_test' | 'polleria' | 'clave' |
+  | Sin host | `postgres:///polleria_test` | 'localhost' | 5432 | 'polleria_test' | (no se verifica) | (no se verifica) |
+
+- entonces host, port (número), database, username y password valen lo indicado en la tabla;
+- y `sequelize.config.dialectOptions` es exactamente `{ connectionTimeoutMillis: 5000, ssl: false }` (en particular, sin options, application_name, statement_timeout, sslmode ni host);
+- y assertTestDatabase sigue aceptando las URL de las filas "Host en la query" y "Opciones de libpq" y devuelve 'polleria_test' (la regla de AC-10 y AC-11 no cambia).
+
+**AC-40. Una conexión real ignora los parámetros de la query** (integración, apps/api, polleria_test)
+- Dado DATABASE_URL_TEST (verificada con assertTestDatabase) a la que la prueba agrega con URLSearchParams `host=host-ajeno.invalid`, `options=-c search_path=esquema_ajeno` y `application_name=polleria_ataque`, conservando los parámetros que ya tuviera,
+- cuando se crea `createSequelize(urlConParametros)` y se llama `authenticate()`,
+- entonces la conexión se abre sin error (contra el host del URL original y no contra host-ajeno.invalid);
+- y `SHOW search_path` devuelve lo mismo que en una conexión creada con la DATABASE_URL_TEST original;
+- y `SELECT current_setting('application_name')` no es 'polleria_ataque';
+- y `SELECT current_database()` es el nombre que devolvió assertTestDatabase.
+
+**AC-41. createSequelize rechaza una URL inválida sin filtrar secretos** (unitaria, apps/api)
+- Dado createSequelize,
+- cuando recibe `mysql://polleria:Secreta_123@localhost/polleria_test`, `Secreta_123` o `postgres://polleria:Secreta_123@localhost:5432` (sin nombre de base),
+- entonces lanza un Error con el mensaje exacto 'La URL de la base de datos no es válida.';
+- y ni error.message, ni error.stack, ni error.cause (si existe, convertido a texto con sus propiedades) contienen 'Secreta_123'.
+
+**AC-42. Migraciones y seeds simultáneos se serializan** (integración, apps/api, polleria_test; corrige ADV-001-06)
+- Dado polleria_test limpia (sin tablas de fixtures, FixtureMeta ni FixtureData) y los fixtures de AC-22 y AC-23,
+- cuando se ejecutan a la vez dos `migrateUp(sequelize, { glob, tableName: 'FixtureMeta' })` sobre la misma instancia,
+- entonces ninguna se rechaza; una devuelve `['20260101000000-create-fixture-a.ts', '20260101000001-create-fixture-b.ts']` y la otra `[]`; FixtureMeta tiene exactamente esos dos nombres; fixture_a y fixture_b existen;
+- y el resultado es el mismo cuando las dos llamadas usan dos instancias distintas (dos conexiones a polleria_test, como dos procesos);
+- cuando, con las dos migraciones aplicadas, se ejecutan a la vez dos `migrateDown` con las mismas opciones,
+- entonces ninguna se rechaza, cada una devuelve exactamente un nombre, entre las dos devuelven los dos nombres, y fixture_a y fixture_b ya no existen;
+- cuando se ejecutan a la vez dos `seedUp(sequelize, { glob, tableName: 'FixtureData' })`,
+- entonces ninguna se rechaza, una devuelve `['20260101000000-insert-fixture-row.ts']` y la otra `[]`, y la tabla fixture_seed_rows tiene una sola fila.
+
+**AC-43. El bloqueo usa la clave documentada y espera a quien lo tiene** (integración, apps/api, polleria_test)
+- Dado `MIGRATION_LOCK_KEY` exportado por apps/api/src/db/migrator.ts con valor 2026100701, y una segunda conexión a polleria_test que tomó el bloqueo con la clave 2026100701 (por ejemplo, `SELECT pg_advisory_xact_lock(2026100701)` dentro de una transacción abierta),
+- cuando se llama `migrateUp(sequelize, { glob, tableName: 'FixtureMeta' })` con otra instancia,
+- entonces 500 ms después la promesa sigue pendiente y no existen FixtureMeta ni fixture_a (el bloqueo se toma antes de tocar la tabla de registro);
+- cuando la segunda conexión suelta el bloqueo, migrateUp termina en menos de 5 s y devuelve los dos nombres;
+- y, ya terminado migrateUp, otra conexión obtiene el bloqueo al instante: `SELECT pg_try_advisory_xact_lock(2026100701)` dentro de una transacción devuelve true;
+- y, con el bloqueo tomado de nuevo por la segunda conexión, `seedUp(sequelize, { glob, tableName: 'FixtureData' })` y `migrateDown(sequelize, { glob, tableName: 'FixtureMeta' })` también siguen pendientes 500 ms después y terminan cuando se suelta.
+
+**AC-44. El bloqueo se suelta aunque la migración falle** (integración, apps/api, polleria_test)
+- Dado un fixture de migración que falla (`apps/api/tests/fixtures/migrations-failing/20260101000000-fails.ts`, cuyo up lanza `new Error('Falla de prueba.')`) y tableName 'FixtureMeta',
+- cuando se ejecuta migrateUp con el glob de ese fixture,
+- entonces la promesa se rechaza con un error cuyo mensaje contiene 'Falla de prueba.';
+- y después `SELECT pg_try_advisory_xact_lock(2026100701)` dentro de una transacción de otra conexión devuelve true;
+- y un migrateUp con los fixtures de AC-22 termina en menos de 5 s y devuelve sus dos nombres.
+
+**AC-45. API_INTERNAL_URL se reduce a su origen** (unitaria, apps/web; corrige ADV-001-09)
+- Dado `loadWebServerConfig(env)`,
+- cuando API_INTERNAL_URL es cada valor de la tabla, entonces no lanza error y apiInternalUrl es el indicado:
+
+  | API_INTERNAL_URL | apiInternalUrl |
+  | --- | --- |
+  | `http://127.0.0.1:4000/base` | `http://127.0.0.1:4000` |
+  | `http://127.0.0.1:4000/?x=1` | `http://127.0.0.1:4000` |
+  | `http://127.0.0.1:4000/#frag` | `http://127.0.0.1:4000` |
+  | `http://127.0.0.1:4000/api/` | `http://127.0.0.1:4000` |
+  | `http://192.168.1.50:4000/` | `http://192.168.1.50:4000` |
+  | `HTTP://Servidor-Local:4000/x` | `http://servidor-local:4000` |
+  | `http://127.0.0.1:80/` | `http://127.0.0.1` |
+  | `https://api.local:443/x?y=1#z` | `https://api.local` |
+  | `http://[::1]:4000/x` | `http://[::1]:4000` |
+
+- y el default export de apps/web/next.config.ts, cargado con `API_INTERNAL_URL=http://127.0.0.1:4000/base` en process.env, tiene un `rewrites()` que devuelve `[{ source: '/api/:path*', destination: 'http://127.0.0.1:4000/api/:path*' }]`;
+- y los casos de error de AC-28 (`ftp://192.168.1.50`, `no-es-url`) siguen lanzando el mismo error.
+
+**AC-46. API_INTERNAL_URL con usuario o clave se rechaza** (unitaria, apps/web; SUPUESTO S-13)
+- Dado `loadWebServerConfig(env)`,
+- cuando API_INTERNAL_URL es `http://admin:Secreta_123@127.0.0.1:4000` o `http://admin@127.0.0.1:4000`,
+- entonces lanza un Error cuyo mensaje empieza con 'Configuración inválida de la web.', contiene la línea '- API_INTERNAL_URL: no debe incluir usuario ni clave.' y no contiene 'Secreta_123' ni 'admin'.
+
+### 17.5 Reglas de negocio aplicables
+
+- RN-001-01 (sin secretos en respuestas, mensajes ni log): AC-33 a AC-36 no devuelven el valor recibido; AC-41 y AC-46 no filtran la clave.
+- RN-001-02 (las pruebas solo tocan bases _test): lo que revisa la guardia es ahora exactamente a lo que se conecta (AC-39, AC-40).
+- RN-001-07, RN-001-08 y RN-001-09: nuevas, en la sección 6.
+
+### 17.6 Casos borde
+
+Lector del cuerpo:
+- `Content-Encoding: gzip, gzip` (varias codificaciones): 415, porque Express 5 acepta una sola.
+- `Content-Encoding: GZIP` en mayúsculas se acepta.
+- Cuerpo vacío con `Content-Encoding: gzip` y `Content-Length: 0`: el descompresor falla y responde 400 INVALID_BODY (misma regla que AC-34).
+- Content-Type que no es JSON (`text/plain`) o mal formado (`application/json; charset`): el lector no lee el cuerpo y no hay error; decide la ruta (POST /api/health responde 404).
+- `charset=utf-16` con un cuerpo en UTF-8: el charset existe, se decodifica mal y responde 400 INVALID_JSON, no 415.
+- Un GET con cuerpo JSON también pasa por el lector: GET /api/health con `Content-Encoding: bogus` y cuerpo responde 415.
+- Solicitud cortada: el cliente ya cerró y no recibe la respuesta; lo que importa es que no haya traza ni caída (AC-35).
+- Errores 4xx del enrutador de Express (por ejemplo un parámetro de ruta mal codificado como %E0): no existen todavía porque no hay rutas con parámetros. La spec que agregue la primera debe definir su respuesta.
+
+Conexión a la base:
+- DATABASE_URL con `?sslmode=require`: se ignora y la conexión va sin SSL (S-12). Si el servidor exigiera SSL, falla con el error de conexión habitual ('No se pudo conectar con la base de datos.' en la CLI, 503 en /api/health).
+- Clave con caracteres especiales: se escriben codificados en la URL (`%40` para `@`) y se decodifican al conectar.
+- URL sin usuario: el driver usa su usuario por defecto. .env.example siempre trae usuario y clave.
+- Las variables de entorno PG* del sistema (por ejemplo PGOPTIONS) quedan fuera de esta regla: las controla quien instala, no la URL.
+
+Migraciones:
+- Un proceso de migración colgado deja esperando a los demás; se detiene con Ctrl+C y PostgreSQL suelta el bloqueo al cerrar su conexión.
+- migrateDown simultáneos: cada uno revierte la última migración que queda en ese momento.
+- En un mismo proceso, cada llamada que espera el bloqueo puede ocupar una conexión del pool (máximo 5 por defecto). Muchas llamadas simultáneas sobre la misma instancia podrían agotarlo y fallar por tiempo de adquisición (10 s). En el uso real hay una sola llamada por proceso (la CLI).
+- Las pruebas que toman el bloqueo a mano deben soltarlo siempre (también si fallan); si no, las demás pruebas de migraciones esperan hasta su tiempo límite.
+
+Web:
+- `http://127.0.0.1:4000/api` pasa a `http://127.0.0.1:4000`: evita el destino /api/api.
+- Puerto por defecto: `http://127.0.0.1:80` pasa a `http://127.0.0.1`.
+- En producción el rewrite se calcula en `next build` (nota ya registrada en PROGRESS); la normalización aplica igual.
+
+### 17.7 Modelo de datos, API e interfaz
+
+- Modelo de datos: sin tablas ni columnas nuevas. El bloqueo consultivo no crea tablas.
+- API: sin endpoints nuevos. Códigos de error nuevos UNSUPPORTED_MEDIA_TYPE (415) e INVALID_BODY (400), en la tabla de 9.2. Contrato OpenAPI 0.2.0: ErrorCode con los dos códigos, respuestas reutilizables UnsupportedMediaType e InvalidBody, y la convención "errores al leer el cuerpo" en la descripción. /health no cambia.
+- Interfaz: sin cambios. Ninguna pantalla, texto ni estado cambia.
+- Contrato interno de módulos: cambios anotados en la sección 11 (ERROR_CODES, createSequelize, MIGRATION_LOCK_KEY, errorHandler, loadWebServerConfig y next.config.ts).
+
+### 17.8 Fuera de alcance de la enmienda
+
+- SSL en la conexión a PostgreSQL (S-12).
+- Límite de espera del bloqueo de migraciones y un mensaje "esperando..." en la CLI (S-15).
+- Cabecera Accept-Encoding en la respuesta 415.
+- Respuestas para errores 4xx del enrutador de Express.
+- Registrar los 4xx en un log informativo (no hay logger estructurado todavía).
+- Protección frente a variables de entorno PG* del sistema.
+- Rechazar en loadConfig o en la guardia las URL con parámetros (no cambian).
+
+### 17.9 Supuestos
+
+S-12, S-13, S-14 y S-15, en la tabla de la sección 14.
+
+### 17.10 Dependencias
+
+Ninguna nueva. node:zlib y node:net (para las pruebas) son módulos nativos de Node.
+
+### 17.11 Preguntas abiertas para el usuario
+
+Ninguna cambia lo que ve el usuario final. Si no hay respuesta, se aplica la recomendación.
+
+1. ¿Confirmas que la conexión a PostgreSQL no use SSL y no lea parámetros de la URL, ni siquiera sslmode (S-12)? Recomendación: sí, porque PostgreSQL corre en la misma PC.
+2. Si API_INTERNAL_URL trae usuario o clave, ¿la web no arranca y muestra el error (S-13, recomendado) o se descartan en silencio?
+3. ¿Está bien no registrar en el log los errores 4xx (S-14)? Recomendación: sí para el prototipo.
+4. ¿Está bien que una migración espere sin límite de tiempo a otra que está en curso (S-15)? La alternativa es fallar después de, por ejemplo, 60 s con un mensaje.

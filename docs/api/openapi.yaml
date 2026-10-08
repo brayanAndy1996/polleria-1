@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.1.0
+  version: 0.2.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -17,6 +17,10 @@ info:
       code va en inglés en MAYÚSCULAS_CON_GUION_BAJO; message va en español de Perú para mostrarse al usuario.
     - Excepción documentada: GET /health responde 503 con HealthResponse (no con ErrorResponse) porque
       informa un estado del sistema, no un error de la solicitud.
+    - Errores al leer el cuerpo (spec 001, enmienda 1): cualquier solicitud con cuerpo puede recibir
+      400 INVALID_JSON, 400 INVALID_BODY, 413 PAYLOAD_TOO_LARGE o 415 UNSUPPORTED_MEDIA_TYPE, aunque la
+      operación no los repita. El cuerpo puede venir comprimido con gzip, deflate o br; el límite de
+      100 KB se mide después de descomprimir. Solo se acepta un charset UTF (utf-8 por defecto).
 servers:
   - url: http://localhost:3000/api
     description: A través de la web, en el mismo origen. Es lo que usan los navegadores (PC de caja y celulares).
@@ -89,11 +93,13 @@ components:
       type: string
       pattern: '^[A-Z][A-Z0-9_]*$'
       description: |
-        Código estable para que la web decida qué hacer. Códigos definidos hasta la spec 001:
+        Código estable para que la web decida qué hacer. Códigos definidos hasta la spec 001 (con la enmienda 1):
         - NOT_FOUND (404): la ruta no existe.
         - INVALID_JSON (400): el cuerpo no es un JSON válido.
+        - INVALID_BODY (400): el cuerpo no se pudo leer (compresión corrupta o incompleta, solicitud cortada).
         - VALIDATION_ERROR (400): los datos no cumplen el esquema; details.issues lista los problemas.
-        - PAYLOAD_TOO_LARGE (413): el cuerpo supera 100 KB.
+        - PAYLOAD_TOO_LARGE (413): el cuerpo supera 100 KB (medido después de descomprimir).
+        - UNSUPPORTED_MEDIA_TYPE (415): Content-Encoding distinto de identity, gzip, deflate y br, o charset no soportado.
         - INTERNAL_ERROR (500): error no controlado; nunca incluye detalles internos.
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
       examples: [NOT_FOUND]
@@ -157,6 +163,34 @@ components:
               code: INVALID_JSON
               message: El cuerpo de la solicitud no es un JSON válido.
               details: null
+    InvalidBody:
+      description: |
+        El cuerpo de la solicitud no se pudo leer: la compresión (gzip, deflate o br) está corrupta,
+        incompleta o vacía, o la solicitud se cortó antes de terminar el cuerpo. Aplica a cualquier ruta
+        que reciba cuerpo.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INVALID_BODY
+              message: No se pudo leer el cuerpo de la solicitud.
+              details: null
+    UnsupportedMediaType:
+      description: |
+        La codificación del cuerpo no es compatible: Content-Encoding distinto de identity, gzip, deflate
+        y br (también varias codificaciones a la vez), o un charset que no es UTF o que no existe.
+        Aplica a cualquier ruta que reciba cuerpo.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: UNSUPPORTED_MEDIA_TYPE
+              message: La codificación del cuerpo de la solicitud no es compatible.
+              details: null
     ValidationError:
       description: Los datos enviados no cumplen el esquema.
       content:
@@ -183,7 +217,7 @@ components:
               message: La ruta solicitada no existe.
               details: null
     PayloadTooLarge:
-      description: El cuerpo de la solicitud supera 100 KB.
+      description: El cuerpo de la solicitud supera 100 KB (medido después de descomprimir).
       content:
         application/json:
           schema:

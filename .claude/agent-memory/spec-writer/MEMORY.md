@@ -1,4 +1,4 @@
-- [Decisiones de modelado](project_decisiones_modelado.md) — prefijo /api, mismo origen, errores, convenciones BD/JSON, umzug; fijadas en spec 001
+- [Decisiones de modelado](project_decisiones_modelado.md) — /api, mismo origen, códigos de error, conexión solo con el URL, clave de bloqueo 2026100701; spec 001 + enmienda 1
 - [Entorno verificado](project_entorno_verificado.md) — Node 24.1.0, TS 6.0.3, jsdom 29, Next 16 dev origins/lockfile, Chrome 111; por qué de las versiones
-- [Forma de las specs](feedback_forma_specs.md) — AC solo comportamiento, requisitos de configuración aparte, dependencias de soporte, contrato de módulos
-- [Herramientas del entorno](reference_herramientas_entorno.md) — npm view, Redocly via npx, npm pack para leer código; python se cuelga
+- [Forma de las specs](feedback_forma_specs.md) — AC solo comportamiento, config aparte, contrato de módulos, patrón de enmiendas por hallazgos
+- [Herramientas del entorno](reference_herramientas_entorno.md) — npm view, Redocly via npx, scripts en scratchpad; no Markdown con backticks por bash

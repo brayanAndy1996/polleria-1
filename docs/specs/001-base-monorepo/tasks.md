@@ -1,6 +1,6 @@
 # Tareas — Spec 001: base del monorepo, salud de la API y web mínima
 
-- Spec: docs/specs/001-base-monorepo/spec.md (Borrador)
+- Spec: docs/specs/001-base-monorepo/spec.md (Aprobada; enmienda 1 aprobada el 2026-10-07, tareas T-26 a T-35 al final)
 - Rama: feat/001-base-monorepo
 - Contrato: docs/api/openapi.yaml
 - ADR: docs/decisions/0001-stack-y-versiones.md (Propuesto). Las versiones exactas salen de ahí.
@@ -259,3 +259,133 @@ Reglas comunes:
 - Andamiaje: T-01, luego T-02, luego T-03 y T-04 en paralelo, luego T-05 y T-06 en paralelo.
 - Pruebas: T-07, T-08, T-09, T-10 y T-15 en paralelo; luego T-11 a T-14; T-16 en cuanto termine T-06.
 - Implementación: backend (T-17 a T-22) y frontend (T-23 y T-24) en paralelo una vez lista T-17; T-25 al final.
+
+## Enmienda 1 (2026-10-07): correcciones de hallazgos adversariales
+
+Spec: sección 17 (decisiones D-11 a D-14, AC-33 a AC-46). Corrige ADV-001-01, ADV-001-02, ADV-001-04, ADV-001-05, ADV-001-06 y ADV-001-09. No cambia lo que ve el usuario final.
+
+Reglas de la enmienda:
+- Estas pruebas adversariales ya existen y NADIE las modifica (tampoco el test-writer). Deben pasar a verde con la implementación:
+  - apps/api/tests/adversarial/common-errors.adversarial.test.ts (ADV-001-01, ADV-001-02 y ADV-001-03, que ya está en verde)
+  - apps/api/tests/adversarial/test-database-guard.adversarial.test.ts (ADV-001-04 y ADV-001-05)
+  - apps/api/tests/adversarial/migrate-concurrency.adversarial.test.ts (ADV-001-06)
+  - apps/web/tests/adversarial/server-env.adversarial.test.ts (ADV-001-09)
+- Las pruebas de AC-01 a AC-32 siguen en verde sin cambios.
+- Los módulos ya existen, así que el rojo válido es "comportamiento ausente" (respuesta 500 en vez de 4xx, host tomado de la query, promesa que no espera, URL con ruta). En AC-43 y AC-44, importar MIGRATION_LOCK_KEY (todavía no exportado) también es un rojo válido.
+- Las pruebas que espían console.error usan `vi.spyOn(console, 'error').mockImplementation(() => undefined)` y lo restauran al terminar.
+
+### Pruebas en rojo (test-writer)
+
+#### T-26. Pruebas de errores del lector del cuerpo
+- Responsable: test-writer
+- Dependencias: ninguna (T-19 ya está terminada)
+- AC: AC-33, AC-34, AC-35, AC-36, AC-37
+- Descripción:
+  - AC-33, AC-34 y AC-36 con Supertest sobre `createApp({ sequelize: createUnreachableSequelize() })`, sin tocar la base (por ejemplo apps/api/tests/body-reader-errors.test.ts). Cuerpos comprimidos con node:zlib (gzipSync, deflateSync, brotliCompressSync). Validar los cuerpos con errorResponseSchema y comprobar que console.error no se llama.
+  - AC-35 con un servidor real (`app.listen(0, '127.0.0.1')`) y un socket de node:net que envía las cabeceras con `Content-Length: 100`, solo `{"a":` y luego `destroy()`. Esperar 500 ms y revisar console.error; después, GET /api/health debe responder 503. Cerrar el servidor al final.
+  - AC-37 con una app Express de prueba que monta solo errorHandler (puede ir junto a las pruebas de AC-18 a AC-20 en apps/api/src/middlewares/error-handler.test.ts o en un archivo nuevo).
+
+#### T-27. Prueba de ERROR_CODES
+- Responsable: test-writer
+- Dependencias: ninguna
+- AC: AC-38
+- Descripción: en packages/shared, junto a las pruebas de AC-03, comprobar UNSUPPORTED_MEDIA_TYPE e INVALID_BODY en ERROR_CODES y que errorResponseSchema acepta los dos cuerpos de AC-38.
+
+#### T-28. Pruebas de la conexión armada solo con el URL
+- Responsable: test-writer
+- Dependencias: ninguna
+- AC: AC-39, AC-40, AC-41
+- Descripción:
+  - AC-39 y AC-41, unitarias en apps/api/src/db/sequelize.test.ts: crear la instancia, leer `sequelize.config` (con un cast, como en la prueba adversarial) y cerrarla. No abren conexiones. En AC-41, revisar message, stack y cause.
+  - AC-40, de integración en apps/api/tests/ (por ejemplo sequelize-connection.test.ts): partir de getTestDatabaseUrl() del helper, agregar los parámetros con `new URL()` y `searchParams.set`, y comparar `SHOW search_path` con el de una instancia de connectTestDatabase(). Cerrar ambas instancias.
+
+#### T-29. Pruebas del bloqueo de migraciones
+- Responsable: test-writer
+- Dependencias: ninguna
+- AC: AC-42, AC-43, AC-44
+- Descripción:
+  - Fixture nuevo apps/api/tests/fixtures/migrations-failing/20260101000000-fails.ts (solo sintaxis borrable), con un up que lanza `new Error('Falla de prueba.')` y un down vacío.
+  - Archivo de integración (por ejemplo apps/api/tests/migrator-lock.test.ts) que usa los helpers de limpieza de T-10 antes y después de cada prueba.
+  - Tomar el bloqueo "a mano" en una segunda instancia con una transacción no administrada (`const t = await otra.transaction()` y `SELECT pg_advisory_xact_lock(2026100701)` con `{ transaction: t }`) y soltarlo con `t.commit()`; así se suelta siempre en la misma conexión. Soltarlo también en afterEach si la prueba falla.
+  - Comprobar "sigue pendiente" con una bandera que se marca cuando la promesa se resuelve, después de esperar 500 ms.
+  - En el caso de dos instancias de AC-42, abrir la segunda con connectTestDatabase() y cerrarla al final.
+
+#### T-30. Pruebas de la configuración de la web
+- Responsable: test-writer
+- Dependencias: ninguna
+- AC: AC-45, AC-46
+- Descripción: en apps/web/src/config/server-env.test.ts, la tabla de AC-45 con `it.each` y los dos casos de AC-46 (inicio del mensaje, línea exacta y sin 'Secreta_123' ni 'admin'). Para el rewrite de AC-45: `vi.stubEnv('API_INTERNAL_URL', 'http://127.0.0.1:4000/base')`, `vi.resetModules()`, import dinámico de apps/web/next.config.ts y `await config.rewrites()`.
+
+### Implementación backend (backend-dev)
+
+#### T-31. Códigos de error nuevos en packages/shared
+- Responsable: backend-dev
+- Dependencias: T-27
+- AC: AC-38
+- Descripción: agregar UNSUPPORTED_MEDIA_TYPE e INVALID_BODY a ERROR_CODES en packages/shared/src/errors.ts y actualizar su comentario.
+
+#### T-32. Clasificación de los errores del lector del cuerpo
+- Responsable: backend-dev
+- Dependencias: T-26, T-31
+- AC: AC-33, AC-34, AC-35, AC-36, AC-37 (corrige ADV-001-01 y ADV-001-02)
+- Descripción:
+  - Aplicar la tabla de 9.2 y D-11: encoding.unsupported y charset.unsupported pasan a 415 UNSUPPORTED_MEDIA_TYPE; cualquier otro error 4xx del lector (descompresión fallida, solicitud cortada) pasa a 400 INVALID_BODY; INVALID_JSON y PAYLOAD_TOO_LARGE no cambian; los errores 5xx del lector siguen como 500.
+  - Reconocer los errores del lector sin depender solo de la propiedad status (AC-37). Una opción: envolver express.json en createApp para marcar los errores que entrega. El orden de middlewares de 9.2 no cambia.
+  - No registrar los 4xx; los 500 se siguen registrando con traza (RN-001-07).
+  - Verificar que ADV-001-01, ADV-001-02 y ADV-001-03 quedan en verde.
+
+#### T-33. Conexión armada solo con las partes del URL
+- Responsable: backend-dev
+- Dependencias: T-28
+- AC: AC-39, AC-40, AC-41 (corrige ADV-001-04 y ADV-001-05)
+- Descripción:
+  - createSequelize valida con la regla compartida de apps/api/src/db/postgres-url.ts (ahí se puede exportar una función que devuelva host, puerto, base, usuario y clave) y crea la instancia con la forma de objeto de Sequelize, según la tabla de D-12. `dialectOptions` queda exactamente `{ connectionTimeoutMillis: 5000, ssl: false }`; el resto de la configuración no cambia.
+  - El error de URL inválida no lleva la URL en ninguna propiedad: no reenviar el TypeError de `new URL`, que trae el valor en `input`.
+  - No cambiar loadConfig ni assertTestDatabase.
+  - Opcional: una línea en apps/api/.env.example que diga que los parámetros después de `?` se ignoran (AC-07 solo revisa las variables y sus valores).
+  - Verificar que ADV-001-04 y ADV-001-05 quedan en verde y que `pnpm dev` sigue mostrando 'Conectado'.
+
+#### T-34. Bloqueo consultivo en el migrador
+- Responsable: backend-dev
+- Dependencias: T-29
+- AC: AC-42, AC-43, AC-44 (corrige ADV-001-06)
+- Descripción:
+  - Exportar `MIGRATION_LOCK_KEY = 2026100701` en apps/api/src/db/migrator.ts.
+  - migrateUp, migrateDown y seedUp toman el bloqueo (pg_advisory_lock o pg_advisory_xact_lock, forma de un argumento) antes de que umzug lea o cree la tabla de registro, y lo sueltan en un finally.
+  - El bloqueo vive en una conexión fija durante toda la operación (ver D-13: con el pool, un pg_advisory_lock puede quedar tomado en otra conexión y trabar todo). Las migraciones se siguen ejecutando como hoy, fuera de esa conexión.
+  - Sin cambios en las firmas ni en los mensajes de cli.ts.
+  - Verificar que ADV-001-06 queda en verde y que AC-21 a AC-24 siguen en verde.
+
+### Implementación frontend (frontend-dev)
+
+#### T-35. API_INTERNAL_URL reducida a su origen
+- Responsable: frontend-dev
+- Dependencias: T-30
+- AC: AC-45, AC-46 (corrige ADV-001-09)
+- Descripción:
+  - En apps/web/src/config/server-env.ts, devolver el origen de la URL (`new URL(valor).origin`) en lugar de quitar solo la barra final, y rechazar una URL con usuario o clave con la línea '- API_INTERNAL_URL: no debe incluir usuario ni clave.', sin el valor. Mantener los mensajes de AC-28.
+  - next.config.ts no debería necesitar cambios.
+  - Opcional: en el comentario de apps/web/.env.example, aclarar que solo se usan el protocolo, el host y el puerto, sin usuario ni clave.
+  - Verificar que ADV-001-09 y AC-28 quedan en verde.
+
+### Matriz AC a tareas (enmienda 1)
+
+| AC | Prueba (test-writer) | Implementación | Hallazgo |
+| --- | --- | --- | --- |
+| AC-33 | T-26 | T-32 | ADV-001-01 |
+| AC-34, AC-35 | T-26 | T-32 | ADV-001-02 |
+| AC-36, AC-37 | T-26 | T-32 | ADV-001-01 y ADV-001-02 (regresión y alcance) |
+| AC-38 | T-27 | T-31 | — |
+| AC-39, AC-40 | T-28 | T-33 | ADV-001-04 y ADV-001-05 |
+| AC-41 | T-28 | T-33 | — |
+| AC-42, AC-43, AC-44 | T-29 | T-34 | ADV-001-06 |
+| AC-45, AC-46 | T-30 | T-35 | ADV-001-09 |
+
+### Paralelismo sugerido (enmienda 1)
+
+- Pruebas: T-26 a T-30 en paralelo.
+- Implementación: backend y frontend pueden ir en paralelo. Backend: T-31 y luego T-32; T-33 y T-34 son independientes entre sí y de T-31 y T-32. Frontend: T-35 en cuanto termine T-30.
+
+### Verificación al cerrar la enmienda (orquestador)
+
+`pnpm test` (con las cuatro pruebas adversariales en verde y sin cambios), `pnpm lint`, `pnpm typecheck`, `pnpm test:coverage`, `pnpm test:e2e` (con `pnpm dev` detenido) y `npx -y @redocly/cli@latest lint docs/api/openapi.yaml`. Después, marcar los seis hallazgos como cerrados en docs/PROGRESS.md.
