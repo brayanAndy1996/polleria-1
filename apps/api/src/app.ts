@@ -17,6 +17,8 @@ import type { PinHasher } from './services/auth/pin-hasher.ts';
 import { createSessionService } from './services/auth/session.service.ts';
 import { createUserService } from './services/users/user.service.ts';
 import { createUserAdminService } from './services/users/user-admin.service.ts';
+import { createProductService } from './services/products/product.service.ts';
+import { createProductsController } from './controllers/products.controller.ts';
 
 export interface AppDependencies {
   sequelize: Sequelize;
@@ -32,7 +34,7 @@ export interface AppDependencies {
  * solicitud (INVALID_JSON, PAYLOAD_TOO_LARGE...) la respuesta de error también la lleva.
  * Los routers la vuelven a fijar, lo cual es idempotente.
  */
-const NO_STORE_PATH_PREFIXES = ['/api/auth', '/api/users'] as const;
+const NO_STORE_PATH_PREFIXES = ['/api/auth', '/api/users', '/api/products'] as const;
 
 /** Arma la aplicación Express sin ponerla a escuchar (eso lo hace server.ts). */
 export function createApp({
@@ -64,6 +66,8 @@ export function createApp({
   });
   const authController = createAuthController({ authService });
   const usersController = createUsersController({ userService, userAdminService });
+  const productService = createProductService({ models });
+  const productsController = createProductsController({ productService });
   const requireAuth = createRequireAuth({ sessionService });
 
   const app = express();
@@ -78,7 +82,16 @@ export function createApp({
     next();
   });
   app.use(createBodyReader());
-  app.use('/api', createApiRouter({ healthService, authController, usersController, requireAuth }));
+  app.use(
+    '/api',
+    createApiRouter({
+      healthService,
+      authController,
+      usersController,
+      productsController,
+      requireAuth,
+    }),
+  );
   app.use(notFoundHandler);
   app.use(errorHandler);
 
