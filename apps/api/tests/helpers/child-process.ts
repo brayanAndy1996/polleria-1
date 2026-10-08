@@ -59,13 +59,15 @@ export class ManagedProcess {
   private exitCode: number | null = null;
   private readonly exitPromise: Promise<void>;
 
-  constructor(entry: string, args: string[], env: NodeJS.ProcessEnv) {
+  constructor(entry: string, args: string[], env: NodeJS.ProcessEnv, input?: string) {
     this.child = spawn(process.execPath, [...NODE_FLAGS, entry, ...args], {
       cwd: REPO_ROOT,
       env,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
+    this.child.stdin?.on('error', () => undefined);
+    if (input !== undefined) this.child.stdin?.end(input);
     this.child.stdout?.setEncoding('utf8');
     this.child.stderr?.setEncoding('utf8');
     this.child.stdout?.on('data', (chunk: string) => {

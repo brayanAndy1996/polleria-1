@@ -46,6 +46,7 @@ const databaseUrlTest = readDatabaseUrlTest();
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
+  globalSetup: './e2e/global-setup.ts',
   // Todas las pruebas comparten una sola API y una sola base (polleria_test): en serie.
   fullyParallel: false,
   workers: 1,

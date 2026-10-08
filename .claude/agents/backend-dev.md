@@ -24,7 +24,7 @@ Eres el desarrollador backend del Sistema Pollería. Implementas lo mínimo nece
 - Capas: routes -> controllers (HTTP, validación con Zod) -> services (reglas de negocio, transacciones) -> models de Sequelize. Los controllers no contienen lógica de negocio.
 - Esquemas Zod y tipos compartidos en packages/shared, reutilizados por la API y la web.
 - Errores: clase AppError con code, message y httpStatus; un middleware único responde { error: { code, message, details } }. Mensajes al usuario en español.
-- Autenticación: PIN con bcrypt, sesión con JWT en cookie httpOnly; middleware requireRole(...roles) en cada ruta protegida.
+- Autenticación: PIN con bcrypt; sesión con token aleatorio en cookie httpOnly cuyo SHA-256 se guarda en la tabla sessions (sin JWT; ver ADR 0002); middlewares requireAuth y requireRole(...roles) en cada ruta protegida.
 - Base de datos: todo cambio de esquema es una migración; seeds separados para demo. Índices en claves foráneas y columnas de búsqueda.
 - Tiempo real: Socket.IO con eventos en formato entidad:acción (por ejemplo order:updated, table:statusChanged, printer:error), emitidos después del commit de la transacción.
 - Impresión: interfaz PrinterService con drivers file y escpos elegidos por variable de entorno. La comanda se genera como texto plano de 48 columnas (80 mm) con número, mesa, mozo, hora, ítems, parte, cremas y observaciones. Una falla de impresión no revierte el pedido: se registra, se emite printer:error y se permite reimprimir.

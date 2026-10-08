@@ -17,6 +17,8 @@ Hechos verificados el 2026-10-07 (registro npm y pruebas locales), recogidos en 
 - Android 9 llega hasta Chrome 138 (anuncio de Google, a confirmar); piso del stack Chrome 111.
 - zod 4.6.5: `z.string().max(n)` / `.min(n)` cuentan puntos de código, NO unidades UTF-16 (max(2000) acepta 1001 emojis = 2002 de .length). Si una spec fija un largo con .length, debe decir que se compare line.length explícitamente (refine). Aplica a futuros límites de texto (observaciones de ítems, nombres de productos). `z.string().trim()` usa String.prototype.trim (quita también tabs y U+00A0).
 - Node `util.parseEnv` / `--env-file`: recorta los valores sin comillas; con comillas conserva los espacios.
+- (2026-10-08, spec 003) bcrypt 6.0.0 trae prebuilds N-API win32-x64: funciona en Node 24.1.0 sin compilar; pnpm avisa "Ignored build scripts" y se silencia con `ignoredBuiltDependencies: [bcrypt]` en pnpm-workspace.yaml. @types/bcrypt 6.0.0 (dep @types/node "*") se resuelve con el @types/node 24.19.1 directo. Costo 10 ≈ 50 ms.
+- (2026-10-08) pnpm 10.12.1 con `--filter` de un solo paquete usa stdio "inherit" (TTY llega al script). Next 16.4.0 reenvía /api con httpxy sin xfwd: la API no ve la IP del cliente. Express 5.2.1: res.cookie/clearCookie sí, req.cookies no. react-aria 3.52.1: fireEvent.click = clic virtual que dispara onPress (no hace falta user-event). zod 4.6.5: `.trim().toLowerCase().regex()` valida el valor transformado. Git Bash (mintty) no da TTY a Node.
 
 **Why:** estas restricciones no se ven en el código y explican por qué se eligieron ciertas versiones.
 **How to apply:** antes de proponer una dependencia o subir una versión, revisar peers y engines contra esto (npm view funciona desde este entorno). Ver [[decisiones-modelado]] y [[herramientas-entorno]].

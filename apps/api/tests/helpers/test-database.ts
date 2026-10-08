@@ -16,6 +16,7 @@ import { QueryTypes } from 'sequelize';
 import type { Sequelize } from 'sequelize';
 import { assertTestDatabase } from '../../src/db/assert-test-database.ts';
 import { createSequelize } from '../../src/db/sequelize.ts';
+import { migrateUp } from '../../src/db/migrator.ts';
 
 const API_ENV_FILE = path.resolve(import.meta.dirname, '../../.env');
 
@@ -139,7 +140,18 @@ export async function cleanFixtureTables(sequelize: Sequelize): Promise<void> {
  * borrarlas también, de lo contrario volver a migrar fallaría con "la tabla ya existe".
  */
 export async function resetMigrationTables(sequelize: Sequelize): Promise<void> {
-  await dropTables(sequelize, MIGRATION_TABLES);
+  await dropTables(sequelize, ['sessions', 'users', ...MIGRATION_TABLES]);
+}
+
+export async function clearAuthTables(sequelize: Sequelize): Promise<void> {
+  await assertConnectedToTestDatabase(sequelize);
+  await sequelize.query('TRUNCATE sessions, users RESTART IDENTITY CASCADE');
+}
+
+export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<void> {
+  await assertConnectedToTestDatabase(sequelize);
+  await migrateUp(sequelize);
+  await clearAuthTables(sequelize);
 }
 
 /** Indica si existe una tabla en el esquema actual (el nombre distingue mayúsculas). */

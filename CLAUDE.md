@@ -22,9 +22,9 @@ Todas exactas (sin ^ ni ~, .npmrc con save-exact=true). Cambiar una versión may
 - Entorno: Node.js 24.1.0 (engines ">=24.1.0 <25"), pnpm 10.12.1 (packageManager), PostgreSQL 17.5 en localhost:5432.
 - Raíz: typescript 6.0.3 (no la 7: typescript-eslint solo soporta < 6.1.0), eslint 10.12.0, @eslint/js 10.0.1, typescript-eslint 8.71.1, eslint-plugin-react-hooks 7.1.1, prettier 3.9.9, vitest 5.0.3, @vitest/coverage-v8 5.0.3, jsdom 29.1.1, @playwright/test 1.64.0, @types/node 24.19.1.
 - packages/shared: zod 4.6.5.
-- apps/api: express 5.2.1, sequelize 6.37.8, pg 8.23.1, umzug 3.8.3 (migraciones y seeds; reemplaza a sequelize-cli), zod 4.6.5; dev: supertest 7.3.1, @types/express 5.0.6, @types/supertest 7.2.1.
+- apps/api: express 5.2.1, sequelize 6.37.8, pg 8.23.1, umzug 3.8.3 (migraciones y seeds; reemplaza a sequelize-cli), zod 4.6.5, bcrypt 6.0.0 (ADR 0002); dev: supertest 7.3.1, @types/express 5.0.6, @types/supertest 7.2.1, @types/bcrypt 6.0.0.
 - apps/web: next 16.4.0, react 19.3.0, react-dom 19.3.0, @heroui/react 3.2.6, @heroui/styles 3.2.6, react-aria-components 1.21.1, react-aria 3.52.1, @react-aria/ssr 3.10.1, @react-aria/utils 3.34.1, @internationalized/date 3.12.4, @tanstack/react-query 5.104.1, zod 4.6.5; dev: tailwindcss 4.3.3 (HeroUI 3 exige Tailwind >= 4), @tailwindcss/postcss 4.3.3, postcss 8.5.29, @testing-library/react 16.3.3, @testing-library/dom 10.4.2, @testing-library/jest-dom 7.0.1, msw 3.0.2, @types/react 19.3.0, @types/react-dom 19.3.0.
-- Aprobadas pero aún no instaladas (se fijan al usarlas): socket.io 4.8.4 y socket.io-client, bcrypt, node-thermal-printer 4.6.1, fast-check 4.10.2, openapi-typescript (declara typescript ^5 como peer; resolver al instalarla).
+- Aprobadas pero aún no instaladas (se fijan al usarlas): socket.io 4.8.4 y socket.io-client, node-thermal-printer 4.6.1, fast-check 4.10.2, openapi-typescript (declara typescript ^5 como peer; resolver al instalarla).
 - La API y shared corren con el type stripping nativo de Node 24 (sin tsx ni compilación): solo sintaxis borrable (sin enum, namespace, parameter properties ni decoradores) e imports relativos con extensión .ts.
 
 ## Estructura
@@ -112,3 +112,4 @@ Spec (spec-writer) -> aprobación del usuario -> tests en rojo (test-writer) -> 
 - pnpm lint / pnpm typecheck
 - pnpm db:migrate / pnpm db:seed — migraciones y datos de demostración
 - pnpm printer:test — imprime una hoja de prueba con el driver configurado (PRINTER_DRIVER y PRINTER_FILE_DIR en apps/api/.env; por defecto file en tmp/comandas)
+- pnpm users:create-admin — crea un administrador de forma interactiva; usar PowerShell o Símbolo del sistema para ocultar el PIN. Requiere las migraciones de usuarios aplicadas por el usuario.
