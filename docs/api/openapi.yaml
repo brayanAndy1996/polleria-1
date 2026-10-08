@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.3.1
+  version: 0.4.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -34,6 +34,19 @@ info:
     - Roles: waiter (mozo), kitchen (cocina), cashier (cajero) y admin (administrador). Un usuario
       tiene uno o varios roles, sin repetir (versión 0.3.1, revisión 1 de la spec 003). La API los
       devuelve siempre en el orden waiter, kitchen, cashier, admin.
+
+    Gestión de usuarios (spec 004):
+    - Las rutas /users solo las usa el rol admin: listar todos los usuarios, crear uno, editar el
+      nombre visible, los roles y el estado activo, y restablecer el PIN. Todas las respuestas de
+      /users/* llevan Cache-Control: no-store, también las de error.
+    - Desactivar a un usuario o restablecer su PIN borra sus sesiones y limpia su conteo de
+      intentos de inicio de sesión. Ninguna operación puede dejar el sistema sin al menos un
+      administrador activo (409 LAST_ADMIN_REQUIRED). El nombre de usuario no se puede cambiar;
+      el PIN no se cambia por PATCH, tiene su propia ruta.
+    - El PIN de un usuario nuevo o restablecido, además del formato ^[0-9]{4,6}$, no puede ser
+      fácil de adivinar (dígitos repetidos, secuencias circulares ascendentes o descendentes,
+      años entre 1900 y 2099, fechas DDMM o DDMMAA válidas ni '2580'): 400 VALIDATION_ERROR.
+      El inicio de sesión no aplica esa regla: un PIN débil creado antes sigue sirviendo.
 servers:
   - url: http://localhost:3000/api
     description: A través de la web, en el mismo origen. Es lo que usan los navegadores (PC de caja y celulares).
@@ -44,6 +57,8 @@ tags:
     description: Estado del sistema.
   - name: auth
     description: Inicio de sesión con usuario y PIN, sesión actual y cierre de sesión (spec 003).
+  - name: users
+    description: Gestión de usuarios por el administrador (spec 004).
 paths:
   /health:
     get:
@@ -220,6 +235,217 @@ paths:
               $ref: '#/components/headers/CacheControlNoStore'
         '500':
           $ref: '#/components/responses/InternalError'
+  /users:
+    get:
+      operationId: listUsers
+      tags:
+        - users
+      summary: Lista todos los usuarios
+      description: >-
+        Roles permitidos: admin. Devuelve todos los usuarios, activos e inactivos, ordenados por
+        displayName en orden alfabético insensible a mayúsculas (es-PE) y, si coinciden, por
+        username. Nunca incluye pin_hash. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Lista de usuarios (puede estar vacía)
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersResponse'
+              examples:
+                respuesta:
+                  value:
+                    users:
+                      - id: 2
+                        username: 'maria'
+                        displayName: 'María'
+                        roles:
+                          - admin
+                        isActive: true
+                      - id: 4
+                        username: 'rosa'
+                        displayName: 'Rosa'
+                        roles:
+                          - cashier
+                        isActive: false
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createUser
+      tags:
+        - users
+      summary: Crea un usuario
+      description: >-
+        Roles permitidos: admin. Crea un usuario activo con el nombre visible, el PIN inicial y
+        uno o varios roles del cuerpo. Los PIN fáciles se rechazan con 400 VALIDATION_ERROR
+        (detalle en ErrorCode). El PIN nunca se devuelve ni se muestra: solo el administrador lo
+        conoce y se lo comunica al trabajador. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            examples:
+              cocinera-cajera:
+                value:
+                  username: 'rosa.cocina'
+                  displayName: 'Rosa'
+                  pin: '3968'
+                  roles:
+                    - kitchen
+                    - cashier
+      responses:
+        '201':
+          description: Usuario creado
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+              examples:
+                respuesta:
+                  value:
+                    id: 6
+                    username: 'rosa.cocina'
+                    displayName: 'Rosa'
+                    roles:
+                      - kitchen
+                      - cashier
+                    isActive: true
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/UsernameTaken'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users/{userId}:
+    patch:
+      operationId: updateUser
+      tags:
+        - users
+      summary: Edita nombre visible, roles o estado de un usuario
+      description: >-
+        Roles permitidos: admin. Cambia el nombre visible (displayName), los roles (el conjunto
+        completo, sin repetir) o el estado (isActive) del usuario indicado por userId, con al
+        menos una propiedad en el cuerpo. El nombre de usuario no se puede cambiar y el PIN se
+        cambia solo por POST /users/{userId}/pin. Al desactivar (isActive false) se borran las
+        sesiones del usuario y se limpia su conteo de intentos; al reactivar (isActive true) se
+        limpia el conteo. Ninguna operación puede dejar el sistema sin al menos un administrador
+        activo. Un administrador puede quitarse su propio rol admin o desactivarse siempre que
+        quede otro administrador activo; con eso sus sesiones dejan de servir desde la siguiente
+        solicitud. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+            examples:
+              desactivar:
+                value:
+                  isActive: false
+              nombre-y-roles:
+                value:
+                  displayName: 'María P.'
+                  roles:
+                    - waiter
+                    - cashier
+      responses:
+        '200':
+          description: Usuario actualizado
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+              examples:
+                desactivado:
+                  value:
+                    id: 4
+                    username: 'rosa'
+                    displayName: 'Rosa'
+                    roles:
+                      - cashier
+                    isActive: false
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/UserNotFound'
+        '409':
+          $ref: '#/components/responses/LastAdminRequired'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /users/{userId}/pin:
+    post:
+      operationId: resetUserPin
+      tags:
+        - users
+      summary: Restablece el PIN de un usuario
+      description: >-
+        Roles permitidos: admin. Cambia el PIN del usuario indicado por userId por el del cuerpo
+        (no puede ser fácil; el PIN anterior nunca se muestra ni se devuelve). Borra las
+        sesiones del usuario —incluida la del administrador si se restablece el PIN a sí mismo—
+        y limpia su conteo de intentos. El administrador puede restablecer el PIN de usuarios
+        inactivos, que siguen sin poder iniciar sesión hasta reactivarse. Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPinRequest'
+            examples:
+              ejemplo:
+                value:
+                  pin: '7395'
+      responses:
+        '204':
+          description: PIN restablecido (sin cuerpo)
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/UserNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   securitySchemes:
     sessionCookie:
@@ -275,7 +501,12 @@ components:
     Pin:
       type: string
       pattern: '^[0-9]{4,6}$'
-      description: PIN de 4 a 6 dígitos (texto, conserva los ceros a la izquierda). Nunca se devuelve.
+      description: |
+        PIN de 4 a 6 dígitos (texto, conserva los ceros a la izquierda). Nunca se devuelve.
+        En las rutas de gestión (POST /users y POST /users/{userId}/pin, spec 004) además se
+        rechazan los PIN fáciles de adivinar: dígitos repetidos, secuencias circulares
+        ascendentes o descendentes (por ejemplo 1234, 4321, 9012, 0987), años entre 1900 y 2099,
+        fechas DDMM o DDMMAA válidas y '2580'. El inicio de sesión no aplica esa regla.
       examples: ['2468']
     LoginRequest:
       type: object
@@ -340,15 +571,96 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LoginUser'
+    AdminUser:
+      type: object
+      additionalProperties: false
+      required: [id, username, displayName, roles, isActive]
+      description: Un usuario como lo ve el administrador (spec 004). Nunca incluye pin_hash.
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        username:
+          $ref: '#/components/schemas/Username'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: Nombre que ve la gente (letras, números, espacios, punto, apóstrofo o guion).
+          examples: [Rosa]
+        roles:
+          $ref: '#/components/schemas/UserRoles'
+        isActive:
+          type: boolean
+          description: false = desactivado; no aparece en la lista de /auth/users y no puede iniciar sesión.
+    UsersResponse:
+      type: object
+      additionalProperties: false
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUser'
+    CreateUserRequest:
+      type: object
+      additionalProperties: false
+      required: [username, displayName, pin, roles]
+      description: Alta de un usuario (spec 004). Nace activo.
+      properties:
+        username:
+          type: string
+          description: |
+            Nombre de usuario tal como lo envía la web. La API lo recorta y lo pasa a minúsculas antes de
+            validarlo contra el patrón de Username. No se puede cambiar después.
+          examples: [rosa.cocina]
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: Nombre que ve la gente. La API lo recorta y reduce espacios seguidos a uno.
+          examples: [Rosa]
+        pin:
+          $ref: '#/components/schemas/Pin'
+        roles:
+          $ref: '#/components/schemas/UserRoles'
+    UpdateUserRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: |
+        Edición de un usuario (spec 004): al menos una propiedad. El nombre de usuario no se
+        puede cambiar; el PIN se cambia solo por POST /users/{userId}/pin.
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: Nuevo nombre que ve la gente. La API lo recorta y reduce espacios seguidos a uno.
+          examples: ['María P.']
+        roles:
+          $ref: '#/components/schemas/UserRoles'
+        isActive:
+          type: boolean
+          description: false = desactivar (borra sus sesiones y limpia su conteo de intentos); true = reactivar (limpia el conteo).
+    ResetPinRequest:
+      type: object
+      additionalProperties: false
+      required: [pin]
+      properties:
+        pin:
+          $ref: '#/components/schemas/Pin'
     ErrorCode:
       type: string
       pattern: '^[A-Z][A-Z0-9_]*$'
       description: |
-        Código estable para que la web decida qué hacer. Códigos definidos hasta la spec 003:
+        Código estable para que la web decida qué hacer. Códigos definidos hasta la spec 004:
         - NOT_FOUND (404): la ruta no existe.
         - INVALID_JSON (400): el cuerpo no es un JSON válido.
         - INVALID_BODY (400): el cuerpo no se pudo leer (compresión corrupta o incompleta, solicitud cortada).
         - VALIDATION_ERROR (400): los datos no cumplen el esquema; details.issues lista los problemas.
+          En las rutas de gestión también se usa para un PIN fácil (issue en pin, mensaje
+          'Ese PIN es muy fácil de adivinar. Elige otro.') y para un userId de ruta no válido.
         - PAYLOAD_TOO_LARGE (413): el cuerpo supera 100 KB (medido después de descomprimir).
         - UNSUPPORTED_MEDIA_TYPE (415): Content-Encoding distinto de identity, gzip, deflate y br, o charset no soportado.
         - INTERNAL_ERROR (500): error no controlado; nunca incluye detalles internos.
@@ -356,7 +668,9 @@ components:
         - UNAUTHENTICATED (401, spec 003): la ruta exige sesión y no hay una válida (sin cookie, token inválido, sesión vencida o usuario desactivado).
         - FORBIDDEN (403, spec 003): la sesión es válida pero ninguno de los roles del usuario tiene permiso.
         - TOO_MANY_ATTEMPTS (429, spec 003): usuario bloqueado por intentos fallidos; details.retryAfterSeconds.
-        - USERNAME_TAKEN (409, spec 003): el nombre de usuario ya existe. Lo usará la gestión de usuarios (spec 004).
+        - USERNAME_TAKEN (409, spec 003): el nombre de usuario ya existe (activo o inactivo). Lo usa POST /users (spec 004).
+        - USER_NOT_FOUND (404, spec 004): el userId de la ruta no corresponde a ningún usuario.
+        - LAST_ADMIN_REQUIRED (409, spec 004): la operación dejaría el sistema sin administradores activos.
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
       examples: [NOT_FOUND]
     ValidationIssue:
@@ -433,6 +747,19 @@ components:
         minimum: 1
         maximum: 900
       example: 900
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: |
+        Identificador del usuario: solo dígitos, entero entre 1 y 2147483647 (entero de la base).
+        Si no cumple, la ruta responde 400 VALIDATION_ERROR con un issue en 'userId'.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      example: 3
   responses:
     InvalidJson:
       description: El cuerpo de la solicitud no es un JSON válido. Aplica a cualquier ruta que reciba cuerpo.
@@ -541,7 +868,7 @@ components:
     Forbidden:
       description: |
         La sesión es válida pero ninguno de los roles del usuario tiene permiso para esta operación
-        (requireRole). La usarán las rutas protegidas por rol de las specs siguientes.
+        (requireRole). La usan las rutas /users, que solo admite el rol admin.
       content:
         application/json:
           schema:
@@ -580,4 +907,48 @@ components:
             error:
               code: INTERNAL_ERROR
               message: Ocurrió un error inesperado. Intenta nuevamente.
+              details: null
+    UsernameTaken:
+      description: El nombre de usuario ya existe, en un usuario activo o inactivo (spec 004).
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: USERNAME_TAKEN
+              message: Ese nombre de usuario ya existe.
+              details: null
+    UserNotFound:
+      description: El userId de la ruta no corresponde a ningún usuario (spec 004).
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: USER_NOT_FOUND
+              message: Ese usuario no existe.
+              details: null
+    LastAdminRequired:
+      description: |
+        La operación dejaría el sistema sin administradores activos: quitar el rol admin del
+        último administrador activo o desactivarlo (spec 004). El usuario queda sin cambios.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: LAST_ADMIN_REQUIRED
+              message: Debe quedar al menos un administrador activo.
               details: null
