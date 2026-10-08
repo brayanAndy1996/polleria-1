@@ -4,6 +4,7 @@ export interface LoginLimiter {
   getRetryAfterSeconds(userId: number): number | null;
   registerAttempt(userId: number): void;
   registerSuccess(userId: number): void;
+  clearAttempts(userId: number): void;
 }
 export function createLoginLimiter(options: {
   now: () => Date;
@@ -27,6 +28,9 @@ export function createLoginLimiter(options: {
       attempts.set(userId, entry);
     },
     registerSuccess(userId) {
+      attempts.delete(userId);
+    },
+    clearAttempts(userId) {
       attempts.delete(userId);
     },
   };
