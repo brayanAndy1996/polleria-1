@@ -4,10 +4,10 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 ## Estado actual
 
-- Fase: 0 de 6, base del proyecto.
-- Funcionalidad: ninguna en curso. La 001 se integró a main el 2026-10-07 y la 002 el 2026-10-08. Fase 0 completa.
-- Paso: punto de control de fin de la Fase 0 (esperando aprobación del usuario para iniciar la Fase 1).
-- Rama: main.
+- Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). Fase 0 cerrada y aprobada por el usuario el 2026-10-08.
+- Funcionalidad: 003-users-pin-login.
+- Paso: 2 de 9, redacción de la spec 003 (spec-writer).
+- Rama: feat/003-users-pin-login.
 
 ## Tabla de funcionalidades
 
@@ -15,6 +15,12 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
 | 002 | printer-service (PrinterService con driver file) | 0 | Cerrada (APROBADO; 1 vuelta; 5 hallazgos como deuda) | feat/002-printer-service | 2026-10-08 |
+| 003 | users-pin-login (usuarios, roles, login con PIN, sesión, requireRole) | 1 | En spec | feat/003-users-pin-login | — |
+| 004 | (propuesta) gestión de usuarios por el administrador | 1 | Pendiente | — | — |
+| 005 | (propuesta) productos y precios de la carta | 1 | Pendiente | — | — |
+| 006 | (propuesta) presentaciones y partes con consumo en octavos (RF-19) | 1 | Pendiente | — | — |
+| 007 | (propuesta) combos | 1 | Pendiente | — | — |
+| 008 | (propuesta) pantallas de administración de la carta | 1 | Pendiente | — | — |
 
 ## Decisiones del usuario
 
@@ -34,6 +40,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | 2026-10-07 | Spec 002 aprobada con las recomendaciones: escpos detiene el arranque hasta la Fase 3, corte duro en 48 columnas, caracteres sin equivalente se imprimen como ?. Pendiente para la Fase 3: marca y modelo de la impresora del dueño. |
 | 2026-10-08 | Dejar como deuda, para la Fase 3, los 5 hallazgos medios y bajos de la 002 (ADV-002-01 a 05). Sus tests se marcan como falla conocida (it.fails). |
 | 2026-10-08 | Integrar la 002 a main con commit de merge (--no-ff). |
+| 2026-10-08 | Fase 0 aprobada en el punto de control de fin de fase; iniciar la Fase 1. |
 | 2026-10-07 | El usuario confirma que existen el rol polleria y las bases polleria_dev y polleria_test en PostgreSQL 17 (puerto 5432). |
 
 ## Notas técnicas del orquestador
