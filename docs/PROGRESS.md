@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: 003-users-pin-login.
-- Paso: 9 de 9. Spec 003 aprobada el 2026-10-08, con revisión 1 y aclaración adversarial aprobada (44 AC; OpenAPI 0.3.1; ADR 0002 aceptado). Reviewer independiente: APROBADO, sin bloqueantes; verificación personal del orquestador completada. Lista para integración, sin commits nuevos ni merge.
-- Siguiente acción: pedir permiso para preparar commits separados por responsabilidad e integrar la 003 a main; después encargar al spec-writer la propuesta 004 para aprobación. Conservar los pendientes manuales documentados.
-- Rama: feat/003-users-pin-login (creada desde main; main contiene la Fase 0 completa).
+- Funcionalidad: 003-users-pin-login (cerrada). Siguiente: propuesta 004.
+- Paso: 003 terminada e integrada a main el 2026-10-08 (merge 80340c3, cuatro commits por responsabilidad). Spec 003 aprobada con revisión 1 y aclaración adversarial (44 AC; OpenAPI 0.3.1; ADR 0002). Reviewer: APROBADO.
+- Siguiente acción: encargar al spec-writer la propuesta 004 (gestión de usuarios por el administrador) en una rama feat/004-*; el usuario la aprueba antes de tests e implementación. Conservar los pendientes manuales documentados.
+- Rama: main (integrada la 003).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -18,7 +18,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
 | 002 | printer-service (PrinterService con driver file, pnpm printer:test) | 0 | Cerrada (APROBADO; 1 vuelta; 5 hallazgos como deuda) | feat/002-printer-service | 2026-10-08 |
-| 003 | users-pin-login (usuarios con varios roles, login con PIN, sesión en la base, requireAuth/requireRole, áreas por rol) | 1 | Lista para integrar: APROBADO; 44 AC cubiertos; 44 adversariales verdes; verificación final completada; pendientes manuales registrados | feat/003-users-pin-login | — |
+| 003 | users-pin-login (usuarios con varios roles, login con PIN, sesión en la base, requireAuth/requireRole, áreas por rol) | 1 | Cerrada (APROBADO; 44 AC cubiertos; 44 adversariales verdes; integrada a main en el merge 80340c3; pendientes manuales registrados) | feat/003-users-pin-login | 2026-10-08 |
 | 004 | (propuesta) gestión de usuarios por el administrador (alta, roles, PIN, desactivar, PIN fáciles) | 1 | Pendiente | — | — |
 | 005 | (propuesta) productos y precios de la carta | 1 | Pendiente | — | — |
 | 006 | (propuesta) presentaciones y partes con consumo en octavos (RF-19) | 1 | Pendiente | — | — |
@@ -56,6 +56,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-08 | En esta copia: autoriza reconstruir node_modules y las limpiezas de las tablas de pruebas indicadas exclusivamente en polleria_test, con guardias; nunca en polleria_dev. |
 | 2026-10-08 | Exige continuar con subagentes separados por rol y metodología SDD, TDD y pruebas adversariales. Se configura el equipo nativo en .devin/, usando docs/agents/ como fuente de roles. |
 | 2026-10-08 | Autoriza corregir los dos medios ADV-003-06 y ADV-003-14: contador se reinicia solo tras guardar sesión; logout solo confirma HTTP 204. Spec aclarada, correcciones en rojo/verde y revalidación independientes. |
+| 2026-10-08 | Autoriza preparar los commits e integrar la 003 a main: cuatro commits por responsabilidad (test, feat shared/API, feat web, docs) y merge --no-ff 80340c3. Confirma que los subagentes de implementación y revisión usaron el modelo de la ventana principal (los de exploración, el modelo del enrutador). |
 
 ## Notas técnicas del orquestador
 
@@ -77,7 +78,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 - E2E final del orquestador: 14 pasan y 2 no aplicables (solo casos móviles excluidos en desktop); incluye siete recorridos aplicables de la 003. Los puertos 3000, 3100, 4000 y 4100 quedaron libres.
 - OpenAPI 3.1, contrato 0.3.1: validado con Redocly CLI 1.34.5 exacta, publicada el 2025-07-21, ejecutada desde una carpeta temporal sin incorporarla al proyecto. Código 0, 11 advertencias no bloqueantes aceptadas por R-003-08 (licencia, localhost, respuestas 4xx y componentes reutilizables). No se cambiaron políticas de seguridad ni dependencias del proyecto para validar.
 - Configuración final: devin doctor confirmó los siete perfiles polleria-* sin errores. Los perfiles permiten leer salidas de sus comandos largos; la regla exige separación de archivos y turnos exclusivos de la base. Git diff --check pasó.
-- No hay commits nuevos ni permiso para integrar esta rama a main. La prueba manual del PIN oculto en PowerShell y la validación desde un celular del local siguen pendientes.
+- La 003 se integró a main el 2026-10-08 (merge 80340c3): test/spec-003 e883802, feat shared/API de8f723, feat web 3dae0e7, docs f0d9c14. La prueba manual del PIN oculto en PowerShell y la validación desde un celular del local siguen pendientes.
 
 
 - 2026-10-07: el entorno tiene Windows 11, Node 24.1.0 (LTS), pnpm 10.12.1, Git 2.49 y PostgreSQL 17.5 en localhost:5432. También hay un PostgreSQL 18 en el puerto 5433, que el proyecto no usa.
