@@ -41,9 +41,7 @@ function show(node: ReactNode) {
 async function renderPage(users: unknown = USERS) {
   server.use(http.get('*/api/users', () => HttpResponse.json({ users })));
   show(<EditPage />);
-  expect(
-    await screen.findByRole('heading', { name: 'Editar usuario', level: 1 }),
-  ).toBeVisible();
+  expect(await screen.findByRole('heading', { name: 'Editar usuario', level: 1 })).toBeVisible();
 }
 
 describe('004: edición de usuario', () => {
@@ -68,9 +66,7 @@ describe('004: edición de usuario', () => {
     await waitFor(() => {
       expect(mocks.replace).toHaveBeenCalledWith('/caja');
     });
-    expect(
-      screen.queryByRole('heading', { name: 'Editar usuario' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Editar usuario' })).not.toBeInTheDocument();
     mocks.replace.mockClear();
     server.use(
       http.get('*/api/auth/me', () =>
@@ -106,18 +102,14 @@ describe('004: edición de usuario', () => {
     );
     server.use(http.get('*/api/users', () => HttpResponse.json({ users: USERS })));
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
-    expect(
-      await screen.findByRole('heading', { name: 'Editar usuario', level: 1 }),
-    ).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Editar usuario', level: 1 })).toBeVisible();
   });
   it('AC-23: un id que no está en la lista muestra el error sin formulario', async () => {
     mocks.params.id = '99';
     server.use(http.get('*/api/users', () => HttpResponse.json({ users: USERS })));
     show(<EditPage />);
     expect(await screen.findByText('Ese usuario no existe.')).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: 'Guardar cambios' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument();
   });
 
   it('AC-23: muestra username fijo, nombre actual y roles marcados', async () => {
@@ -142,7 +134,13 @@ describe('004: edición de usuario', () => {
         calls.push(await request.json());
         await waiting;
         return HttpResponse.json(
-          { id: 2, username: 'mozo.ana', displayName: 'Ana Mar\u00EDa', roles: ['waiter', 'cashier'], isActive: true },
+          {
+            id: 2,
+            username: 'mozo.ana',
+            displayName: 'Ana Mar\u00EDa',
+            roles: ['waiter', 'cashier'],
+            isActive: true,
+          },
           { status: 200 },
         );
       }),
@@ -298,10 +296,11 @@ describe('004: edición de usuario', () => {
     await renderPage();
     expect(screen.getByText('Desactivado')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Activar' }));
-    expect(calls).toEqual([{ isActive: true }]);
-    expect(
-      screen.queryByRole('button', { name: 'S\u00ED, activar' }),
-    ).not.toBeInTheDocument();
+    // El handler de MSW registra el PATCH en un await posterior al click.
+    await waitFor(() => {
+      expect(calls).toEqual([{ isActive: true }]);
+    });
+    expect(screen.queryByRole('button', { name: 'S\u00ED, activar' })).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByText('Desactivado')).not.toBeInTheDocument();
     });
@@ -312,9 +311,7 @@ describe('004: edición de usuario', () => {
     await renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Desactivar' }));
     fireEvent.click(await screen.findByRole('button', { name: 'S\u00ED, desactivar' }));
-    expect(
-      await screen.findByText('Debe quedar al menos un administrador activo.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Debe quedar al menos un administrador activo.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Desactivar' })).toBeVisible();
     expect(screen.queryByText('Desactivado')).not.toBeInTheDocument();
   });

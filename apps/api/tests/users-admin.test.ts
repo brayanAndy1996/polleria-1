@@ -70,15 +70,21 @@ describe('004: API de gestión de usuarios contra polleria_test', () => {
     return cookie === undefined ? call : call.set('Cookie', cookie);
   };
   const postUsers = (body: unknown, cookie?: string) => {
-    const call = request(auth.app).post('/api/users').send(body as object);
+    const call = request(auth.app)
+      .post('/api/users')
+      .send(body as object);
     return cookie === undefined ? call : call.set('Cookie', cookie);
   };
   const patchUser = (id: number | string, body: unknown, cookie?: string) => {
-    const call = request(auth.app).patch(`/api/users/${id}`).send(body as object);
+    const call = request(auth.app)
+      .patch(`/api/users/${id}`)
+      .send(body as object);
     return cookie === undefined ? call : call.set('Cookie', cookie);
   };
   const postPin = (id: number | string, body: unknown, cookie?: string) => {
-    const call = request(auth.app).post(`/api/users/${id}/pin`).send(body as object);
+    const call = request(auth.app)
+      .post(`/api/users/${id}/pin`)
+      .send(body as object);
     return cookie === undefined ? call : call.set('Cookie', cookie);
   };
   const login = (username: string, pin: string) =>
@@ -194,8 +200,17 @@ describe('004: API de gestión de usuarios contra polleria_test', () => {
     );
     expect(created.status).toBe(201);
     expect(created.headers['cache-control']).toBe('no-store');
-    expect(created.body).toEqual({
-      id: expect.any(Number),
+    const createdUser = created.body as Record<string, unknown>;
+    expect(Object.keys(createdUser).sort()).toEqual([
+      'displayName',
+      'id',
+      'isActive',
+      'roles',
+      'username',
+    ]);
+    expect(typeof createdUser.id).toBe('number');
+    expect(createdUser).toEqual({
+      id: createdUser.id,
       username: 'mozo.nuevo',
       displayName: 'Ana Mar\u00EDa',
       roles: ['waiter', 'cashier'],
@@ -253,10 +268,7 @@ describe('004: API de gestión de usuarios contra polleria_test', () => {
     expect(forbidden.status).toBe(403);
     expect(forbidden.body).toEqual(FORBIDDEN_BODY);
     expect(forbidden.headers['cache-control']).toBe('no-store');
-    const put = await request(auth.app)
-      .put('/api/users')
-      .set('Cookie', cookie)
-      .send(body);
+    const put = await request(auth.app).put('/api/users').set('Cookie', cookie).send(body);
     expect(put.status).toBe(404);
     expect(put.body).toEqual(NOT_FOUND_BODY);
   });
@@ -340,10 +352,9 @@ describe('004: API de gestión de usuarios contra polleria_test', () => {
     expect(forbidden.status).toBe(403);
     expect(forbidden.body).toEqual(FORBIDDEN_BODY);
     expect(forbidden.headers['cache-control']).toBe('no-store');
-    const after = await rows<{ is_active: boolean }>(
-      'SELECT is_active FROM users WHERE id = $1',
-      [juan.id],
-    );
+    const after = await rows<{ is_active: boolean }>('SELECT is_active FROM users WHERE id = $1', [
+      juan.id,
+    ]);
     expect(after).toEqual([{ is_active: true }]);
   });
 
@@ -415,10 +426,9 @@ describe('004: API de gestión de usuarios contra polleria_test', () => {
   it('AC-18: ninguna respuesta ni cabecera expone el PIN ni su hash', async () => {
     const cookie = await adminCookie();
     const juan = await auth.createUser('mozo.juan', 'Juan', ['waiter'], '2468');
-    const saved = await rows<{ pin_hash: string }>(
-      'SELECT pin_hash FROM users WHERE id = $1',
-      [juan.id],
-    );
+    const saved = await rows<{ pin_hash: string }>('SELECT pin_hash FROM users WHERE id = $1', [
+      juan.id,
+    ]);
     const responses = [
       await getUsers(cookie),
       await postUsers(
