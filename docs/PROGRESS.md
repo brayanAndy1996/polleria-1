@@ -6,14 +6,14 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 001-base-monorepo.
-- Paso: 5 de 9. Implementación T-17 a T-25 terminada; falta verificar contra PostgreSQL (22 tests de integración y 4 E2E) porque no existe apps/api/.env.
+- Paso: 6 de 9, ataque (adversarial-tester). Paso 5 verificado por el orquestador contra PostgreSQL: Vitest 194/194, cobertura de líneas 97,9 % (shared y services 100 %), E2E 7 pasan y 1 omitido por diseño, lint y typecheck en 0, db:migrate y db:seed sobre polleria_dev en 0.
 - Rama: feat/001-base-monorepo.
 
 ## Tabla de funcionalidades
 
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
-| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Implementación | feat/001-base-monorepo | — |
+| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Ataque adversarial | feat/001-base-monorepo | — |
 | 002 | printer-service (PrinterService con driver file) | 0 | Pendiente | feat/002-printer-service | — |
 
 ## Decisiones del usuario
@@ -39,7 +39,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 ## Deuda técnica y hallazgos medios/bajos
 
-- Next 16.4.0 genera apps/web/AGENTS.md cuando un agente corre next dev. Se desactivará con agentRules: false en T-23.
+- Next 16.4.0 genera apps/web/AGENTS.md cuando un agente corre next dev. Resuelto con agentRules: false en next.config.ts (T-23).
 - Aviso de peer opcional: @vitest/mocker 5.0.3 declara msw ^2.4.9 y el proyecto usa msw 3.0.2. Funciona (verificado por backend-dev).
 - apps/web necesita zod (librería ya aprobada en el stack) para loadWebServerConfig (T-23); se agrega zod 4.6.5, la misma versión que en api y shared.
 - Arbitraje 2026-10-07: backend-dev reportó un glob sin barra en apps/api/tests/migrator.test.ts; el orquestador lo verificó y test-writer lo corrigió (commit 7c19265) sin cambiar aserciones.
@@ -51,4 +51,4 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 ## Bloqueos
 
-- 2026-10-07: falta apps/api/.env con la clave real (lo crea el usuario). Sin él no se pueden ejecutar los tests que usan polleria_test ni los E2E, ni verificar db:migrate y db:seed sobre polleria_dev.
+Ninguno. (Resuelto 2026-10-07: el usuario creó apps/api/.env. Su clave real había quedado también en apps/api/.env.example, que se versiona; el orquestador restauró ese archivo antes de cualquier commit y verificó que el historial de git nunca tuvo la clave.)
