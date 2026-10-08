@@ -1,6 +1,6 @@
 - [Decisiones de modelado](project_decisiones_modelado.md) — /api, mismo origen, códigos de error, conexión solo con el URL, clave de bloqueo 2026100701; spec 001 + enmienda 1
 - [Entorno verificado](project_entorno_verificado.md) — Node 24.1.0, TS 6.0.3, jsdom 29, Next 16; zod max() cuenta puntos de código, no .length
 - [Decisiones de impresión](project_decisiones_impresion.md) — spec 002 + aclaración 1: normalización 48 col (trim por trozo), jobId Lima, PRINTER_* (trim de dir)
-- [Decisiones de autenticación](project_decisiones_auth.md) — spec 003: sesión opaca en la base (no JWT), cookie polleria_session, límite 5/15 min, roles y áreas, códigos 401/403/429/409
+- [Decisiones de autenticación](project_decisiones_auth.md) — spec 003 + revisión 1: sesión opaca, cookie polleria_session, 5/15 min, varios roles (users.roles arreglo), áreas y /areas
 - [Forma de las specs](feedback_forma_specs.md) — AC solo comportamiento, config aparte, contrato de módulos, enmiendas, aclaraciones, IDs entre specs
 - [Herramientas del entorno](reference_herramientas_entorno.md) — npm view, Redocly, scratchpad; no Markdown por bash; Write convierte escapes \u invisibles
