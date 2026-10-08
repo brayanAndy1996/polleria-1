@@ -70,11 +70,10 @@ export function createApp({
 
   app.disable('x-powered-by');
   app.use((req, res, next) => {
-    if (
-      NO_STORE_PATH_PREFIXES.some(
-        (prefix) => req.path === prefix || req.path.startsWith(`${prefix}/`),
-      )
-    )
+    // Express enruta sin distinguir mayúsculas: la comparación se hace en minúsculas
+    // para que /api/USERS o /api/Auth/... también lleven la cabecera (ADV-004-25).
+    const path = req.path.toLowerCase();
+    if (NO_STORE_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`)))
       res.set('Cache-Control', 'no-store');
     next();
   });
