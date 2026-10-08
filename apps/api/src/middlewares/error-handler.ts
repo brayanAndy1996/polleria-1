@@ -6,10 +6,11 @@ import { BodyReaderError } from '../errors/body-reader-error.ts';
 
 /** Lee una propiedad de un error de body-parser / raw-body / http-errors sin asumir su forma. */
 function readErrorProperty(error: unknown, property: 'type' | 'status'): unknown {
-  if (typeof error === 'object' && error !== null && property in error) {
-    return error[property];
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
   }
-  return undefined;
+  const value: unknown = Reflect.get(error, property);
+  return value;
 }
 
 /**
@@ -90,7 +91,8 @@ function toAppError(error: unknown): AppError | undefined {
  */
 function logUnexpectedError(req: Request, error: unknown): void {
   const original = error instanceof BodyReaderError ? error.cause : error;
-  const detail = original instanceof Error ? (original.stack ?? original.message) : String(original);
+  const detail =
+    original instanceof Error ? (original.stack ?? original.message) : String(original);
   console.error(`Error inesperado en ${req.method} ${req.path}:`, detail);
 }
 
