@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 002-printer-service. La 001 se integró a main el 2026-10-07.
-- Paso: 4 de 9, tests en rojo de la 002 (test-writer, T-01 a T-10).
+- Paso: 5 de 9, implementación de la 002 (backend-dev, T-11 a T-18). Fase roja verificada: los 31 AC tienen test y el commit ee0059e solo tiene tests. Aclaración 1 de la spec (commit 0484202) resolvió una contradicción entre D-002-04 y AC-13 sin cambiar AC ni tests.
 - Rama: feat/002-printer-service.
 
 ## Tabla de funcionalidades
@@ -14,7 +14,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
-| 002 | printer-service (PrinterService con driver file) | 0 | Tests en rojo | feat/002-printer-service | — |
+| 002 | printer-service (PrinterService con driver file) | 0 | Implementación | feat/002-printer-service | — |
 
 ## Decisiones del usuario
 
@@ -58,6 +58,8 @@ Hallazgos adversariales de la 001 (2026-10-07, commit 7be8d15; tests en apps/api
 Ataques sin fallas (quedan como regresión en verde): prototype pollution en JSON, 120 consultas de salud simultáneas con base disponible y caída, sin fugas de clave en errores, CLI ni salud.
 
 Otras notas:
+
+- 2026-10-07 (test-writer): db-cli AC-24 de la 001 superó una vez su límite de 12 s con la máquina cargada (pasa solo en 9 s). Vigilar si se vuelve intermitente.
 
 - Bajo (reviewer, 2026-10-07): la fila "error del lector con estado 5xx → 500 y se registra" de la tabla 9.2 no tiene test de regresión (error-handler.ts:56). Pendiente para test-writer en una spec posterior.
 - Pendiente manual (reviewer): probar R-11 (pnpm dev) y la sección 16 de la spec 001 desde un celular en el wifi del local y sin internet. Se incluye en el punto de control de fin de la Fase 0.
