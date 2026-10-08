@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). Fase 0 cerrada y aprobada por el usuario el 2026-10-08.
 - Funcionalidad: 003-users-pin-login.
-- Paso: 2 de 9 (revisión). El usuario aprobó la spec 003 salvo un cambio: varios roles por persona. Spec-writer revisa la spec; luego se muestra el cambio al usuario.
+- Paso: 3 de 9, esperando aprobación de la revisión 1 de la spec 003 (varios roles: 44 AC, OpenAPI 0.3.1).
 - Rama: feat/003-users-pin-login.
 
 ## Tabla de funcionalidades
@@ -15,7 +15,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
 | 002 | printer-service (PrinterService con driver file) | 0 | Cerrada (APROBADO; 1 vuelta; 5 hallazgos como deuda) | feat/002-printer-service | 2026-10-08 |
-| 003 | users-pin-login (usuarios, roles, login con PIN, sesión, requireRole) | 1 | Spec en revisión (varios roles) | feat/003-users-pin-login | — |
+| 003 | users-pin-login (usuarios, roles, login con PIN, sesión, requireRole) | 1 | Spec en aprobación (revisión 1) | feat/003-users-pin-login | — |
 | 004 | (propuesta) gestión de usuarios por el administrador | 1 | Pendiente | — | — |
 | 005 | (propuesta) productos y precios de la carta | 1 | Pendiente | — | — |
 | 006 | (propuesta) presentaciones y partes con consumo en octavos (RF-19) | 1 | Pendiente | — | — |
