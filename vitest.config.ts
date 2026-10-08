@@ -62,6 +62,7 @@ export default defineConfig({
         '**/*.config.{ts,js,mjs,cjs}',
         'apps/api/src/server.ts',
         'apps/api/src/db/cli.ts',
+        'apps/api/src/print-test-page.ts',
         'apps/api/src/db/migrations/**',
         'apps/api/src/db/seeders/**',
         'apps/web/src/app/layout.tsx',
