@@ -8,29 +8,32 @@ import { apiClient, unexpectedResponse } from './client.ts';
 type CreateUserInput = Omit<CreateUserRequest, 'roles'> & { roles: string[] };
 type UpdateUserInput = Omit<UpdateUserRequest, 'roles'> & { roles?: string[] };
 
-function parseResponse<T>(schema: z.ZodType<T>, body: unknown): T {
+// El status real de la respuesta viaja al ApiError: un esquema que no cuadra en
+// un 201 se reporta como 201, no como un 200 ficticio (ADV-004-33).
+function parseResponse<T>(schema: z.ZodType<T>, status: number, body: unknown): T {
   const result = schema.safeParse(body);
-  if (!result.success) throw unexpectedResponse(200);
+  if (!result.success) throw unexpectedResponse(status);
   return result.data;
 }
 export async function getUsers(): Promise<AdminUser[]> {
-  return parseResponse(usersResponseSchema, await apiClient.request('/users')).users;
+  const { body, status } = await apiClient.requestWithStatus('/users');
+  return parseResponse(usersResponseSchema, status, body).users;
 }
 export async function createUser(input: CreateUserInput): Promise<AdminUser> {
-  return parseResponse(
-    adminUserSchema,
-    await apiClient.request('/users', { method: 'POST', body: input, expectedStatus: 201 }),
-  );
+  const { body, status } = await apiClient.requestWithStatus('/users', {
+    method: 'POST',
+    body: input,
+    expectedStatus: 201,
+  });
+  return parseResponse(adminUserSchema, status, body);
 }
 export async function updateUser(userId: number, input: UpdateUserInput): Promise<AdminUser> {
-  return parseResponse(
-    adminUserSchema,
-    await apiClient.request(`/users/${userId}`, {
-      method: 'PATCH',
-      body: input,
-      expectedStatus: 200,
-    }),
-  );
+  const { body, status } = await apiClient.requestWithStatus(`/users/${userId}`, {
+    method: 'PATCH',
+    body: input,
+    expectedStatus: 200,
+  });
+  return parseResponse(adminUserSchema, status, body);
 }
 export async function resetUserPin(userId: number, pin: string): Promise<void> {
   await apiClient.request(`/users/${userId}/pin`, {

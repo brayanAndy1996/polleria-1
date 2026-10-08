@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { strongPinSchema, updateUserRequestSchema } from '@polleria/shared';
 import type { AdminUser, UpdateUserRequest, UserRole } from '@polleria/shared';
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { RoleGuard, useSessionQuery } from '../../../../components/auth/role-guard.tsx';
 import { LabeledInput } from '../../../../components/users/labeled-input.tsx';
 import { RoleCheckboxes } from '../../../../components/users/role-checkboxes.tsx';
@@ -16,14 +16,23 @@ function EditUser({ userId }: { userId: number }) {
   const session = useSessionQuery();
   const queryClient = useQueryClient();
   const users = useQuery({ queryKey: ['admin', 'users'], queryFn: getUsers, retry: false });
-  // `updated` guarda el último AdminUser confirmado por la API: es la fuente
-  // visible de inmediato, aunque la lista tarde un poco en reflejar el cambio.
-  const [updated, setUpdated] = useState<AdminUser>();
+  // `saved` guarda el último AdminUser confirmado por la API junto con la fila que
+  // la lista tenía al confirmar: la respuesta del PATCH es la fuente visible de
+  // inmediato, pero cede apenas el refetch trae un objeto distinto para el
+  // usuario (el structural sharing de la query conserva la referencia cuando el
+  // contenido es el mismo). Así una lista refrescada con datos más nuevos gana.
+  const [saved, setSaved] = useState<{
+    user: AdminUser;
+    listedAtSave: AdminUser | undefined;
+  }>();
   const listed = users.data?.find((user) => user.id === userId);
-  const user = updated !== undefined && updated.id === userId ? updated : listed;
+  const user =
+    saved !== undefined && saved.user.id === userId && saved.listedAtSave === listed
+      ? saved.user
+      : listed;
 
-  // Los campos del perfil arrancan del usuario cargado; cada edición se guarda en
-  // `edits` y al confirmar el servidor el `updated` nuevo vuelve a ser la base.
+  // Los campos del perfil arrancan del usuario cargado; cada edición local se
+  // guarda aparte y, al confirmar el servidor, el `saved` nuevo vuelve a ser base.
   const [nameEdit, setNameEdit] = useState<string>();
   const [rolesEdit, setRolesEdit] = useState<UserRole[]>();
   const [pin, setPin] = useState('');
@@ -36,16 +45,25 @@ function EditUser({ userId }: { userId: number }) {
   const isSelf = session.data?.user.id === userId;
   const afterChange = (changed: AdminUser | undefined) => {
     if (changed) {
-      setUpdated(changed);
+      setSaved({ user: changed, listedAtSave: listed });
       setNameEdit(undefined);
       setRolesEdit(undefined);
     }
     void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     if (isSelf) void queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
   };
+  // Un solo envío en vuelo por acción: `isPending` no voltea hasta el siguiente
+  // render, así que un doble toque en el mismo tick llega con el estado en falso;
+  // la marca síncrona lo bloquea igual que en el alta (ADV-004-31).
+  const profileSending = useRef(false);
+  const pinSending = useRef(false);
+  const statusSending = useRef(false);
   const profile = useMutation({
     mutationFn: (input: UpdateUserRequest) => updateUser(userId, input),
     onSuccess: afterChange,
+    onSettled: () => {
+      profileSending.current = false;
+    },
   });
   const pinReset = useMutation({
     mutationFn: (value: string) => resetUserPin(userId, value),
@@ -55,11 +73,23 @@ function EditUser({ userId }: { userId: number }) {
       setPinRepeat('');
       setConfirmingPin(false);
     },
+    onError: () => {
+      // Como el alta y el login: tras un error del servidor los PIN quedan
+      // vacíos para que no queden visibles (ADV-004-38).
+      setPin('');
+      setPinRepeat('');
+    },
+    onSettled: () => {
+      pinSending.current = false;
+    },
   });
   const statusChange = useMutation({
     mutationFn: (input: UpdateUserRequest) => updateUser(userId, input),
     onSuccess: (changed) => {
       afterChange(changed);
+    },
+    onSettled: () => {
+      statusSending.current = false;
     },
   });
 
@@ -94,13 +124,14 @@ function EditUser({ userId }: { userId: number }) {
   const roles = rolesEdit ?? user.roles;
 
   const saveProfile = () => {
-    if (profile.isPending) return;
+    if (profileSending.current || profile.isPending) return;
     const parsed = updateUserRequestSchema.safeParse({ displayName, roles });
     if (!parsed.success) {
       setProfileLocalError(parsed.error.issues[0]?.message ?? 'Revisa los datos.');
       return;
     }
     setProfileLocalError(undefined);
+    profileSending.current = true;
     profile.mutate(parsed.data);
   };
   const askPinReset = () => {
@@ -117,15 +148,17 @@ function EditUser({ userId }: { userId: number }) {
     setConfirmingPin(true);
   };
   const confirmPinReset = () => {
-    if (pinReset.isPending) return;
+    if (pinSending.current || pinReset.isPending) return;
     setConfirmingPin(false);
+    pinSending.current = true;
     pinReset.mutate(pin);
   };
   const changeStatus = (isActive: boolean) => {
-    if (statusChange.isPending) return;
+    if (statusSending.current || statusChange.isPending) return;
     // La confirmación se cierra al enviar: si la API falla, el error se muestra en la
     // sección y el botón Desactivar/Activar vuelve a estar disponible.
     setConfirmingStatus(false);
+    statusSending.current = true;
     statusChange.mutate({ isActive });
   };
 

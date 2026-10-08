@@ -30,63 +30,66 @@ export function unexpectedResponse(status: number): ApiError {
 export function createApiClient(
   options: { onUnauthenticated?: () => void; timeoutMs?: number } = {},
 ) {
+  // Núcleo de las solicitudes: devuelve el cuerpo junto con el status real de la
+  // respuesta, para que quien valida el esquema pueda reportarlo en el ApiError.
+  async function requestWithStatus(
+    path: string,
+    requestOptions: ApiRequestOptions = {},
+  ): Promise<{ body: unknown; status: number }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort();
+    }, options.timeoutMs ?? DEFAULT_API_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${window.location.origin}/api${path}`, {
+        method: requestOptions.method ?? 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          ...(requestOptions.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
+        ...(requestOptions.body === undefined ? {} : { body: JSON.stringify(requestOptions.body) }),
+        signal: controller.signal,
+      });
+      if (
+        response.ok &&
+        requestOptions.expectedStatus !== undefined &&
+        response.status !== requestOptions.expectedStatus
+      ) {
+        throw unexpectedResponse(response.status);
+      }
+      if (response.status === 204) return { body: undefined, status: response.status };
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch (error) {
+        if (controller.signal.aborted) throw error;
+        throw unexpectedResponse(response.status);
+      }
+      if (response.ok) return { body, status: response.status };
+      const parsed = errorResponseSchema.safeParse(body);
+      if (!parsed.success) throw unexpectedResponse(response.status);
+      const { code, message, details } = parsed.data.error;
+      if (response.status === 401 && code === 'UNAUTHENTICATED' && !requestOptions.skipAuthRedirect)
+        options.onUnauthenticated?.();
+      throw new ApiError(response.status, code, message, details);
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        0,
+        'NETWORK_ERROR',
+        'Sin conexión con el servidor. Revisa el wifi e intenta de nuevo.',
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
   return {
     async request(path: string, requestOptions: ApiRequestOptions = {}): Promise<unknown> {
-      const controller = new AbortController();
-      const timer = setTimeout(() => {
-        controller.abort();
-      }, options.timeoutMs ?? DEFAULT_API_TIMEOUT_MS);
-      try {
-        const response = await fetch(`${window.location.origin}/api${path}`, {
-          method: requestOptions.method ?? 'GET',
-          credentials: 'same-origin',
-          cache: 'no-store',
-          headers: {
-            Accept: 'application/json',
-            ...(requestOptions.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-          },
-          ...(requestOptions.body === undefined
-            ? {}
-            : { body: JSON.stringify(requestOptions.body) }),
-          signal: controller.signal,
-        });
-        if (
-          response.ok &&
-          requestOptions.expectedStatus !== undefined &&
-          response.status !== requestOptions.expectedStatus
-        ) {
-          throw unexpectedResponse(response.status);
-        }
-        if (response.status === 204) return undefined;
-        let body: unknown;
-        try {
-          body = await response.json();
-        } catch (error) {
-          if (controller.signal.aborted) throw error;
-          throw unexpectedResponse(response.status);
-        }
-        if (response.ok) return body;
-        const parsed = errorResponseSchema.safeParse(body);
-        if (!parsed.success) throw unexpectedResponse(response.status);
-        const { code, message, details } = parsed.data.error;
-        if (
-          response.status === 401 &&
-          code === 'UNAUTHENTICATED' &&
-          !requestOptions.skipAuthRedirect
-        )
-          options.onUnauthenticated?.();
-        throw new ApiError(response.status, code, message, details);
-      } catch (error) {
-        if (error instanceof ApiError) throw error;
-        throw new ApiError(
-          0,
-          'NETWORK_ERROR',
-          'Sin conexión con el servidor. Revisa el wifi e intenta de nuevo.',
-        );
-      } finally {
-        clearTimeout(timer);
-      }
+      return (await requestWithStatus(path, requestOptions)).body;
     },
+    requestWithStatus,
   };
 }
 export const apiClient = createApiClient({
