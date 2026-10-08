@@ -13,4 +13,7 @@ metadata:
 - Los .md y .yaml del repo tienen CRLF en la copia de trabajo (core.autocrlf=true); el Edit tool lo respeta.
 - Para ver el comportamiento ACTUAL de la API sin tocar el proyecto: script .mjs en el scratchpad que importa apps/api/src/*.ts por file URL (pathToFileURL) y se ejecuta con `node --disable-warning=ExperimentalWarning` con cwd en apps/api (resuelve express, sequelize, zod). Para leer código de dependencias instaladas: node_modules/.pnpm/<paquete>@<versión>/node_modules/<paquete>.
 
+- Las herramientas Write/Edit a veces convierten escapes `\uXXXX` del texto en el carácter real (visto con U+2028, U+2029 y U+200B, no siempre). Después de escribir una spec o un script con escapes de caracteres invisibles, escanear el archivo con un script .cjs (buscar \p{Cc}, \p{Cf}, \p{Zl}, \p{Zp}, Zs distintos del espacio) y reponer el escape con `String.fromCharCode(92) + 'u200B'`.
+- Para fijar valores esperados de una función nueva (por ejemplo la normalización de la 002), escribir un prototipo .mjs en el scratchpad y un script con node:assert que compruebe cada ejemplo de la spec antes de commitear.
+
 Ver [[entorno-verificado]].

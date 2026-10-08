@@ -19,5 +19,7 @@ Enmiendas por hallazgos adversariales (patrón pedido por el orquestador en la e
 - Los tests adversariales existentes son restricciones duras: leerlos completos y redactar AC compatibles; nadie los modifica. Antes de fijar códigos o valores, reproducir el comportamiento actual con un script en el scratchpad (ver [[herramientas-entorno]]).
 - Si una regla se puede implementar de varias formas, el AC debe aceptar cualquier forma correcta y rechazar solo la incorrecta (ejemplo: AC-37 prohíbe clasificar por status sin forzar un mecanismo).
 
+Numeración entre specs (propuesta en la 002, 2026-10-07, aún sin validar por el usuario): el orquestador pide AC-01, AC-02... por spec, así que los AC se repiten entre specs. Para distinguirlos, las pruebas de cada spec van en archivos nuevos con un describe que empieza con el número de spec ('002:'). Los demás IDs llevan el número de spec: HU-002-01, D-002-01, S-002-01, R-002-01, RN-002-01. Si una spec cambia AC aprobados de otra, se agrega una sección "Cambios a la spec NNN" con tabla (elemento, cambio, quién) y notas cortas en la spec anterior.
+
 **Why:** el test-writer y los implementadores no ven la conversación; una spec ambigua genera tests mal dirigidos o implementaciones que no coinciden.
 **How to apply:** repetir esta estructura en cada spec nueva; ver [[decisiones-modelado]].
