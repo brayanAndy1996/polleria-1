@@ -1,6 +1,6 @@
 # Tareas — Spec 005: productos y precios de la carta
 
-- Spec: docs/specs/005-menu-products/spec.md (Borrador; pendiente de aprobación del usuario)
+- Spec: docs/specs/005-menu-products/spec.md (Aprobada, 2026-10-08)
 - Rama: feat/005-menu-products
 - Contrato: docs/api/openapi.yaml (versión 0.5.0: /products GET y POST, /products/{productId} PATCH; Product, ProductCategory, PriceCents, ProductNotFound y ProductNameTaken)
 - ADR: ninguno nuevo (reutiliza lo ya decidido: umzug, Sequelize, Zod, requireAuth/requireRole, formato de errores)
@@ -14,7 +14,7 @@
 3. **Implementación (backend-dev)**: primero T-05 (esquemas y códigos de shared, los necesita todo lo demás), luego T-06 (migración y modelo Product, la necesita el servicio), T-07 (servicio) y T-08 (controller, rutas, app y prefijo no-store).
 4. **Cierre (T-09)**: definición de terminado y requisitos R-005-01 a R-005-07.
 
-Aprobación: la spec está en Borrador; solo se ejecuta este plan cuando el usuario la apruebe, respondiendo o confirmando los supuestos S-005-01 a S-005-11 (preguntas 1 a 10).
+Aprobación: el usuario respondió las preguntas 1 a 10 el 2026-10-08 con las recomendaciones (supuestos S-005-01 a S-005-11 confirmados). En particular, la pregunta 10 dejó pendientes del dueño para la spec 006 las consultas sobre 1/8, armado del 1/2 y precio distinto de pecho y pierna; no bloquean esta funcionalidad.
 
 ## Pruebas en rojo (test-writer)
 

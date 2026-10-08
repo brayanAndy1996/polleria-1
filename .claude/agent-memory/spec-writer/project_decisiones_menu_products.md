@@ -1,11 +1,11 @@
 ---
 name: decisiones-menu-products
-description: Propuesta de la spec 005 (productos y precios de la carta, en Borrador pendiente de aprobación): tabla products con categorías fijas, priceCents 0..99999, nombre único con lower(name), desactivar sin borrar, GET para cualquier rol, contrato 0.5.0; límites frente a 006/007/008
+description: Decisiones aprobadas de la spec 005 (productos y precios de la carta, Aprobada 2026-10-08): tabla products con categorías fijas, priceCents 0..99999, nombre único con lower(name), desactivar sin borrar, GET para cualquier rol, contrato 0.5.0; límites frente a 006/007/008
 metadata:
   type: project
 ---
 
-Spec 005 (docs/specs/005-menu-products/spec.md), escrita el 2026-10-08 en feat/005-menu-products, **en Borrador** (los supuestos S-005-01 a S-005-11 esperan respuesta del usuario; verificar si fue aprobada antes de apoyarse en esto). OpenAPI 0.5.0. Una migración: 20261008180000-create-products.ts. Sin variables de entorno nuevas, sin frontend (pantallas = spec 008).
+Spec 005 (docs/specs/005-menu-products/spec.md), **Aprobada el 2026-10-08**: el usuario respondió las 10 preguntas con las recomendaciones (S-005-01 a S-005-11 confirmados como decisiones). Rama feat/005-menu-products. OpenAPI 0.5.0. Una migración: 20261008180000-create-products.ts. Sin variables de entorno nuevas, sin frontend (pantallas = spec 008). La pregunta 10 dejó pendientes del dueño para la 006: ¿vende 1/8?, ¿cómo arma el 1/2?, ¿cobra distinto pecho y pierna?
 
 - Modelo products: id SERIAL, name varchar(60) (CHECK no vacío + trim), category varchar(16) (CHECK con lista), price_cents integer (CHECK 0..99999), is_active bool default true, created_at/updated_at timestamptz. Índice único por expresión `products_name_unique` sobre `lower(name)` (sin distinguir mayúsculas, incluye inactivos). Sin FK ni índices extra (la carta se lee entera y se ordena en el servicio).
 - Categorías fijas en `PRODUCT_CATEGORIES` = ['chicken','dish','drink','dessert','sauce','extra'] en ese orden = orden de la carta (etiquetas es: Pollo, Platos, Bebidas, Postres, Cremas, Extras). 'combo' NO existe todavía: la 007 decide si es categoría (migración que amplíe el CHECK) o tabla propia. 'sauce' permite cremas de precio 0 (salen en comanda). 'extra' cubre descartables/empaque vendibles (insumo con stock = Fase 5).

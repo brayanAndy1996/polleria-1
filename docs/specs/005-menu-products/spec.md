@@ -1,6 +1,6 @@
 # Spec 005 — Productos y precios de la carta
 
-- Estado: Borrador (propuesta; la escribe el spec-writer y la aprueba el usuario antes de tests e implementación)
+- Estado: Aprobada (2026-10-08, por el usuario, con las respuestas recomendadas a las preguntas 1 a 10)
 - Fase: 1 (Usuarios y carta)
 - Rama: feat/005-menu-products
 - Fecha: 2026-10-08
@@ -39,15 +39,15 @@ Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Pre
 - Fijas y no libres porque: el orden de la carta queda estable, las etiquetas salen ya traducidas sin que el dueño escriba categorías, la 006 puede tratar la categoría 'chicken' con reglas propias (presentaciones y partes) y se evita la tabla de categorías y su pantalla de administración.
 - La base lo garantiza con un CHECK (`category IN (...)`), como los roles de la 003; agregar una categoría es una migración y un cambio de enum.
 - 'combo' NO es categoría todavía (SUPUESTO S-005-10): la 007 decide si los combos son productos con esa categoría (entraría por una migración que amplíe el CHECK) o una entidad aparte con su tabla de componentes.
-- 'sauce' existe aunque las cremas no se cobren: crema gratis = producto con precio S/ 0.00 que igual aparece en la carta y llega a la comanda de cocina (D-005-05; pendiente del dueño que esta spec convierte en supuesto). 'extra' cubre adicionales vendibles: descartables y empaque para llevar, porción extra de papas, etc. (el control de descartables como insumo es de la Fase 5).
+- 'sauce' existe aunque las cremas no se cobren: crema gratis = producto con precio S/ 0.00 que igual aparece en la carta y llega a la comanda de cocina (D-005-05; confirmado en la pregunta 2). 'extra' cubre adicionales vendibles: descartables y empaque para llevar, porción extra de papas, etc. (confirmado en la pregunta 7; el control de descartables como insumo es de la Fase 5).
 
 **D-005-04. Orden de la carta (SUPUESTO S-005-02).**
 - Orden fijo: primero por categoría en el orden de `PRODUCT_CATEGORIES`, dentro de cada categoría por nombre con `Intl.Collator('es', { sensitivity: 'base' })` (sin distinguir mayúsculas ni tildes, como la lista de usuarios) y los empates por `id`. La API devuelve la lista ya ordenada; la web la agrupa por categoría.
-- Sin orden manual (`sort_order`): una pantalla de ordenamiento es trabajo y complejidad de la 008 por algo que una pollería chica casi no usa. Si el dueño lo pide, una spec posterior agrega la columna con una migración (pregunta 4).
+- Sin orden manual (`sort_order`): una pantalla de ordenamiento es trabajo y complejidad de la 008 por algo que una pollería chica casi no usa. Confirmado en la pregunta 4; si el dueño lo pide más adelante, una spec posterior agrega la columna con una migración.
 
 **D-005-05. Dinero en céntimos, con piso S/ 0.00 y tope S/ 999.99 (regla 2; SUPUESTOS S-005-03 y S-005-07).**
 - `price_cents` es INTEGER entre 0 y 99999. El precio nunca es float ni texto: "1850" con comillas es 400, 18.5 es 400.
-- Precio 0 permitido: las cremas que no se cobran (pregunta pendiente del dueño) entran a la carta como productos de precio 0 — el mozo las agrega y la cocina las ve en la comanda. Si el dueño cobra alguna, se crea con su precio.
+- Precio 0 permitido: las cremas que no se cobran entran a la carta como productos de precio 0 (confirmado en la pregunta 2) — el mozo las agrega y la cocina las ve en la comanda. Si el dueño cobra alguna, se crea con su precio.
 - Tope de 99999 céntimos (S/ 999.99): en una pollería nada cuesta cerca de mil soles; el tope corta el error clásico de escribir 185000 pensando en "S/ 18.50" (se rechaza con 400). Si algún día aparece un producto de mil soles, el tope se sube en una spec.
 
 **D-005-06. Nombre del producto y unicidad sin mayúsculas (SUPUESTO S-005-05).**
@@ -414,7 +414,7 @@ Ninguna dependencia nueva ni de soporte: se reutilizan Sequelize (modelos, índi
 ## 14. Fuera de alcance
 
 - Pantallas web de la carta: la administración (lista, alta, edición, activar/desactivar) es la spec 008 y la carta del mozo llega con la Fase 2. En esta spec no hay frontend-dev ni E2E.
-- Presentaciones y partes con consumo en octavos (RF-19, spec 006): si el dueño vende 1/8, cómo arma el 1/2 y si cobra distinto pecho y pierna son preguntas de esa spec. Aquí "1/4 de Pollo" puede existir como producto simple.
+- Presentaciones y partes con consumo en octavos (RF-19, spec 006): si el dueño vende 1/8, cómo arma el 1/2 y si cobra distinto pecho y pierna son preguntas que quedaron pendientes para esa spec (pregunta 10, aprobado diferirlas). Aquí "1/4 de Pollo" puede existir como producto simple.
 - Combos y sus componentes (spec 007): 'combo' no es categoría todavía (S-005-10).
 - Borrado de productos (RN-005-04: se desactivan, nunca se borran).
 - Descripción, foto, código/SKU, orden manual de la carta (S-005-09, S-005-02).
@@ -426,6 +426,8 @@ Ninguna dependencia nueva ni de soporte: se reutilizan Sequelize (modelos, índi
 - GET /api/products/{productId} de detalle (la lista ya trae todo lo necesario, como en la 004).
 
 ## 15. Supuestos
+
+Confirmados por el usuario el 2026-10-08: S-005-01 a S-005-11, todos con la respuesta recomendada. Ya no son supuestos: son decisiones; se conservan abajo como registro.
 
 | ID | Supuesto |
 | --- | --- |
@@ -442,6 +444,8 @@ Ninguna dependencia nueva ni de soporte: se reutilizan Sequelize (modelos, índi
 | S-005-11 | Un producto 'chicken' puede existir ya como ítem simple con precio propio; la 006 le agrega presentaciones/partes y decide cómo conviven con price_cents. |
 
 ## 16. Preguntas abiertas para el usuario
+
+Respondidas el 2026-10-08, todas con la respuesta recomendada: 1 (las categorías son fijas: Pollo, Platos, Bebidas, Postres, Cremas y Extras), 2 (las cremas que no se cobran entran a la carta como productos con precio S/ 0.00), 3 (un producto nunca se borra: se desactiva y puede reactivarse), 4 (la carta se ordena sola por categoría y nombre, sin orden manual), 5 (el nombre es único sin distinguir mayúsculas, incluidos los inactivos), 6 (el precio puede ser S/ 0.00 y no puede pasar de S/ 999.99), 7 (los descartables y el empaque para llevar se cargan como productos de la categoría Extras; controlarlos como insumo será de la fase de inventario), 8 (GET /api/products lo puede llamar cualquier trabajador con sesión y devuelve también los desactivados), 9 (esta spec no trae pantallas: la administración de la carta llega en la 008 sobre esta misma API) y 10 (las preguntas sobre 1/8, armado del 1/2 y precio distinto para pecho y pierna quedan pendientes para la spec 006, que no bloquean esta). Se conservan abajo como registro.
 
 1. (dueño) Las categorías de la carta serían fijas: Pollo, Platos, Bebidas, Postres, Cremas y Extras (recomendado, S-005-01; 'combo' se decide en la 007). ¿Te falta alguna (por ejemplo "Parrillas" o "Antojos") o prefieres poder crear categorías tú mismo?
 2. (dueño) Si las cremas no se cobran, igual entrarían a la carta con precio S/ 0.00 para que el mozo las agregue y la cocina las vea en la comanda (recomendado, S-005-03; responde la pendiente "¿las cremas se cobran?"). Si alguna se cobra, se crea con su precio. ¿Está bien así?
