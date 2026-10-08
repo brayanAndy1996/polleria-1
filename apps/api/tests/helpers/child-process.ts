@@ -14,6 +14,13 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 
 export const SERVER_ENTRY = path.join(REPO_ROOT, 'apps', 'api', 'src', 'server.ts');
 export const CLI_ENTRY = path.join(REPO_ROOT, 'apps', 'api', 'src', 'db', 'cli.ts');
+export const PRINT_TEST_PAGE_ENTRY = path.join(
+  REPO_ROOT,
+  'apps',
+  'api',
+  'src',
+  'print-test-page.ts',
+);
 
 const NODE_FLAGS = ['--disable-warning=ExperimentalWarning'];
 
@@ -153,6 +160,20 @@ export async function runCli(
   timeoutMs = 12_000,
 ): Promise<ExitResult> {
   const proc = new ManagedProcess(CLI_ENTRY, args, env);
+  const result = await proc.waitForExit(timeoutMs);
+  await proc.kill();
+  return result;
+}
+
+/**
+ * Ejecuta print-test-page.ts (el comando `pnpm printer:test`, spec 002) y espera a que termine
+ * (máximo timeoutMs). Si pasa el tiempo límite, mata el proceso.
+ */
+export async function runPrintTestPage(
+  env: NodeJS.ProcessEnv,
+  timeoutMs = 12_000,
+): Promise<ExitResult> {
+  const proc = new ManagedProcess(PRINT_TEST_PAGE_ENTRY, [], env);
   const result = await proc.waitForExit(timeoutMs);
   await proc.kill();
   return result;

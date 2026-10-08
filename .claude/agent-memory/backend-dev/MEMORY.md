@@ -1,2 +1,3 @@
 - [Notas de Vitest 5 en este monorepo](project_vitest_5_setup.md) — peer de msw esperado, umbrales, JSX con oxc, fetch relativo en jsdom
 - [Notas de la API (umzug, Zod 4, body-parser, bloqueo, Sequelize)](project_api_tooling_gotchas.md) — glob de umzug, errores del lector, conexión por objeto, advisory lock, cobertura
+- [Notas del PrinterService (spec 002)](project_printer_service_notes.md) — Zod enum+refine, Segmenter, datasync, PowerShell desde Bash, borde ñ+ZWJ

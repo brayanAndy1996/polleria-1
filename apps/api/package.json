@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts migrate",
     "db:migrate:undo": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts migrate:undo",
-    "db:seed": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts seed"
+    "db:seed": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts seed",
+    "printer:test": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/print-test-page.ts"
   },
   "dependencies": {
     "@polleria/shared": "workspace:*",

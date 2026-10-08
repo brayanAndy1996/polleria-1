@@ -5,16 +5,16 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 ## Estado actual
 
 - Fase: 0 de 6, base del proyecto.
-- Funcionalidad: 002-printer-service (por iniciar). La 001 se integró a main el 2026-10-07.
-- Paso: 1 de 9 de la 002 (crear rama y delegar la spec).
-- Rama: feat/002-printer-service (por crear desde main).
+- Funcionalidad: ninguna en curso. La 001 se integró a main el 2026-10-07 y la 002 el 2026-10-08. Fase 0 completa.
+- Paso: punto de control de fin de la Fase 0 (esperando aprobación del usuario para iniciar la Fase 1).
+- Rama: main.
 
 ## Tabla de funcionalidades
 
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
-| 002 | printer-service (PrinterService con driver file) | 0 | Pendiente | feat/002-printer-service | — |
+| 002 | printer-service (PrinterService con driver file) | 0 | Cerrada (APROBADO; 1 vuelta; 5 hallazgos como deuda) | feat/002-printer-service | 2026-10-08 |
 
 ## Decisiones del usuario
 
@@ -31,6 +31,9 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | 2026-10-07 | Se asume Chrome 111 o superior en los celulares de los mozos; se confirmará con el dueño. |
 | 2026-10-07 | Corregir ahora los 6 hallazgos adversariales medios y bajos de la 001 (enmienda 1 de la spec), sin nueva aprobación salvo que cambie lo que ve el usuario final. |
 | 2026-10-07 | Integrar la 001 a main con commit de merge (--no-ff), conservando el historial. |
+| 2026-10-07 | Spec 002 aprobada con las recomendaciones: escpos detiene el arranque hasta la Fase 3, corte duro en 48 columnas, caracteres sin equivalente se imprimen como ?. Pendiente para la Fase 3: marca y modelo de la impresora del dueño. |
+| 2026-10-08 | Dejar como deuda, para la Fase 3, los 5 hallazgos medios y bajos de la 002 (ADV-002-01 a 05). Sus tests se marcan como falla conocida (it.fails). |
+| 2026-10-08 | Integrar la 002 a main con commit de merge (--no-ff). |
 | 2026-10-07 | El usuario confirma que existen el rol polleria y las bases polleria_dev y polleria_test en PostgreSQL 17 (puerto 5432). |
 
 ## Notas técnicas del orquestador
@@ -54,13 +57,37 @@ Hallazgos adversariales de la 001 (2026-10-07, commit 7be8d15; tests en apps/api
 | ADV-001-06 | Bajo | Dos migrateUp simultáneos: uno falla con un error crudo del driver (el estado final queda bien). | Cerrado (enmienda 1) |
 | ADV-001-09 | Bajo | API_INTERNAL_URL con ruta, query o fragmento rompe el destino del rewrite sin aviso. | Cerrado (enmienda 1) |
 
-Ataques sin fallas (quedan como regresión en verde): prototype pollution en JSON, 120 consultas de salud simultáneas con base disponible y caída, sin fugas de clave en errores, CLI ni salud.
+Hallazgos adversariales de la 002 (2026-10-08, commit 0c62834; tests en apps/api/tests/adversarial y packages/shared/tests/adversarial):
+
+| ID | Severidad | Hallazgo | Estado |
+| --- | --- | --- | --- |
+| ADV-002-01 | Medio | Una línea válida con miles de acentos combinantes desordenados hace que normalizar tarde más de 2 s y bloquee Node (AC-17). | Deuda (Fase 3), test con it.fails |
+| ADV-002-02 | Medio | createPrinterDriver se exporta desde index.ts y su print escribe tal cual ESC, GS y NUL si alguien lo usa sin el servicio. | Deuda (Fase 3), test con it.fails |
+| ADV-002-03 | Bajo | El límite de 500 líneas se aplica después de recorrer todo el arreglo (100 000 líneas se leen enteras). | Deuda (Fase 3), test con it.fails |
+| ADV-002-04 | Bajo | En Windows, PRINTER_FILE_DIR como Q:comandas o C: depende de la carpeta actual o cae en la raíz del monorepo. | Deuda (Fase 3), test con it.fails |
+| ADV-002-05 | Bajo | toLimaDateTimeParts confunde años antes y después de Cristo (año 0 y año 1 dan 0001). | Deuda (Fase 3), test con it.fails |
+
+Condiciones de la deuda de la 002: ADV-002-02 debe corregirse antes de crear el driver escpos en la Fase 3 (si no, sería inyección de comandos en la impresora: Crítico). ADV-002-01 sube a Alto si las observaciones de los ítems aceptan más de unos 200 caracteres sin limitar acentos combinantes seguidos. ADV-002-01 depende de la velocidad de la máquina (en una PC unas 3 veces más rápida podría dejar de fallar y it.fails avisaría). Nota: it.fails da por buena cualquier falla, no solo la del hallazgo.
+
+Ataques de la 002 sin fallas (regresión en verde): ningún punto de código Unicode sale fuera de los 114 imprimibles; comandos ESC/POS reales y trucos bidi, ZWJ y BOM no llegan al archivo por el servicio; jobId con trucos de rutas y nombres reservados de Windows se rechazan; 1000 impresiones simultáneas sin colisiones; fallas de escritura no dejan .txt ni .tmp; printer:test sin fugas de clave; Lima siempre UTC-5.
+
+Ataques de la 001 sin fallas (quedan como regresión en verde): prototype pollution en JSON, 120 consultas de salud simultáneas con base disponible y caída, sin fugas de clave en errores, CLI ni salud.
 
 Otras notas:
+
+- Bajo (reviewer 002): print-document.ts:109 compara con un TAB literal; cambiar a 	 o String.fromCharCode(0x09) en un refactor.
+- Bajo (reviewer 002): printer.service.ts:85 lanza RangeError (no PrinterError) si se inyecta un reloj que da fecha inválida; tenerlo en cuenta en la Fase 3.
+- Bajo (reviewer 002): file-driver.ts usa node:timers/promises, que la lista de D-002-08 no menciona; actualizar la spec en la Fase 3.
+- Atención (reviewer 002): packages/shared tiene solo 16 líneas medidas (93,75 %); poco margen sobre el umbral de 90 % para la Fase 1.
+
+- Bajo (backend-dev, 2026-10-08): un grafema como ñ seguido de ZWJ pierde la tilde y sale n (D-002-04 paso 4d quita marcas combinantes tras NFKD). Sigue la spec; muy raro.
+
+- 2026-10-07 (test-writer): db-cli AC-24 de la 001 superó una vez su límite de 12 s con la máquina cargada (pasa solo en 9 s). Vigilar si se vuelve intermitente.
 
 - Bajo (reviewer, 2026-10-07): la fila "error del lector con estado 5xx → 500 y se registra" de la tabla 9.2 no tiene test de regresión (error-handler.ts:56). Pendiente para test-writer en una spec posterior.
 - Pendiente manual (reviewer): probar R-11 (pnpm dev) y la sección 16 de la spec 001 desde un celular en el wifi del local y sin internet. Se incluye en el punto de control de fin de la Fase 0.
 - 2026-10-07: versiones exactas registradas en CLAUDE.md (sección Stack), según la Fase 0 y el ADR 0001.
+- 2026-10-08: pnpm printer:test agregado a los comandos de CLAUDE.md.
 
 - Bajo (2026-10-07, reportado por backend-dev): si la clave de DATABASE_URL trae un escape % mal formado, loadConfig la acepta y createSequelize la rechaza con un mensaje seguro, pero server.ts y cli.ts terminan con un rechazo no controlado y traza. Se puede cerrar haciendo que loadConfig use getPostgresConnectionParts.
 

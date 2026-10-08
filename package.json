@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json && pnpm -r run typecheck",
     "db:migrate": "pnpm --filter @polleria/api run db:migrate",
     "db:seed": "pnpm --filter @polleria/api run db:seed",
+    "printer:test": "pnpm --filter @polleria/api run printer:test",
     "format": "prettier --write ."
   },
   "devDependencies": {
