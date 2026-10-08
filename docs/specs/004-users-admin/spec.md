@@ -1,6 +1,6 @@
 # Spec 004 — Gestión de usuarios por el administrador
 
-- Estado: Borrador (pendiente de aprobación del usuario)
+- Estado: Aprobada (2026-10-08, por el usuario, con las respuestas recomendadas a las preguntas 1 a 6)
 - Fase: 1 (Usuarios y carta)
 - Rama: feat/004-users-admin
 - Fecha: 2026-10-08
@@ -43,7 +43,7 @@ Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Pre
   5. **Lista corta**: '2580' (la columna del medio del teclado numérico, PIN típico).
 - No se valida contra el día real del mes (3102 vale como fecha aunque febrero no tenga 31): la regla busca PIN evidentes, no un calendario exacto.
 - `isWeakPin` recibe cualquier texto y nunca lanza: devuelve false para entradas que no son `^[0-9]{4,6}$` (el formato lo revisa `pinSchema` antes). En el esquema, el mensaje es el mismo para todas las reglas: `WEAK_PIN_MESSAGE` = 'Ese PIN es muy fácil de adivinar. Elige otro.', como issue de `VALIDATION_ERROR` en el campo `pin`.
-- Criterio de la lista: reglas mecánicas y pocas, fáciles de explicar ("nada de dígitos repetidos, corridas, años ni fechas") y de probar. La cobertura de estadísticas reales (los PIN más usados del mundo) es excesiva para una red local protegida por el límite de intentos. La lista exacta es una pregunta abierta (pregunta 2).
+- Criterio de la lista: reglas mecánicas y pocas, fáciles de explicar ("nada de dígitos repetidos, corridas, años ni fechas") y de probar. La cobertura de estadísticas reales (los PIN más usados del mundo) es excesiva para una red local protegida por el límite de intentos. La lista exacta era la pregunta 2 y quedó aprobada tal cual.
 
 **D-004-03. Quién escribe el PIN (SUPUESTO S-004-01).**
 - Al crear un usuario y al restablecer un PIN, el administrador escribe el PIN nuevo dos veces en el formulario web (campos numéricos ocultos, inputMode numeric): la segunda escritura evita errores de tipeo ('Los PIN no coinciden.'). La API recibe el PIN una sola vez; la repetición es una validación de la web.
@@ -497,7 +497,7 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
   - `createUserService` no cambia de firma ni de comportamiento (el alta web le pasa un PIN ya validado por strongPinSchema desde el esquema de la solicitud).
 - **apps/api/src/controllers/users.controller.ts** y **apps/api/src/routes/users.routes.ts** (nuevos): el router fija `Cache-Control: no-store` y exige `requireAuth` + `requireRole('admin')` en todas sus rutas; el controller valida `userId` (entero positivo, máximo 2147483647), parsea el cuerpo con los esquemas y devuelve 201/200/204.
 - **apps/api/src/app.ts** (modificado): un solo LoginLimiter compartido entre authService y userAdminService; monta `/users` en el router de la API.
-- **apps/api/src/create-admin.ts** (modificado, si se aprueba S-004-06): valida el PIN con strongPinSchema; el resto no cambia.
+- **apps/api/src/create-admin.ts** (modificado): valida el PIN con strongPinSchema (aprobado, S-004-06); el resto no cambia.
 - **apps/web/src/lib/api/client.ts** (modificado): `ApiRequestOptions.method` admite 'PATCH'.
 - **apps/web/src/lib/api/users.ts** (nuevo): `getUsers()`, `createUser(input: CreateUserRequest)`, `updateUser(userId: number, input: UpdateUserRequest)`, `resetUserPin(userId: number, pin: string)`. Respuestas JSON validadas con los esquemas de shared; `expectedStatus` 201/200/204 según la operación.
 - **apps/web/src/app/admin/page.tsx** (modificado): enlace 'Usuarios'.
@@ -511,7 +511,7 @@ Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/u
 | --- | --- | --- |
 | 003, sección 14 ("Crear, editar, desactivar usuarios, asignar roles y cambiar PIN desde la web (propuesta 004), incluido desbloquear a un usuario a mano") y sección 18 (notas para la 004) | Ahora en alcance de esta spec. La sección 18 pedía: requireRole('admin'), USERNAME_TAKEN por HTTP, borrar sesiones y conteo al desactivar o cambiar el PIN, y decidir la autogestión del administrador — cubierto por D-004-01, D-004-04 y D-004-05. | — |
 | 003, helpers de pruebas (resetMigrationTables, clearAuthTables, migrateAndClearAuthTables) | Sin cambios: ya cubren users y sessions y esta spec no agrega tablas. | — |
-| 003, `pnpm users:create-admin` | Si se aprueba la pregunta 4 (S-004-06), el comando valida el PIN con strongPinSchema (rechaza PIN fáciles). Las pruebas AC-26 y AC-27 de la 003 no cambian: '975310' es un PIN fuerte y '97a5' sigue fallando por formato; un PIN débil bien formado (por ejemplo '1234') respondería 'Ese PIN es muy fácil de adivinar. Elige otro.' y código 1. | backend-dev (T-09) |
+| 003, `pnpm users:create-admin` | Aprobado (S-004-06): el comando valida el PIN con strongPinSchema (rechaza PIN fáciles). Las pruebas AC-26 y AC-27 de la 003 no cambian: '975310' es un PIN fuerte y '97a5' sigue fallando por formato; un PIN débil bien formado (por ejemplo '1234') respondería 'Ese PIN es muy fácil de adivinar. Elige otro.' y código 1. | backend-dev (T-09) |
 | 003, apps/web/src/lib/api/client.ts | `ApiRequestOptions.method` suma 'PATCH' (AC-19); el resto del contrato del cliente no cambia. | frontend-dev |
 | e2e/global-setup.ts | Crea e2e.gestion2 y borra 'e2e.gestion' si existe (limpieza sobre polleria_test con las mismas guardias; la tabla users está autorizada). | test-writer (T-05) |
 | docs/api/openapi.yaml | Versión 0.3.1 → 0.4.0 con lo de 9.5. | spec-writer (esta spec) |
@@ -536,6 +536,8 @@ Ninguna dependencia nueva ni de soporte: se reutilizan bcrypt (PinHasher), Seque
 
 ## 15. Supuestos
 
+Confirmados por el usuario el 2026-10-08: S-004-01 a S-004-08, todos con la respuesta recomendada. Ya no son supuestos: son decisiones; se conservan abajo como registro.
+
 | ID | Supuesto |
 | --- | --- |
 | S-004-01 | El administrador escribe el PIN nuevo (alta y restablecimiento) dos veces en el formulario; no hay PIN generado por el sistema. |
@@ -548,6 +550,8 @@ Ninguna dependencia nueva ni de soporte: se reutilizan bcrypt (PinHasher), Seque
 | S-004-08 | La lista del administrador muestra a todos los usuarios sin paginar, en el mismo orden que la lista pública. |
 
 ## 16. Preguntas abiertas para el usuario
+
+Respondidas el 2026-10-08, todas con la respuesta recomendada: 1 (el administrador escribe el PIN nuevo dos veces; no hay PIN generado), 2 (la lista de PIN fáciles queda como la propuesta: repetidos, secuencias circulares, años 1900-2099, fechas DDMM y DDMMAA y '2580'), 3 (un administrador puede desactivarse o quitarse el rol admin solo si queda otro administrador activo; si no, 409 LAST_ADMIN_REQUIRED), 4 (`pnpm users:create-admin` también rechaza PIN fáciles), 5 (el nombre de usuario no se puede cambiar) y 6 (no hay botón ni endpoint "Desbloquear"). Se conservan abajo como registro.
 
 1. (dueño) Cuando das de alta a un trabajador o le restableces el PIN, ¿está bien que tú escribas el PIN dos veces en el formulario (recomendado, S-004-01)? La alternativa es que el sistema genere un PIN al azar y te lo muestre una sola vez para que se lo digas al trabajador.
 2. (dueño) La regla de PIN fáciles propuesta rechaza: dígitos repetidos (0000, 111111), corridas (1234, 4321, 7890), años entre 1900 y 2099, fechas válidas (2512 = 25/12, 150385 = 15/03/85) y el 2580 del teclado (S-004-02). ¿Está bien así (recomendado), quieres quitar alguna (por ejemplo las fechas, que podrían molestar) o agregar otra?
@@ -576,4 +580,3 @@ Después de que la funcionalidad esté implementada:
 - Fase 2 (autorización con PIN de administrador para anulaciones y otros): reutilizar PinHasher y un LoginLimiter propio, como dice la sección 18 de la 003; la tabla de administradores activos ya se consulta con `roles @> '{admin}'`.
 - Auditoría (RF-27, Fase 6): los cambios de usuarios (alta, edición, desactivación, restablecimiento de PIN) son candidatos a registrarse con actor y hora.
 - Seeds de demostración (Fase 6): pueden crear los usuarios de ejemplo con createUserService; conviene que sus PIN cumplan la regla de PIN fáciles para que no choquen si createUser algún día la aplica también.
-- Si el usuario responde que prefiere PIN generados por el sistema (pregunta 1), la misma pantalla de "mostrar una vez" servirá para el alta y el restablecimiento.

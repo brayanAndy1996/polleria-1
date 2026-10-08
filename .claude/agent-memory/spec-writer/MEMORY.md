@@ -2,6 +2,6 @@
 - [Entorno verificado](project_entorno_verificado.md) — Node 24.1.0, TS 6.0.3, jsdom 29, Next 16; zod max() cuenta puntos de código, no .length
 - [Decisiones de impresión](project_decisiones_impresion.md) — spec 002 + aclaración 1: normalización 48 col (trim por trozo), jobId Lima, PRINTER_* (trim de dir)
 - [Decisiones de autenticación](project_decisiones_auth.md) — spec 003 + revisión 1: sesión opaca, cookie polleria_session, 5/15 min, varios roles (users.roles arreglo), áreas y /areas
-- [Gestión de usuarios (propuesta)](project_decisiones_users_admin.md) — spec 004 BORRADOR: /api/users admin, PIN fáciles, último admin con FOR UPDATE, clearAttempts, contrato 0.4.0
+- [Gestión de usuarios](project_decisiones_users_admin.md) — spec 004 aprobada: /api/users admin, PIN fáciles, último admin con FOR UPDATE, clearAttempts, contrato 0.4.0
 - [Forma de las specs](feedback_forma_specs.md) — AC solo comportamiento, config aparte, contrato de módulos, enmiendas, aclaraciones, IDs entre specs
 - [Herramientas del entorno](reference_herramientas_entorno.md) — npm view, Redocly, scratchpad; no Markdown por bash; Write convierte escapes \u invisibles

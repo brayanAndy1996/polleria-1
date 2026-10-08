@@ -1,6 +1,6 @@
 # Tareas — Spec 004: gestión de usuarios por el administrador
 
-- Spec: docs/specs/004-users-admin/spec.md (Borrador, pendiente de aprobación del usuario)
+- Spec: docs/specs/004-users-admin/spec.md (Aprobada, 2026-10-08)
 - Rama: feat/004-users-admin
 - Contrato: docs/api/openapi.yaml (versión 0.4.0: /users, /users/{userId} y /users/{userId}/pin; AdminUser, UserNotFound y LastAdminRequired)
 - ADR: ninguno nuevo (reutiliza las piezas del ADR 0002: sesión en la base, bcrypt, límite de intentos propio)
@@ -13,7 +13,7 @@
 3. **Implementación**: backend-dev primero T-06 (esquemas de shared, que la web importa) y T-07 (clearAttempts); después puede continuar con el servicio (T-08) y las rutas (T-09) en paralelo con frontend-dev (T-10 a T-13). T-14 (E2E en verde) necesita el backend y las pantallas terminados.
 4. **Cierre (T-15)**: definición de terminado y requisitos R-004-01 a R-004-07.
 
-Pendientes de decisión del usuario (sección 16 de la spec): las preguntas 1 a 6. Si alguna cambia un supuesto, la spec se revisa antes de empezar las pruebas; en particular la pregunta 4 decide si T-09 incluye el cambio en create-admin.ts.
+Aprobación: el usuario respondió las preguntas 1 a 6 el 2026-10-08 con las recomendaciones (supuestos S-004-01 a S-004-08 confirmados). En particular, la pregunta 4 fue aprobada: T-09 incluye que create-admin.ts valide el PIN con strongPinSchema.
 
 ## Pruebas en rojo (test-writer)
 
@@ -102,7 +102,7 @@ Reglas comunes:
   - apps/api/src/controllers/users.controller.ts: parsea `userId` de la ruta (`^[0-9]+$`, entero, entre 1 y 2147483647; si no, AppError VALIDATION_ERROR con issues `[{ path: 'userId', message: 'El identificador del usuario no es válido.' }]`), parsea el cuerpo con los esquemas de shared (ZodError al errorHandler), responde 201/200/204.
   - apps/api/src/routes/users.routes.ts: middleware con `Cache-Control: no-store` y `requireAuth` + `requireRole('admin')` aplicados a todas sus rutas; GET /, POST /, PATCH /:userId, POST /:userId/pin.
   - app.ts: un solo LoginLimiter compartido entre authService y userAdminService (sacarlo de la llamada a createAuthService a una constante); montar `/users` en createApiRouter.
-  - Solo si el usuario aprueba la pregunta 4 (S-004-06): create-admin.ts valida el PIN con strongPinSchema (sin más cambios). Si no se aprueba, dejarlo igual.
+  - Aprobado en la pregunta 4 (S-004-06): create-admin.ts valida el PIN con strongPinSchema (sin más cambios).
   - createUserService no se toca: el alta web valida el PIN con createUserRequestSchema antes de llamarlo.
 
 ## Implementación de la web (frontend-dev)
