@@ -1,6 +1,6 @@
 # Tareas — Spec 002: servicio de impresión (PrinterService) con driver de archivo
 
-- Spec: docs/specs/002-printer-service/spec.md (Borrador)
+- Spec: docs/specs/002-printer-service/spec.md (Aprobada; con la Aclaración 1 del 2026-10-07, sección 19 de la spec)
 - Rama: feat/002-printer-service
 - Contrato OpenAPI: sin cambios (no hay endpoints).
 - Dependencias nuevas: ninguna.
@@ -114,6 +114,7 @@ Reglas comunes:
 - AC: AC-02, AC-03, AC-04, AC-05, AC-06 (y AC-04 y AC-07 de la 001)
 - Descripción:
   - apps/api/src/config/env.ts: PROJECT_ROOT_DIR (desde `import.meta.dirname`), DEFAULT_PRINTER_FILE_DIR, PrinterConfig, AppConfig.printer, CONFIG_VARIABLES con 7 variables y las reglas y mensajes de D-002-09. Los issues de impresión se juntan con los demás en un solo ConfigError.
+  - PRINTER_FILE_DIR: quitar los espacios en blanco del inicio y del final (como `String.prototype.trim`) antes de revisar si está vacía y de resolver la ruta; `' tmp/otra '` se usa como `'tmp/otra'` (por ejemplo `z.string().trim().min(1, ...)`; D-002-09, S-002-10). PRINTER_DRIVER no se recorta: `' file'` se sigue rechazando (AC-04).
   - apps/api/.env.example: agregar `PRINTER_DRIVER=file` y `PRINTER_FILE_DIR=tmp/comandas`, con un comentario en español (qué hace el driver file, que escpos llegará con la impresora térmica y que una ruta relativa se toma desde la raíz del proyecto).
   - server.ts y db/cli.ts no cambian: ya muestran el mensaje de ConfigError y terminan con código 1 (AC-06).
 
@@ -121,7 +122,8 @@ Reglas comunes:
 - Responsable: backend-dev
 - Dependencias: T-03, T-04, T-06
 - AC: AC-07, AC-08, AC-09, AC-10, AC-11, AC-12, AC-13, AC-20
-- Descripción: apps/api/src/services/printer/printer-error.ts y print-document.ts según D-002-03, D-002-04, D-002-07 y la sección 11 (constantes, PRINTABLE_CHARACTERS, printDocumentSchema estricto con z.strictObject, normalizeDocumentLines). Seguir el orden de pasos de D-002-04 al pie de la letra.
+- Descripción: apps/api/src/services/printer/printer-error.ts y print-document.ts según D-002-03, D-002-04, D-002-07 y la sección 11 (constantes, PRINTABLE_CHARACTERS, printDocumentSchema estricto con z.strictObject, normalizeDocumentLines). Seguir el orden de pasos de D-002-04 al pie de la letra, incluido el paso 7: después de cortar en trozos de 48, quitar los espacios finales de cada trozo (sin eso AC-13 falla con `'a'.repeat(47) + ' b'`).
+- Nota sobre el límite de 2000 (D-002-06): PRINTER_MAX_INPUT_LINE_LENGTH se mide con `String.prototype.length` (`line.length`, unidades UTF-16). No basta `z.string().max(2000)`: en zod 4.6.5 cuenta puntos de código y acepta una línea de 1001 emojis (2002 unidades), que AC-16 exige rechazar. Comparar `line.length` de forma explícita, por ejemplo con `.refine((line) => line.length <= PRINTER_MAX_INPUT_LINE_LENGTH)`.
 
 ### T-14. Trabajo de impresión y PrinterService
 - Responsable: backend-dev

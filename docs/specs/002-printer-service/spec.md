@@ -1,6 +1,7 @@
 # Spec 002 — Servicio de impresión (PrinterService) con driver de archivo
 
 - Estado: Aprobada (2026-10-07, por el usuario, con las respuestas recomendadas a las preguntas 1 a 3; la 4 queda pendiente para la Fase 3)
+- Aclaración 1 (2026-10-07): corte y espacios finales, conteo UTF-16, espacios en PRINTER_FILE_DIR. Hallazgos del test-writer al escribir las pruebas en rojo; no cambia ningún AC ni lo que sale en el papel. Detalle en la sección 19.
 - Fase: 0 (Base del proyecto)
 - Rama: feat/002-printer-service
 - Fecha: 2026-10-07
@@ -65,16 +66,19 @@ Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Pre
 
    - d. Si no, se descompone en NFKD y se le quitan las marcas combinantes (categoría M), los caracteres de control (Cc) y los de formato (Cf). Si no queda nada, el grafema se elimina. Si todo lo que queda está en PRINTABLE_CHARACTERS, se usa eso (`'à'` pasa a `'a'`, `'…'` a `'...'`, `'ﬁ'` a `'fi'`). Si no, el grafema pasa a un solo `'?'`.
 5. Se quitan los espacios (U+0020) del final. Los del inicio se conservan (sangría).
-6. Si queda con más de 48 columnas, se corta en trozos de exactamente 48, sin buscar espacios (corte duro); el último trozo lleva el resto. Ningún carácter se pierde ni se agrega en el corte.
+6. Si queda con más de 48 columnas, se corta en posiciones fijas, sin buscar espacios (corte duro): el primer trozo son las columnas 1 a 48, el segundo las 49 a 96, y así; el último trozo lleva el resto. Si tiene 48 o menos, queda como un solo trozo.
+7. A cada trozo se le quitan los espacios (U+0020) del final. Es lo único que el corte puede descartar: un espacio que queda al final de un trozo, justo en el borde del corte, no sale (en el papel no se ve). Los espacios al inicio de un trozo se conservan, un trozo que solo tenía espacios queda como línea vacía (`''`) y ningún otro carácter se pierde ni se agrega. Ejemplo: `'a'.repeat(47) + ' b'` da `['a'.repeat(47), 'b']`, no `['a'.repeat(47) + ' ', 'b']`.
 
-Consecuencias que se piden en los AC: ningún carácter de control llega al driver, así que lo que escriba un usuario no puede volverse un comando ESC/POS (por ejemplo ESC @ o la apertura del cajón). Los caracteres que la impresora no tiene se ven como `'?'` en vez de desaparecer, para que la cocina note que había algo. La función es idempotente.
+Consecuencias que se piden en los AC: ningún carácter de control llega al driver, así que lo que escriba un usuario no puede volverse un comando ESC/POS (por ejemplo ESC @ o la apertura del cajón). Los caracteres que la impresora no tiene se ven como `'?'` en vez de desaparecer, para que la cocina note que había algo. Ninguna línea de salida termina en espacio (pasos 5 y 7) y la función es idempotente: normalizar otra vez su salida la devuelve igual (sin el paso 7, `'a'.repeat(47) + ' b'` daría un primer trozo terminado en espacio que se perdería al normalizar de nuevo).
 
 **D-002-05. Corte duro en 48 columnas (SUPUESTO S-002-02).**
-- El servicio corta las líneas largas sin buscar espacios: es una red de seguridad simple, predecible y que nunca pierde texto.
+- El servicio corta las líneas largas sin buscar espacios: es una red de seguridad simple, predecible y que nunca pierde texto visible (lo único que descarta es un espacio que queda justo en el borde del corte; D-002-04, paso 7).
 - La presentación cuidada (cortar por palabras, sangrías de las observaciones, alinear precios) la hará el formateador de la comanda en la Fase 3, antes de llamar a print. Si ese formateador ya entrega líneas de 48 columnas o menos, el corte duro nunca actúa.
 
 **D-002-06. Límites del documento (SUPUESTO S-002-05).**
-- Entrada: como máximo 500 líneas (`PRINTER_MAX_LINES`) y cada línea con como máximo 2000 unidades de texto de JavaScript (`PRINTER_MAX_INPUT_LINE_LENGTH`, medido con `.length`). Así el trabajo de normalizar tiene un tope (alrededor de 100 ms en la PC de desarrollo para el caso más grande).
+- Entrada: como máximo 500 líneas (`PRINTER_MAX_LINES`) y cada línea con como máximo 2000 unidades de texto de JavaScript (`PRINTER_MAX_INPUT_LINE_LENGTH`). Así el trabajo de normalizar tiene un tope (alrededor de 100 ms en la PC de desarrollo para el caso más grande).
+- El largo de cada línea se mide con `String.prototype.length` (`line.length`), es decir, en unidades UTF-16: un emoji fuera del plano básico cuenta 2. Una línea de 1000 emojis de ese tipo (2000 unidades) se acepta y una de 1001 (2002 unidades) se rechaza.
+- No basta `z.string().max(2000)`: en zod 4.6.5 ese método cuenta puntos de código, no unidades UTF-16, y acepta los 1001 emojis (verificado). El esquema debe comparar `line.length` de forma explícita (por ejemplo con `.refine((line) => line.length <= PRINTER_MAX_INPUT_LINE_LENGTH)`; la forma exacta la elige backend-dev). El límite de label (32) no tiene este problema porque su patrón solo admite ASCII.
 - Salida: como máximo 500 líneas ya normalizadas (unos 2 m de papel). Una comanda típica tiene menos de 60.
 - Vacío: un documento es vacío si, ya normalizado, ninguna línea tiene contenido (todas quedaron como `''`). Imprimir una hoja en blanco desperdicia papel y delata un error del que llama. Las líneas en blanco dentro de un documento con contenido se conservan, también al inicio y al final.
 
@@ -104,14 +108,18 @@ Consecuencias que se piden en los AC: ningún carácter de control llega al driv
 - `createFilePrinterDriver` acepta un parámetro opcional `rename` (por defecto `fs/promises` rename) solo para que las pruebas simulen fallas del renombrado (AC-24 y AC-25).
 - Solo usa módulos nativos de Node 24: node:fs/promises y node:path. No usa la red.
 
-**D-002-09. Configuración (RNF-12; SUPUESTOS S-002-01, S-002-06 y S-002-07).**
+**D-002-09. Configuración (RNF-12; SUPUESTOS S-002-01, S-002-06, S-002-07 y S-002-10).**
 - Dos variables nuevas, validadas en loadConfig y agregadas a CONFIG_VARIABLES y a apps/api/.env.example:
 
   | Variable | Por defecto | Regla |
   | --- | --- | --- |
   | PRINTER_DRIVER | file | 'file' se acepta. 'escpos' se rechaza con un mensaje propio: todavía no existe (S-002-01). Cualquier otro valor, incluido 'FILE' o vacío, se rechaza. |
-  | PRINTER_FILE_DIR | tmp/comandas (en la raíz del monorepo) | Ruta de la carpeta del driver file. Una ruta relativa se toma desde la raíz del monorepo, nunca desde la carpeta en que se ejecuta el comando. Vacía o solo con espacios se rechaza. No se revisa que exista: el driver la crea. |
+  | PRINTER_FILE_DIR | tmp/comandas (en la raíz del monorepo) | Ruta de la carpeta del driver file. Primero se le quitan los espacios en blanco del inicio y del final (S-002-10, ver abajo). Vacía o solo con espacios se rechaza. Una ruta relativa se toma desde la raíz del monorepo, nunca desde la carpeta en que se ejecuta el comando. No se revisa que exista: el driver la crea. |
 
+- Espacios alrededor de PRINTER_FILE_DIR (SUPUESTO S-002-10): se quitan los espacios en blanco del inicio y del final, como hace `String.prototype.trim` (espacios, tabulaciones, espacios de Unicode como U+00A0 y saltos de línea), antes de revisar si está vacía y de resolver la ruta. `' tmp/otra '` se usa como `'tmp/otra'` y da `path.resolve(PROJECT_ROOT_DIR, 'tmp/otra')`; si después de quitarlos no queda nada, es el issue `'no puede estar vacía.'` de AC-03. No hay mensaje nuevo ni AC nuevo (caso borde documentado en la sección 7). Por qué:
+  - Coherencia: la regla "vacía o solo con espacios se rechaza" ya trata esos espacios como algo que no es parte del valor (la 001 rechaza HOST vacía con el mismo mensaje), y Node hace lo mismo al leer apps/api/.env: `PRINTER_FILE_DIR= tmp/otra ` sin comillas ya llega como `'tmp/otra'`. Los espacios solo llegan si el valor va entre comillas o viene del entorno del sistema.
+  - Seguridad: usar la ruta tal cual crearía carpetas con un espacio al inicio o al final, que el Explorador de Windows no maneja bien (no se pueden abrir ni borrar con normalidad).
+  - PRINTER_DRIVER no cambia: es un valor fijo, como NODE_ENV, y `' file'` se sigue rechazando (AC-04).
 - `AppConfig` suma `printer: { driver: 'file'; fileDir: string }`. fileDir es siempre absoluta y normalizada (sin separador final).
 - `PROJECT_ROOT_DIR` es la ruta absoluta de la raíz del monorepo, calculada desde la ubicación de env.ts (`import.meta.dirname`), nunca con `process.cwd()`: los scripts de pnpm corren con la carpeta apps/api como directorio actual. `DEFAULT_PRINTER_FILE_DIR` = `path.join(PROJECT_ROOT_DIR, 'tmp', 'comandas')`. tmp/ ya está en .gitignore y en .prettierignore.
 - Por qué escpos falla al arrancar y no al imprimir (S-002-01): un driver que acepta la configuración y falla en cada impresión se descubriría recién con el primer pedido del día. Falla al arrancar con el mismo formato de ConfigError de la 001 (AC-08 de la 001), igual que cualquier otra variable inválida.
@@ -212,7 +220,7 @@ Todas las pruebas que escriben archivos usan su propia carpeta temporal (`fs.mkd
   | `'   x'` | `['   x']` (la sangría se conserva) |
   | `'    '` | `['']` |
 
-- y en todos los casos, unir los trozos da la línea de entrada sin sus espacios finales.
+- y en todos los casos de la tabla, unir los trozos da la línea de entrada sin sus espacios finales. (Ninguno tiene un espacio justo en el borde de un corte: ese espacio se descarta según D-002-04, paso 7, y lo cubre AC-13.)
 
 **AC-09. Saltos de línea dentro de una línea** (unitaria)
 - Dado normalizeDocumentLines,
@@ -275,7 +283,7 @@ Todas las pruebas que escriben archivos usan su propia carpeta temporal (`fs.mkd
   | `'\u0000\u001B'` | `''` | solo controles |
 
 **AC-13. Invariantes de la normalización** (unitaria)
-- Dado normalizeDocumentLines y como entrada cada línea de AC-07 a AC-12 más al menos 1000 líneas generadas con un generador pseudoaleatorio de semilla fija (sin dependencias nuevas; por ejemplo mulberry32), de 0 a 300 unidades de largo, que mezclen: ASCII, tildes en NFC y NFD, controles U+0000–U+001F y U+007F–U+009F, saltos de AC-09, espacios U+00A0, U+2000–U+200A y U+3000, formatos U+200B–U+200F, U+202A–U+202E, U+2060–U+2064 y U+FEFF, emojis con tono de piel y ZWJ, indicadores regionales, caracteres chinos y sustitutos sueltos,
+- Dado normalizeDocumentLines y como entrada cada línea de AC-07 a AC-12 más al menos 1000 líneas generadas con un generador pseudoaleatorio de semilla fija (sin dependencias nuevas; por ejemplo mulberry32), de 0 a 300 unidades de largo, que mezclen: ASCII, tildes en NFC y NFD, controles U+0000–U+001F y U+007F–U+009F, saltos de AC-09, espacios U+00A0, U+2000–U+200A y U+3000, formatos U+200B–U+200F, U+202A–U+202E, U+2060–U+2064 y U+FEFF, emojis con tono de piel y ZWJ, indicadores regionales, caracteres chinos y sustitutos sueltos, más líneas en las que un corte de 48 columnas cae justo después de un espacio (por ejemplo `'a'.repeat(47) + ' b'`; D-002-04, paso 7),
 - entonces para cada entrada: la función no lanza; devuelve al menos una línea; cada línea de salida mide 48 o menos; cada carácter de salida está en PRINTABLE_CHARACTERS; ninguna línea termina en espacio; y normalizar la salida otra vez devuelve exactamente la misma lista (idempotencia).
 - (El adversarial-tester puede ampliar esto con fast-check, librería ya aprobada en CLAUDE.md.)
 
@@ -474,13 +482,17 @@ Específicas de esta spec:
 Documento:
 - Línea de exactamente 48 columnas: no se corta. De 49: dos líneas (48 y 1).
 - Línea con 48 caracteres y espacios al final: los espacios se quitan y no se corta.
+- Espacio justo en el borde de un corte (D-002-04, paso 7): se descarta, porque ninguna línea puede terminar en espacio y la normalización debe ser idempotente. En el papel no cambia nada: un espacio al final de una línea no se ve. Ejemplos:
+  - `'a'.repeat(47) + ' b'` da `['a'.repeat(47), 'b']`;
+  - `'a'.repeat(47) + '    b'` da `['a'.repeat(47), '   b']` (los espacios al inicio del trozo siguiente se conservan);
+  - `'x'.repeat(10) + ' '.repeat(100) + 'y'` da `['x'.repeat(10), '', ' '.repeat(14) + 'y']` (el trozo del medio solo tenía espacios y queda vacío).
 - Una línea que solo tiene espacios o tabulaciones queda vacía (`''`); si todas quedan así, el documento es vacío.
 - Saltos dentro de una línea: CRLF cuenta como uno; `'\n\r'` son dos (LF y luego CR).
 - VT (U+000B) y FF (U+000C) se eliminan; no se tratan como saltos.
 - Letras con acentos que no están en el conjunto pierden el acento (`'à'` pasa a `'a'`); una letra con dos acentos combinantes que NFC no puede unir también (`'x\u0301\u0301'` pasa a `'x'`).
 - Un emoji compuesto (familia, tono de piel, bandera) da un solo `'?'`; una tecla numérica (`'1\uFE0F\u20E3'`) da el número.
 - Sustitutos sueltos (texto UTF-16 roto) dan `'?'`; nunca rompen la escritura en UTF-8.
-- La entrada se mide con `.length` de JavaScript (unidades UTF-16): un emoji fuera del plano básico cuenta 2 para el límite de 2000.
+- La entrada se mide con `.length` de JavaScript (unidades UTF-16): un emoji fuera del plano básico cuenta 2 para el límite de 2000. 1000 de esos emojis se aceptan y 1001 se rechazan, aunque sean solo 1001 puntos de código (por eso no basta `z.string().max(2000)`; D-002-06).
 - 500 líneas de entrada que al cortarse pasan de 500: PRINTER_INVALID_DOCUMENT.
 
 Driver file:
@@ -496,6 +508,7 @@ Configuración:
 - `PRINTER_DRIVER=escpos` en apps/api/.env detiene la API, `pnpm db:migrate` y `pnpm printer:test` con el mensaje de configuración inválida, hasta la Fase 3 (S-002-01, S-002-07).
 - `PRINTER_FILE_DIR=tmp/otra` en apps/api/.env se resuelve contra la raíz del monorepo aunque pnpm ejecute el script con apps/api como carpeta actual.
 - En Windows, `PRINTER_FILE_DIR=/comandas` (sin unidad) es absoluta y se resuelve en la unidad de la raíz del proyecto (por ejemplo C:\comandas).
+- PRINTER_FILE_DIR con espacios alrededor de una ruta no vacía, por ejemplo `' tmp/otra '` (solo llega así si en apps/api/.env va entre comillas o si viene del entorno del sistema): SUPUESTO S-002-10. Se quitan los espacios del inicio y del final y se usa `'tmp/otra'`, igual que AC-03. Lo mismo con una ruta absoluta (`' C:\comandas '` da `C:\comandas`). Si solo había espacios o tabulaciones, es el issue 'no puede estar vacía.'. Sin AC propio (D-002-09).
 - El apps/api/.env actual del usuario no tiene las variables nuevas: se usan los valores por defecto.
 - La API de los E2E (Playwright) usa la carpeta por defecto; en esta fase no imprime nada. La Fase 3 debe darle una carpeta temporal (sección 18).
 
@@ -624,6 +637,7 @@ Ninguna nueva. Se usan capacidades nativas de Node 24.1.0 (node:fs/promises, nod
 | S-002-07 | Una variable de impresión inválida también detiene `pnpm db:migrate` y `pnpm db:seed`, porque comparten loadConfig. |
 | S-002-08 | Los nombres de archivo usan la hora de Lima (regla 8), no UTC; Lima no tiene horario de verano, así que el orden se mantiene. |
 | S-002-09 | Una ruta relativa en PRINTER_FILE_DIR se toma desde la raíz del monorepo, no desde la carpeta actual. |
+| S-002-10 | (Aclaración 1) Los espacios en blanco al inicio y al final de PRINTER_FILE_DIR se quitan antes de validarla y resolverla; no se rechaza por tenerlos. |
 
 ## 16. Preguntas abiertas para el usuario
 
@@ -633,6 +647,7 @@ Ninguna bloquea la implementación; si no hay respuesta, se aplica la recomendac
 2. Cuando un texto no entra en una línea de 48 columnas, ¿está bien que este servicio lo corte justo en la columna 48, aunque parta una palabra, sabiendo que la comanda de la Fase 3 ya vendrá ordenada por palabras (recomendado, S-002-02)?
 3. Los emojis y símbolos que la impresora no puede imprimir, ¿se muestran como '?' (recomendado, para que la cocina note que faltaba algo) o se borran (S-002-04)?
 4. Para la Fase 3: ¿qué marca y modelo de impresora térmica tiene o comprará el dueño? Sirve para elegir la tabla de caracteres (PC850 o WPC1252) y confirmar que imprime bien la ñ y las tildes en mayúscula.
+5. (Aclaración 1, detalle técnico, no bloquea) Si la carpeta de impresión en apps/api/.env se escribe con espacios al inicio o al final (por ejemplo entre comillas), el sistema los ignora (recomendado, S-002-10). ¿Prefieres que, en cambio, la rechace al arrancar?
 
 ## 17. Verificación manual sugerida (para el usuario)
 
@@ -649,3 +664,13 @@ Ninguna bloquea la implementación; si no hay respuesta, se aplica la recomendac
 - El formateador de la comanda arma líneas de 48 columnas o menos cortando por palabras, antes de llamar a print.
 - La API de los E2E y las pruebas de integración que impriman deben recibir PRINTER_FILE_DIR con una carpeta temporal, para no escribir en tmp/comandas.
 - Decidir si algún endpoint traduce PrinterError a un código HTTP (por ejemplo 503) y si sus códigos pasan a ERROR_CODES de @polleria/shared.
+
+## 19. Aclaración 1 (2026-10-07): corte y espacios finales, conteo UTF-16, espacios en PRINTER_FILE_DIR
+
+La encontró el test-writer al escribir las pruebas en rojo (commit ee0059e). La spec sigue Aprobada: ningún AC cambia de comportamiento, no hay AC nuevos y nada cambia en lo que sale en el papel. Las pruebas ya escritas no se modifican; las tres aclaraciones coinciden con ellas.
+
+| N.° | Problema | Aclaración | Dónde |
+| --- | --- | --- | --- |
+| 1 | D-002-04 (paso 6) decía que en el corte "ningún carácter se pierde", pero eso contradice AC-13: `'a'.repeat(47) + ' b'` daría `['a'.repeat(47) + ' ', 'b']`, con una línea terminada en espacio que, al normalizar otra vez, pierde ese espacio (no es idempotente). | Paso 7 nuevo: después de cortar en trozos de 48, se quitan los espacios finales de cada trozo. Un espacio justo en el borde del corte se descarta; nada más se pierde. Da `['a'.repeat(47), 'b']`. | D-002-04 (pasos 6 y 7), D-002-05, AC-08 (nota), AC-13 (entradas), sección 7 |
+| 2 | D-002-06 decía "medido con `.length`", pero `z.string().max(2000)` de zod 4.6.5 cuenta puntos de código y acepta 1001 emojis (2002 unidades). AC-16 exige rechazarlos. | El límite de 2000 se mide con `String.prototype.length` (unidades UTF-16); `z.string().max()` no basta. | D-002-06, sección 7, T-13 de tasks.md |
+| 3 | No estaba definido qué pasa con PRINTER_FILE_DIR con espacios alrededor de una ruta no vacía (`' tmp/otra '`). | SUPUESTO S-002-10: se quitan (como `String.prototype.trim`) antes de validar y resolver; `' tmp/otra '` se usa como `'tmp/otra'`. Caso borde documentado, sin AC. | D-002-09, sección 7, sección 15, pregunta 5, T-12 de tasks.md |

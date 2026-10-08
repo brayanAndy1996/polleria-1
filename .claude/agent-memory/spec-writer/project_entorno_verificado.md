@@ -15,6 +15,8 @@ Hechos verificados el 2026-10-07 (registro npm y pruebas locales), recogidos en 
 - Next 16.4.0: browserslist Chrome/Edge/Firefox 111, Safari 16.4; en dev bloquea /_next desde orígenes no localhost (allowedDevOrigins, variable WEB_ALLOWED_DEV_ORIGINS); no permite dos next dev en la misma carpeta (lockfile); tsconfig con jsx react-jsx; existe next typegen.
 - HeroUI 3.2.6 peers: react-aria-components, react-aria, @react-aria/ssr, @react-aria/utils, @internationalized/date, tailwindcss>=4. Estilos en paquete @heroui/styles.
 - Android 9 llega hasta Chrome 138 (anuncio de Google, a confirmar); piso del stack Chrome 111.
+- zod 4.6.5: `z.string().max(n)` / `.min(n)` cuentan puntos de código, NO unidades UTF-16 (max(2000) acepta 1001 emojis = 2002 de .length). Si una spec fija un largo con .length, debe decir que se compare line.length explícitamente (refine). Aplica a futuros límites de texto (observaciones de ítems, nombres de productos). `z.string().trim()` usa String.prototype.trim (quita también tabs y U+00A0).
+- Node `util.parseEnv` / `--env-file`: recorta los valores sin comillas; con comillas conserva los espacios.
 
 **Why:** estas restricciones no se ven en el código y explican por qué se eligieron ciertas versiones.
 **How to apply:** antes de proponer una dependencia o subir una versión, revisar peers y engines contra esto (npm view funciona desde este entorno). Ver [[decisiones-modelado]] y [[herramientas-entorno]].
