@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 001-base-monorepo.
-- Paso: 5 de 9 (vuelta 2 de 3). El usuario decidió corregir los 6 hallazgos medios y bajos; spec-writer redacta la enmienda 1 de la spec 001.
+- Paso: 5 de 9 (vuelta 2 de 3). Enmienda 1 escrita (AC-33 a AC-46, tareas T-26 a T-35, OpenAPI 0.2.0). Test-writer escribe los tests en rojo (T-26 a T-30).
 - Rama: feat/001-base-monorepo.
 
 ## Tabla de funcionalidades
@@ -33,6 +33,8 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | 2026-10-07 | El usuario confirma que existen el rol polleria y las bases polleria_dev y polleria_test en PostgreSQL 17 (puerto 5432). |
 
 ## Notas técnicas del orquestador
+
+- 2026-10-07: las preguntas abiertas de la enmienda 1 (sección 17.11 de la spec 001) no cambian lo que ve el usuario final. Según lo acordado con el usuario, se aplican las recomendaciones: conexión a PostgreSQL sin SSL e ignorando la query del URL (S-12), la web no arranca si API_INTERNAL_URL trae usuario o clave (S-13), los errores 4xx no se registran en el log (S-14) y una migración espera sin límite a otra en curso (S-15).
 
 - 2026-10-07: el entorno tiene Node 24.1.0 (LTS), pnpm 10.12.1, Git 2.49 y PostgreSQL 17.5 en localhost:5432. También hay un PostgreSQL 18 en el puerto 5433, que el proyecto no usa.
 - 2026-10-07: HeroUI 3.2.6 (latest) exige Tailwind CSS >= 4, React >= 19 y react-aria-components.
