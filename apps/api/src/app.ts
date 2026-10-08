@@ -26,6 +26,14 @@ export interface AppDependencies {
   pinHasher?: PinHasher;
 }
 
+/**
+ * Rutas que siempre responden con Cache-Control: no-store (sesiones y administración de
+ * usuarios). La cabecera se fija ANTES del lector del cuerpo: si este rechaza la
+ * solicitud (INVALID_JSON, PAYLOAD_TOO_LARGE...) la respuesta de error también la lleva.
+ * Los routers la vuelven a fijar, lo cual es idempotente.
+ */
+const NO_STORE_PATH_PREFIXES = ['/api/auth', '/api/users'] as const;
+
 /** Arma la aplicación Express sin ponerla a escuchar (eso lo hace server.ts). */
 export function createApp({
   sequelize,
@@ -61,6 +69,15 @@ export function createApp({
   const app = express();
 
   app.disable('x-powered-by');
+  app.use((req, res, next) => {
+    if (
+      NO_STORE_PATH_PREFIXES.some(
+        (prefix) => req.path === prefix || req.path.startsWith(`${prefix}/`),
+      )
+    )
+      res.set('Cache-Control', 'no-store');
+    next();
+  });
   app.use(createBodyReader());
   app.use('/api', createApiRouter({ healthService, authController, usersController, requireAuth }));
   app.use(notFoundHandler);
