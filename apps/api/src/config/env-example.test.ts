@@ -24,6 +24,8 @@ describe('apps/api/.env.example', () => {
       'HOST',
       'NODE_ENV',
       'PORT',
+      'PRINTER_DRIVER',
+      'PRINTER_FILE_DIR',
     ]);
     expect(variables).toEqual([...CONFIG_VARIABLES].sort());
   });

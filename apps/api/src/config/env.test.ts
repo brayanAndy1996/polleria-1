@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ConfigError, loadConfig } from './env.ts';
+import { ConfigError, DEFAULT_PRINTER_FILE_DIR, loadConfig } from './env.ts';
 
 const DEV_URL = 'postgres://polleria:clave@localhost:5432/polleria_dev';
 const TEST_URL = 'postgres://polleria:clave@localhost:5432/polleria_test';
@@ -41,6 +41,7 @@ describe('loadConfig: valores por defecto y valores explícitos', () => {
       port: 4000,
       databaseUrl: DEV_URL,
       databaseUrlTest: undefined,
+      printer: { driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR },
     });
   });
 
@@ -58,6 +59,7 @@ describe('loadConfig: valores por defecto y valores explícitos', () => {
       port: 4500,
       databaseUrl: DEV_URL,
       databaseUrlTest: undefined,
+      printer: { driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR },
     });
     expect(typeof config.port).toBe('number');
   });
