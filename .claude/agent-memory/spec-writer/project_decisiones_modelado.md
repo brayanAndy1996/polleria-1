@@ -9,7 +9,7 @@ Decisiones fijadas en docs/specs/001-base-monorepo/spec.md (Aprobada 2026-10-07;
 
 - API bajo prefijo /api; web Next (3000, 0.0.0.0) reenvía /api/:path* a API_INTERNAL_URL (default http://127.0.0.1:4000) con rewrites. Mismo origen, sin CORS. API escucha 127.0.0.1 por defecto. OpenAPI: servers .../api y paths sin prefijo (/health).
 - Enmienda 1 (D-14): loadWebServerConfig reduce API_INTERNAL_URL a su origen (sin ruta/query/fragmento) y rechaza usuario:clave@ (SUPUESTO S-13).
-- Socket.IO futuro: rewrite /socket.io/:path* (Next 16.4 reenvía WebSocket en rewrites externos). Sesión futura: JWT en cookie httpOnly mismo origen.
+- Socket.IO futuro: rewrite /socket.io/:path* (Next 16.4 reenvía WebSocket en rewrites externos). Sesión: la spec 003 eligió token opaco guardado como hash en la base (no JWT), cookie httpOnly mismo origen; ver [[decisiones-auth]].
 - Errores: AppError({ code, message, httpStatus, details? }), errorHandler único, { error: { code, message, details|null } }. Códigos en inglés UPPER_SNAKE (usuario confirmó: INSUFFICIENT_STOCK). VALIDATION_ERROR -> details.issues [{ path con puntos, message }]. Zod en español con z.config(z.locales.es()).
 - Códigos vigentes tras la enmienda 1: NOT_FOUND 404, INVALID_JSON 400, INVALID_BODY 400 ('No se pudo leer el cuerpo de la solicitud.'), VALIDATION_ERROR 400, PAYLOAD_TOO_LARGE 413, UNSUPPORTED_MEDIA_TYPE 415 ('La codificación del cuerpo de la solicitud no es compatible.'), INTERNAL_ERROR 500. Los 4xx no se registran en el log; solo los 500 con traza (RN-001-07). Contrato OpenAPI en versión 0.2.0.
 - Excepción: /api/health 503 usa HealthResponse { status, database, timestamp }, no ErrorResponse.
