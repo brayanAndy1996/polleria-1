@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 002-printer-service. La 001 se integró a main el 2026-10-07.
-- Paso: 7 de 9, revisión de la 002 (reviewer). Los 5 hallazgos de la 002 quedaron como deuda por decisión del usuario; sus 7 tests están marcados con it.fails (commit 4bc01ac). Vitest: 549 pasan y 7 fallas esperadas (556).
+- Paso: 9 de 9 de la 002. Reviewer: APROBADO. Definición de terminado verificada por el orquestador (lint y typecheck en 0; Vitest 549 pasan y 7 fallas esperadas por deuda autorizada; cobertura de líneas 97,96 %, shared 93,75 %, services 100 %). Esperando permiso del usuario para integrar a main.
 - Rama: feat/002-printer-service.
 
 ## Tabla de funcionalidades
@@ -14,7 +14,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
-| 002 | printer-service (PrinterService con driver file) | 0 | Revisión | feat/002-printer-service | — |
+| 002 | printer-service (PrinterService con driver file) | 0 | Lista para integrar (APROBADO) | feat/002-printer-service | — |
 
 ## Decisiones del usuario
 
@@ -74,6 +74,11 @@ Ataques de la 001 sin fallas (quedan como regresión en verde): prototype pollut
 
 Otras notas:
 
+- Bajo (reviewer 002): print-document.ts:109 compara con un TAB literal; cambiar a 	 o String.fromCharCode(0x09) en un refactor.
+- Bajo (reviewer 002): printer.service.ts:85 lanza RangeError (no PrinterError) si se inyecta un reloj que da fecha inválida; tenerlo en cuenta en la Fase 3.
+- Bajo (reviewer 002): file-driver.ts usa node:timers/promises, que la lista de D-002-08 no menciona; actualizar la spec en la Fase 3.
+- Atención (reviewer 002): packages/shared tiene solo 16 líneas medidas (93,75 %); poco margen sobre el umbral de 90 % para la Fase 1.
+
 - Bajo (backend-dev, 2026-10-08): un grafema como ñ seguido de ZWJ pierde la tilde y sale n (D-002-04 paso 4d quita marcas combinantes tras NFKD). Sigue la spec; muy raro.
 
 - 2026-10-07 (test-writer): db-cli AC-24 de la 001 superó una vez su límite de 12 s con la máquina cargada (pasa solo en 9 s). Vigilar si se vuelve intermitente.
@@ -81,6 +86,7 @@ Otras notas:
 - Bajo (reviewer, 2026-10-07): la fila "error del lector con estado 5xx → 500 y se registra" de la tabla 9.2 no tiene test de regresión (error-handler.ts:56). Pendiente para test-writer en una spec posterior.
 - Pendiente manual (reviewer): probar R-11 (pnpm dev) y la sección 16 de la spec 001 desde un celular en el wifi del local y sin internet. Se incluye en el punto de control de fin de la Fase 0.
 - 2026-10-07: versiones exactas registradas en CLAUDE.md (sección Stack), según la Fase 0 y el ADR 0001.
+- 2026-10-08: pnpm printer:test agregado a los comandos de CLAUDE.md.
 
 - Bajo (2026-10-07, reportado por backend-dev): si la clave de DATABASE_URL trae un escape % mal formado, loadConfig la acepta y createSequelize la rechaza con un mensaje seguro, pero server.ts y cli.ts terminan con un rechazo no controlado y traza. Se puede cerrar haciendo que loadConfig use getPostgresConnectionParts.
 

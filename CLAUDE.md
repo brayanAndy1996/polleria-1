@@ -111,3 +111,4 @@ Spec (spec-writer) -> aprobación del usuario -> tests en rojo (test-writer) -> 
 - pnpm test:coverage — cobertura
 - pnpm lint / pnpm typecheck
 - pnpm db:migrate / pnpm db:seed — migraciones y datos de demostración
+- pnpm printer:test — imprime una hoja de prueba con el driver configurado (PRINTER_DRIVER y PRINTER_FILE_DIR en apps/api/.env; por defecto file en tmp/comandas)
