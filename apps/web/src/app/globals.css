@@ -1,2 +1,35 @@
 @import 'tailwindcss';
 @import '@heroui/styles';
+
+/*
+ * El Checkbox de HeroUI envuelve el input real en un span oculto visualmente
+ * (VisuallyHidden de React Aria, recortado a 1 px con estilos en línea). Ese recorte
+ * deja el área clicable del input debajo de la etiqueta y el control no se puede
+ * marcar por hit-testing (incluido el .check() de Playwright). Aquí el span oculto y
+ * el input se extienden sobre toda la etiqueta, por encima del contenido: el clic del
+ * usuario y el de las pruebas llegan siempre al input y el nombre accesible sigue
+ * siendo el texto de la etiqueta.
+ */
+[data-slot='checkbox-content'] > span:has(> input[type='checkbox']) {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: visible !important;
+  clip: auto !important;
+  clip-path: none !important;
+  white-space: normal !important;
+}
+[data-slot='checkbox-content'] > span:has(> input[type='checkbox']) > input[type='checkbox'] {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  opacity: 0 !important;
+  cursor: inherit !important;
+}
