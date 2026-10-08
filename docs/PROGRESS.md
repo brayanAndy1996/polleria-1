@@ -6,14 +6,14 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 001-base-monorepo.
-- Paso: 5 de 9 (vuelta 2 de 3). Enmienda 1 escrita (AC-33 a AC-46, tareas T-26 a T-35, OpenAPI 0.2.0). Test-writer escribe los tests en rojo (T-26 a T-30).
+- Paso: 7 de 9, revisión (reviewer). Vuelta 2 de 3 verificada por el orquestador: Vitest 268/268, cobertura de líneas 97 %, E2E 7 pasan y 1 omitido por diseño, lint y typecheck en 0, db:migrate y db:seed en 0. Hallazgos adversariales cerrados.
 - Rama: feat/001-base-monorepo.
 
 ## Tabla de funcionalidades
 
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
-| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Ataque adversarial | feat/001-base-monorepo | — |
+| 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Revisión | feat/001-base-monorepo | — |
 | 002 | printer-service (PrinterService con driver file) | 0 | Pendiente | feat/002-printer-service | — |
 
 ## Decisiones del usuario
@@ -46,16 +46,18 @@ Hallazgos adversariales de la 001 (2026-10-07, commit 7be8d15; tests en apps/api
 
 | ID | Severidad | Hallazgo | Estado |
 | --- | --- | --- | --- |
-| ADV-001-01 | Medio | Content-Encoding desconocido: body-parser lanza 415 y la API responde 500 INTERNAL_ERROR con traza en el log. | Abierto |
-| ADV-001-02 | Medio | Cuerpo que dice ser gzip y no lo es: 500 INTERNAL_ERROR con traza. | Abierto |
-| ADV-001-04 | Medio | La guardia acepta ?host=otro-servidor en una URL polleria_test y Sequelize conecta a ese host. | Abierto |
-| ADV-001-05 | Bajo | La guardia acepta ?options=-c search_path=... y Sequelize lo aplica. | Abierto |
-| ADV-001-06 | Bajo | Dos migrateUp simultáneos: uno falla con un error crudo del driver (el estado final queda bien). | Abierto |
-| ADV-001-09 | Bajo | API_INTERNAL_URL con ruta, query o fragmento rompe el destino del rewrite sin aviso. | Abierto |
+| ADV-001-01 | Medio | Content-Encoding desconocido: body-parser lanza 415 y la API responde 500 INTERNAL_ERROR con traza en el log. | Cerrado (enmienda 1) |
+| ADV-001-02 | Medio | Cuerpo que dice ser gzip y no lo es: 500 INTERNAL_ERROR con traza. | Cerrado (enmienda 1) |
+| ADV-001-04 | Medio | La guardia acepta ?host=otro-servidor en una URL polleria_test y Sequelize conecta a ese host. | Cerrado (enmienda 1) |
+| ADV-001-05 | Bajo | La guardia acepta ?options=-c search_path=... y Sequelize lo aplica. | Cerrado (enmienda 1) |
+| ADV-001-06 | Bajo | Dos migrateUp simultáneos: uno falla con un error crudo del driver (el estado final queda bien). | Cerrado (enmienda 1) |
+| ADV-001-09 | Bajo | API_INTERNAL_URL con ruta, query o fragmento rompe el destino del rewrite sin aviso. | Cerrado (enmienda 1) |
 
 Ataques sin fallas (quedan como regresión en verde): prototype pollution en JSON, 120 consultas de salud simultáneas con base disponible y caída, sin fugas de clave en errores, CLI ni salud.
 
 Otras notas:
+
+- Bajo (2026-10-07, reportado por backend-dev): si la clave de DATABASE_URL trae un escape % mal formado, loadConfig la acepta y createSequelize la rechaza con un mensaje seguro, pero server.ts y cli.ts terminan con un rechazo no controlado y traza. Se puede cerrar haciendo que loadConfig use getPostgresConnectionParts.
 
 - Next 16.4.0 genera apps/web/AGENTS.md cuando un agente corre next dev. Resuelto con agentRules: false en next.config.ts (T-23).
 - Aviso de peer opcional: @vitest/mocker 5.0.3 declara msw ^2.4.9 y el proyecto usa msw 3.0.2. Funciona (verificado por backend-dev).
