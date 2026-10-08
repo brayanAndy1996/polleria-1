@@ -5,16 +5,16 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 ## Estado actual
 
 - Fase: 0 de 6, base del proyecto.
-- Funcionalidad: 002-printer-service. La 001 se integró a main el 2026-10-07.
-- Paso: 9 de 9 de la 002. Reviewer: APROBADO. Definición de terminado verificada por el orquestador (lint y typecheck en 0; Vitest 549 pasan y 7 fallas esperadas por deuda autorizada; cobertura de líneas 97,96 %, shared 93,75 %, services 100 %). Esperando permiso del usuario para integrar a main.
-- Rama: feat/002-printer-service.
+- Funcionalidad: ninguna en curso. La 001 se integró a main el 2026-10-07 y la 002 el 2026-10-08. Fase 0 completa.
+- Paso: punto de control de fin de la Fase 0 (esperando aprobación del usuario para iniciar la Fase 1).
+- Rama: main.
 
 ## Tabla de funcionalidades
 
 | ID | Nombre | Fase | Estado | Rama | Fecha de cierre |
 | --- | --- | --- | --- | --- | --- |
 | 001 | base-monorepo (monorepo, herramientas, conexión a BD, GET /api/health, web mínima) | 0 | Cerrada (APROBADO; 2 vueltas) | feat/001-base-monorepo | 2026-10-07 |
-| 002 | printer-service (PrinterService con driver file) | 0 | Lista para integrar (APROBADO) | feat/002-printer-service | — |
+| 002 | printer-service (PrinterService con driver file) | 0 | Cerrada (APROBADO; 1 vuelta; 5 hallazgos como deuda) | feat/002-printer-service | 2026-10-08 |
 
 ## Decisiones del usuario
 
@@ -33,6 +33,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | 2026-10-07 | Integrar la 001 a main con commit de merge (--no-ff), conservando el historial. |
 | 2026-10-07 | Spec 002 aprobada con las recomendaciones: escpos detiene el arranque hasta la Fase 3, corte duro en 48 columnas, caracteres sin equivalente se imprimen como ?. Pendiente para la Fase 3: marca y modelo de la impresora del dueño. |
 | 2026-10-08 | Dejar como deuda, para la Fase 3, los 5 hallazgos medios y bajos de la 002 (ADV-002-01 a 05). Sus tests se marcan como falla conocida (it.fails). |
+| 2026-10-08 | Integrar la 002 a main con commit de merge (--no-ff). |
 | 2026-10-07 | El usuario confirma que existen el rol polleria y las bases polleria_dev y polleria_test en PostgreSQL 17 (puerto 5432). |
 
 ## Notas técnicas del orquestador
