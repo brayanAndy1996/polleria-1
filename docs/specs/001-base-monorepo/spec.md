@@ -2,6 +2,7 @@
 
 - Estado: Aprobada (2026-10-07, por el usuario; preguntas abiertas resueltas en la sección 15)
 - Enmienda 1 aprobada por el usuario el 2026-10-07 (corregir hallazgos medios y bajos). Ver la sección 17: agrega AC-33 a AC-46 y no cambia lo que ve el usuario final.
+- La spec 002 (servicio de impresión) actualiza AC-04, AC-07, R-04, R-09 y la sección 11 (config/env.ts): suma las variables PRINTER_DRIVER y PRINTER_FILE_DIR. Ver docs/specs/002-printer-service/spec.md, sección 12.
 - Fase: 0 (Base del proyecto)
 - Rama: feat/001-base-monorepo
 - Cubre: RNF-05 (funciona en la red local sin internet), RNF-07 (Chrome en Android 9+ y Windows 10+), RNF-12 (configuración sin tocar código; en esta fase, por variables de entorno). No cubre ningún RF.
@@ -120,6 +121,7 @@ Cada AC tiene al menos un test cuyo nombre empieza con su ID (por ejemplo `it('A
 - cuando se llama `loadConfig(env)`,
 - entonces devuelve `{ nodeEnv: 'development', host: '127.0.0.1', port: 4000, databaseUrl: <la misma URL>, databaseUrlTest: undefined }`;
 - y con además `PORT='4500'`, `HOST='0.0.0.0'` y `NODE_ENV='production'` devuelve `port: 4500` (número), `host: '0.0.0.0'` y `nodeEnv: 'production'`.
+- (Spec 002: el objeto completo suma `printer: { driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR }`; ver AC-02 y la sección 12 de la spec 002.)
 
 **AC-05. Configuración inválida: mensaje claro y sin secretos** (unitaria, apps/api)
 - Dado un entorno sin DATABASE_URL y con `PORT='abc'`,
@@ -141,6 +143,7 @@ Cada AC tiene al menos un test cuyo nombre empieza con su ID (por ejemplo `it('A
 - entonces loadConfig no lanza error;
 - y el conjunto de variables del archivo es exactamente CONFIG_VARIABLES: NODE_ENV, HOST, PORT, DATABASE_URL y DATABASE_URL_TEST;
 - y DATABASE_URL y DATABASE_URL_TEST usan la clave de ejemplo 'cambia_esta_clave' (no una clave real).
+- (Spec 002: CONFIG_VARIABLES suma PRINTER_DRIVER y PRINTER_FILE_DIR, 7 variables en total; ver AC-05 y la sección 12 de la spec 002.)
 
 **AC-08. La API no arranca con configuración inválida o puerto ocupado** (integración con proceso real, apps/api)
 - Dado el proceso `node --disable-warning=ExperimentalWarning apps/api/src/server.ts` iniciado sin archivo .env y con un entorno sin DATABASE_URL,
@@ -346,12 +349,12 @@ No son comportamiento, por eso no llevan AC. El orquestador y el reviewer los ve
 | R-01 | package.json raíz con `"packageManager": "pnpm@10.12.1"`, `"engines": { "node": ">=24.1.0 <25" }`, `"private": true` y `"type": "module"`. | `pnpm install --frozen-lockfile` | Termina con código 0 en Node 24.1.0 y pnpm 10.12.1. |
 | R-02 | Versiones exactas en todos los package.json (sin ^ ni ~; solo `workspace:*` para @polleria/shared). Archivo .npmrc con `save-exact=true`. Versiones según el ADR 0001. | `grep -nE '"[~^][0-9]' package.json apps/*/package.json packages/*/package.json` | Sin resultados. |
 | R-03 | pnpm-workspace.yaml con apps/* y packages/*. Paquetes @polleria/web, @polleria/api y @polleria/shared, todos `"private": true` y `"type": "module"`. | `pnpm -r ls --depth -1` | Lista los tres paquetes. |
-| R-04 | Scripts raíz con estos nombres exactos: dev, test, test:e2e, test:coverage, lint, typecheck, db:migrate, db:seed. Se permite además format (prettier --write). | `pnpm run` | Muestra los ocho scripts. |
+| R-04 | Scripts raíz con estos nombres exactos: dev, test, test:e2e, test:coverage, lint, typecheck, db:migrate, db:seed. Se permite además format (prettier --write) y, desde la spec 002, printer:test. | `pnpm run` | Muestra los ocho scripts. |
 | R-05 | tsconfig.base.json con strict, noUncheckedIndexedAccess, noImplicitOverride, verbatimModuleSyntax, isolatedModules y skipLibCheck. api y shared agregan erasableSyntaxOnly, allowImportingTsExtensions, noEmit, module y moduleResolution nodenext. web extiende la base con lo que exige Next (moduleResolution bundler, jsx react-jsx, plugin next). Cada tsconfig declara types de forma explícita (por ejemplo node). | `pnpm typecheck` | Código 0. Revisa apps/api, apps/web (con `next typegen` antes de tsc), packages/shared, e2e/ y los archivos de configuración de la raíz. |
 | R-06 | ESLint 10 con configuración plana en eslint.config.js de la raíz: @eslint/js recommended, typescript-eslint recommendedTypeChecked (projectService), react-hooks en apps/web, no-restricted-imports que prohíbe next/font/google, y no-restricted-syntax que prohíbe llamar a `.sync(` en apps/api/src (regla 6 de CLAUDE.md). | `pnpm lint` y `pnpm exec eslint --print-config apps/web/src/app/page.tsx` | lint termina con código 0 y cero advertencias (`--max-warnings=0`); print-config muestra las reglas. |
 | R-07 | Prettier 3 con .prettierrc.json (singleQuote true, printWidth 100, endOfLine lf; el resto por defecto) y .prettierignore con docs/, .claude/, CLAUDE.md, pnpm-lock.yaml, .next/, coverage/, playwright-report/, test-results/, tmp/ y dist/. | `pnpm lint` (incluye `prettier --check .`) | Código 0. |
 | R-08 | vitest.config.ts en la raíz con cuatro proyectos: shared (node, `packages/shared/{src,tests}/**/*.test.ts`), api-unit (node, `apps/api/src/**/*.test.ts`), api-integration (node, `apps/api/tests/**/*.test.ts`, archivos en serie, testTimeout 15000) y web (jsdom 29.1.1, `apps/web/{src,tests}/**/*.test.{ts,tsx}`). e2e/ queda fuera. JSX automático sin @vitejs/plugin-react. | `pnpm test` | Ejecuta los cuatro proyectos. |
-| R-09 | Cobertura v8 con include `packages/shared/src/**`, `apps/api/src/**` y `apps/web/src/**`; exclude pruebas, `*.d.ts`, archivos de configuración, apps/api/src/server.ts, apps/api/src/db/cli.ts, apps/api/src/db/migrations/**, apps/api/src/db/seeders/** y apps/web/src/app/layout.tsx. Umbrales de líneas: 90 en `packages/shared/src/**`, 90 en `apps/api/src/services/**` y 80 global para el resto. | `pnpm test:coverage` | Código 0; falla si no se alcanza algún umbral. |
+| R-09 | Cobertura v8 con include `packages/shared/src/**`, `apps/api/src/**` y `apps/web/src/**`; exclude pruebas, `*.d.ts`, archivos de configuración, apps/api/src/server.ts, apps/api/src/db/cli.ts, apps/api/src/db/migrations/**, apps/api/src/db/seeders/** y apps/web/src/app/layout.tsx (desde la spec 002, también apps/api/src/print-test-page.ts). Umbrales de líneas: 90 en `packages/shared/src/**`, 90 en `apps/api/src/services/**` y 80 global para el resto. | `pnpm test:coverage` | Código 0; falla si no se alcanza algún umbral. |
 | R-10 | playwright.config.ts en la raíz: testDir e2e, testMatch `**/*.spec.ts`, proyectos desktop-chrome (1366×768) y mobile-chrome (360×740, isMobile, hasTouch, Chromium), baseURL http://localhost:3100. webServer de la API: `node --disable-warning=ExperimentalWarning apps/api/src/server.ts` con NODE_ENV=test, HOST=127.0.0.1, PORT=4100 y DATABASE_URL = DATABASE_URL_TEST; espera http://127.0.0.1:4100/api/health. webServer de la web: `next dev --port 3100` en apps/web con API_INTERNAL_URL=http://127.0.0.1:4100; espera http://localhost:3100. `reuseExistingServer: false` y timeout de 120 s. Antes de levantar nada, lee DATABASE_URL_TEST (del entorno o de apps/api/.env sin sobrescribir) y la verifica con assertTestDatabase; si falta o no es de pruebas, aborta con un mensaje en español. | `pnpm test:e2e` (con `pnpm dev` detenido) | Código 0 cuando la implementación está completa. |
 | R-11 | `pnpm dev` levanta en paralelo la API (`node --watch --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.ts`, en 127.0.0.1:4000) y la web (`next dev --hostname 0.0.0.0 --port 3000`) con `pnpm -r --parallel`, sin concurrently, nodemon ni tsx. | `pnpm dev` y abrir http://localhost:3000 | La página muestra 'Conectado' (verificación manual). |
 | R-12 | `pnpm db:migrate` y `pnpm db:seed` delegan en @polleria/api (`node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts migrate` o `seed`) y usan DATABASE_URL (polleria_dev). @polleria/api tiene además el script db:migrate:undo. | `pnpm db:migrate` y `pnpm db:seed` | Código 0 con 'No hay migraciones pendientes.' y 'No hay seeds pendientes.' (en esta spec no hay ninguno). |
@@ -516,6 +519,7 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
   - `type AppConfig = { nodeEnv: 'development' | 'test' | 'production'; host: string; port: number; databaseUrl: string; databaseUrlTest: string | undefined }`.
   - `class ConfigError extends Error` con `issues: { variable: string; message: string }[]`.
   - `CONFIG_VARIABLES`: lista `as const` con NODE_ENV, HOST, PORT, DATABASE_URL y DATABASE_URL_TEST.
+  - Spec 002: CONFIG_VARIABLES suma PRINTER_DRIVER y PRINTER_FILE_DIR; AppConfig suma `printer`; nuevos exports PROJECT_ROOT_DIR, DEFAULT_PRINTER_FILE_DIR y PrinterConfig (sección 11 de la spec 002).
 - **apps/api/src/db/assert-test-database.ts**
   - `assertTestDatabase(databaseUrl: string | undefined): string` (devuelve el nombre de la base).
   - `class UnsafeTestDatabaseError extends Error`.
