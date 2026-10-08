@@ -6,7 +6,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 
 - Fase: 0 de 6, base del proyecto.
 - Funcionalidad: 001-base-monorepo.
-- Paso: 6 de 9. Ataque terminado: 0 críticos, 0 altos, 3 medios y 3 bajos (7 tests adversariales en rojo). Esperando decisión del usuario sobre corregirlos ahora o dejarlos como deuda.
+- Paso: 5 de 9 (vuelta 2 de 3). El usuario decidió corregir los 6 hallazgos medios y bajos; spec-writer redacta la enmienda 1 de la spec 001.
 - Rama: feat/001-base-monorepo.
 
 ## Tabla de funcionalidades
@@ -29,6 +29,7 @@ Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 | 2026-10-07 | Para correr los E2E hay que detener pnpm dev antes. |
 | 2026-10-07 | Los seeds se aplican una sola vez; recargar la demo se evaluará en la Fase 6. |
 | 2026-10-07 | Se asume Chrome 111 o superior en los celulares de los mozos; se confirmará con el dueño. |
+| 2026-10-07 | Corregir ahora los 6 hallazgos adversariales medios y bajos de la 001 (enmienda 1 de la spec), sin nueva aprobación salvo que cambie lo que ve el usuario final. |
 | 2026-10-07 | El usuario confirma que existen el rol polleria y las bases polleria_dev y polleria_test en PostgreSQL 17 (puerto 5432). |
 
 ## Notas técnicas del orquestador
