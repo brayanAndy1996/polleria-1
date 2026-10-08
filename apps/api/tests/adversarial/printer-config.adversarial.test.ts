@@ -35,7 +35,8 @@ describe('002 adversarial: configuración de impresión', () => {
   // S-002-09 y D-002-09 prohíben ("nunca desde la carpeta en que se ejecuta el comando"). Relacionado:
   // 'C:' (la unidad del proyecto, sin ruta) se resuelve a la raíz del monorepo y las comandas
   // quedarían sueltas junto a package.json (*.txt no está en .gitignore).
-  it.runIf(process.platform === 'win32')(
+  // Deuda aceptada por el usuario el 2026-10-08 (ver docs/PROGRESS.md). Corregir en la Fase 3 y volver a it(...).
+  it.runIf(process.platform === 'win32').fails(
     'ADV-002-04: una ruta relativa a otra unidad no depende de la carpeta actual',
     () => {
       const projectDrive = PROJECT_ROOT_DIR.slice(0, 1).toUpperCase();

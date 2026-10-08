@@ -53,36 +53,40 @@ describe('002 adversarial: driver file y puerta pública', () => {
   // RN-002-03 dependen solo de la disciplina de quien llama. Con el driver escpos de la Fase 3 sería
   // una inyección de comandos. Se espera que el driver rechace (PRINTER_INVALID_DOCUMENT) o que nunca
   // escriba bytes de comando.
-  it('ADV-002-02: el driver de la puerta pública, usado sin el servicio, no escribe comandos ESC/POS', async () => {
-    const driver = publicDriver(dir);
-    const job: PrintJob = {
-      jobId: '20261007-153012-123-comanda-a1b2c3d4',
-      label: 'comanda',
-      lines: [
-        'Mesa 4',
-        '  - sin ensalada\u001Bp\u0000\u0019ú',
-        '\u001DV\u0000',
-        'a\nb',
-        'x'.repeat(60),
-      ],
-    };
+  // Deuda aceptada por el usuario el 2026-10-08 (ver docs/PROGRESS.md). Corregir en la Fase 3 y volver a it(...).
+  it.fails(
+    'ADV-002-02: el driver de la puerta pública, usado sin el servicio, no escribe comandos ESC/POS',
+    async () => {
+      const driver = publicDriver(dir);
+      const job: PrintJob = {
+        jobId: '20261007-153012-123-comanda-a1b2c3d4',
+        label: 'comanda',
+        lines: [
+          'Mesa 4',
+          '  - sin ensalada\u001Bp\u0000\u0019ú',
+          '\u001DV\u0000',
+          'a\nb',
+          'x'.repeat(60),
+        ],
+      };
 
-    await driver.print(job).then(
-      () => undefined,
-      () => undefined,
-    );
+      await driver.print(job).then(
+        () => undefined,
+        () => undefined,
+      );
 
-    for (const file of await readdir(dir)) {
-      const bytes = await readFile(path.join(dir, file));
-      const found = ESCPOS_COMMAND_BYTES.filter((commandByte) => bytes.includes(commandByte));
-      expect(
-        found.map((commandByte) => `0x${commandByte.toString(16)}`),
-        `bytes de comando ESC/POS en ${file}`,
-      ).toEqual([]);
-      const lines = bytes.toString('utf8').split('\n');
-      expect(lines.filter((line) => line.length > 48)).toEqual([]);
-    }
-  });
+      for (const file of await readdir(dir)) {
+        const bytes = await readFile(path.join(dir, file));
+        const found = ESCPOS_COMMAND_BYTES.filter((commandByte) => bytes.includes(commandByte));
+        expect(
+          found.map((commandByte) => `0x${commandByte.toString(16)}`),
+          `bytes de comando ESC/POS en ${file}`,
+        ).toEqual([]);
+        const lines = bytes.toString('utf8').split('\n');
+        expect(lines.filter((line) => line.length > 48)).toEqual([]);
+      }
+    },
+  );
 
   // ADV-002-12 (regresión en verde): jobId con trucos que AC-27 no cubre. Barras con apariencia de
   // separador, dígitos no ASCII, salto o NUL al final, espacio o punto final (Windows los quita),

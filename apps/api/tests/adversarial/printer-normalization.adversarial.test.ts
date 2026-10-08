@@ -158,55 +158,64 @@ describe('002 adversarial: normalización y validación del documento', () => {
   // primera vez y 5 a 7 s al reimprimir (en la PC de desarrollo). AC-17 pide menos de 2 s y
   // D-002-06 promete unos 100 ms para el caso más grande. En la Fase 3 congelaría la API completa
   // mientras se imprime.
-  it('ADV-002-01: el documento más costoso que se acepta se imprime en menos de 2 s, también al reimprimirlo', async () => {
-    const line = 'x' + '\u0344'.repeat(1000) + '\u0323'.repeat(999);
-    expect(line.length).toBe(2000);
-    const lines = Array.from({ length: 500 }, () => line);
-    const fake = createFakeDriver();
-    const service = createPrinterService({ driver: fake.driver });
+  // Deuda aceptada por el usuario el 2026-10-08 (ver docs/PROGRESS.md). Corregir en la Fase 3 y volver a it(...).
+  it.fails(
+    'ADV-002-01: el documento más costoso que se acepta se imprime en menos de 2 s, también al reimprimirlo',
+    async () => {
+      const line = 'x' + '\u0344'.repeat(1000) + '\u0323'.repeat(999);
+      expect(line.length).toBe(2000);
+      const lines = Array.from({ length: 500 }, () => line);
+      const fake = createFakeDriver();
+      const service = createPrinterService({ driver: fake.driver });
 
-    const elapsedMs: number[] = [];
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const startedAt = performance.now();
-      await service.print({ label: 'prueba', lines });
-      elapsedMs.push(performance.now() - startedAt);
-    }
+      const elapsedMs: number[] = [];
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const startedAt = performance.now();
+        await service.print({ label: 'prueba', lines });
+        elapsedMs.push(performance.now() - startedAt);
+      }
 
-    // El documento es válido: cada línea se imprime como 'x' (las marcas sin equivalente se quitan).
-    expect(fake.jobs).toHaveLength(2);
-    expect(fake.jobs[0]?.lines).toEqual(Array.from({ length: 500 }, () => 'x'));
-    const report = elapsedMs.map((ms) => `${String(Math.round(ms))} ms`).join(', ');
-    expect(
-      Math.max(...elapsedMs),
-      `tiempos de la impresión y la reimpresión: ${report}`,
-    ).toBeLessThan(2000);
-  }, 120_000);
+      // El documento es válido: cada línea se imprime como 'x' (las marcas sin equivalente se quitan).
+      expect(fake.jobs).toHaveLength(2);
+      expect(fake.jobs[0]?.lines).toEqual(Array.from({ length: 500 }, () => 'x'));
+      const report = elapsedMs.map((ms) => `${String(Math.round(ms))} ms`).join(', ');
+      expect(
+        Math.max(...elapsedMs),
+        `tiempos de la impresión y la reimpresión: ${report}`,
+      ).toBeLessThan(2000);
+    },
+    120_000,
+  );
 
   // ADV-002-03 (Bajo): el esquema revisa el máximo de 500 líneas después de recorrer TODOS los
   // elementos. Con un arreglo enorme (por ejemplo `new Array(2 ** 32 - 1)`, que no ocupa memoria
   // por ser disperso) Zod recorre los 4 mil millones de posiciones y crea un issue por cada hueco:
   // con 1 000 000 de huecos ya tarda unos 0,5 s y crea 1 000 001 issues; con el máximo agotaría la
   // memoria del proceso. El límite de D-002-06 debería cortar antes de recorrer los elementos.
-  it('ADV-002-03: un documento con 100 000 líneas se rechaza sin leer más de 500 elementos', async () => {
-    let elementReads = 0;
-    const backing: string[] = Array.from({ length: 100_000 }, () => 'x');
-    const lines = new Proxy(backing, {
-      get(target, property, receiver): unknown {
-        if (typeof property === 'string' && /^\d+$/.test(property)) {
-          elementReads += 1;
-        }
-        return Reflect.get(target, property, receiver) as unknown;
-      },
-    });
-    const fake = createFakeDriver();
-    const service = createPrinterService({ driver: fake.driver });
+  // Deuda aceptada por el usuario el 2026-10-08 (ver docs/PROGRESS.md). Corregir en la Fase 3 y volver a it(...).
+  it.fails(
+    'ADV-002-03: un documento con 100 000 líneas se rechaza sin leer más de 500 elementos',
+    async () => {
+      let elementReads = 0;
+      const backing: string[] = Array.from({ length: 100_000 }, () => 'x');
+      const lines = new Proxy(backing, {
+        get(target, property, receiver): unknown {
+          if (typeof property === 'string' && /^\d+$/.test(property)) {
+            elementReads += 1;
+          }
+          return Reflect.get(target, property, receiver) as unknown;
+        },
+      });
+      const fake = createFakeDriver();
+      const service = createPrinterService({ driver: fake.driver });
 
-    const error = await rejectionOf(service.print({ label: 'prueba', lines }));
+      const error = await rejectionOf(service.print({ label: 'prueba', lines }));
 
-    expectPrinterError(error, 'PRINTER_INVALID_DOCUMENT');
-    expect(fake.jobs).toEqual([]);
-    expect(elementReads, 'elementos leídos antes de rechazar').toBeLessThanOrEqual(500);
-  });
+      expectPrinterError(error, 'PRINTER_INVALID_DOCUMENT');
+      expect(fake.jobs).toEqual([]);
+      expect(elementReads, 'elementos leídos antes de rechazar').toBeLessThanOrEqual(500);
+    },
+  );
 
   // ADV-002-06 (regresión en verde): barrido exhaustivo. Cada punto de código del plano básico, del
   // plano 1 (emojis, símbolos) y del plano 14 (etiquetas y selectores de variante), más una muestra

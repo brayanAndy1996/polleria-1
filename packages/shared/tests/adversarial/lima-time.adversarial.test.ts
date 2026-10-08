@@ -70,7 +70,8 @@ describe('002 adversarial: hora de Lima', () => {
   // alcanza con el reloj real, pero la función es compartida y la reutilizarán la caja y los
   // reportes (fechas que puede escribir una persona). Se espera RangeError o años distintos (por
   // ejemplo '0000', como Date.prototype.toISOString).
-  it.each([
+  // Deuda aceptada por el usuario el 2026-10-08 (ver docs/PROGRESS.md). Corregir en la Fase 3 y volver a it(...).
+  it.fails.each([
     ['0000-06-01T12:00:00.000Z', '0001-06-01T12:00:00.000Z'],
     ['-000001-06-01T12:00:00.000Z', '0002-06-01T12:00:00.000Z'],
     ['-000100-06-01T12:00:00.000Z', '0101-06-01T12:00:00.000Z'],
