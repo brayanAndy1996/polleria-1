@@ -11,9 +11,9 @@ async function expectNoOverflow(page: Page): Promise<void> {
   );
   expect(fits).toBe(true);
 }
-async function expectTouchTargets(page: Page, expectedCount: number): Promise<void> {
+async function expectTouchTargets(page: Page, expectedCount?: number): Promise<void> {
   const buttons = page.getByRole('main').getByRole('button');
-  await expect(buttons).toHaveCount(expectedCount);
+  if (expectedCount !== undefined) await expect(buttons).toHaveCount(expectedCount);
   for (const button of await buttons.all()) {
     await expect(button).toBeVisible();
     const bounds = await button.boundingBox();
@@ -81,7 +81,10 @@ test.describe('003: inicio de sesión y áreas', () => {
     });
     await page.goto('/login');
     await expect(page.getByRole('heading', { name: '¿Quién eres?' })).toBeVisible();
-    await expectTouchTargets(page, 4);
+    // Conteo dinámico: la 004 siembra más usuarios; se exige a los cuatro de la 003 y 48 px a todos.
+    for (const name of ['Mozo E2E', 'Caja E2E', 'Admin E2E', 'Mozo Caja E2E'])
+      await expect(page.getByRole('button', { name: new RegExp(`^${name}`) })).toBeVisible();
+    await expectTouchTargets(page);
     await expectNoOverflow(page);
     await page.getByRole('button', { name: /^Mozo E2E/ }).click();
     await expectTouchTargets(page, 13);
