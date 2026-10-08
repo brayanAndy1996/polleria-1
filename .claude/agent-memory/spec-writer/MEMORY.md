@@ -3,5 +3,6 @@
 - [Decisiones de impresión](project_decisiones_impresion.md) — spec 002 + aclaración 1: normalización 48 col (trim por trozo), jobId Lima, PRINTER_* (trim de dir)
 - [Decisiones de autenticación](project_decisiones_auth.md) — spec 003 + revisión 1: sesión opaca, cookie polleria_session, 5/15 min, varios roles (users.roles arreglo), áreas y /areas
 - [Gestión de usuarios](project_decisiones_users_admin.md) — spec 004 aprobada: /api/users admin, PIN fáciles, último admin con FOR UPDATE, clearAttempts, contrato 0.4.0; aclaración 1: '/admin' no es puesto de trabajo (lastArea no aterriza ahí)
+- [Productos y precios de la carta](project_decisiones_menu_products.md) — spec 005 en borrador: tabla products, categorías fijas, priceCents 0..99999, único con lower(name), desactivar sin borrar, GET para cualquier rol, contrato 0.5.0; límites con 006/007/008
 - [Forma de las specs](feedback_forma_specs.md) — AC solo comportamiento, config aparte, contrato de módulos, enmiendas, aclaraciones, IDs entre specs
 - [Herramientas del entorno](reference_herramientas_entorno.md) — npm view, Redocly, scratchpad; no Markdown por bash; Write convierte escapes \u invisibles

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.4.0
+  version: 0.5.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -47,6 +47,16 @@ info:
       fácil de adivinar (dígitos repetidos, secuencias circulares ascendentes o descendentes,
       años entre 1900 y 2099, fechas DDMM o DDMMAA válidas ni '2580'): 400 VALIDATION_ERROR.
       El inicio de sesión no aplica esa regla: un PIN débil creado antes sigue sirviendo.
+
+    Carta de productos y precios (spec 005):
+    - /products es la carta: productos con nombre, categoría fija, precio en céntimos de sol
+      (priceCents, entero entre 0 y 99999) y estado activo. GET /products la puede leer cualquier
+      rol con sesión y devuelve todos los productos, activos e inactivos, en el orden de la
+      carta (categoría, luego nombre); quien muestra la carta vigente filtra por isActive.
+    - Solo el rol admin crea (POST /products) y edita, desactiva o reactiva (PATCH
+      /products/{productId}). Un producto nunca se borra: se desactiva con isActive false.
+      El nombre es único sin distinguir mayúsculas (409 PRODUCT_NAME_TAKEN).
+    - Todas las respuestas de /products/* llevan Cache-Control: no-store, también las de error.
 servers:
   - url: http://localhost:3000/api
     description: A través de la web, en el mismo origen. Es lo que usan los navegadores (PC de caja y celulares).
@@ -59,6 +69,8 @@ tags:
     description: Inicio de sesión con usuario y PIN, sesión actual y cierre de sesión (spec 003).
   - name: users
     description: Gestión de usuarios por el administrador (spec 004).
+  - name: products
+    description: Carta de productos y precios (spec 005).
 paths:
   /health:
     get:
@@ -446,6 +458,175 @@ paths:
           $ref: '#/components/responses/UserNotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+  /products:
+    get:
+      operationId: listProducts
+      tags:
+        - products
+      summary: Lista la carta completa
+      description: >-
+        Roles permitidos: cualquier rol con sesión (waiter, kitchen, cashier, admin). Devuelve
+        todos los productos, activos e inactivos, en el orden de la carta: por categoría en el
+        orden de ProductCategory, dentro de cada categoría por nombre en orden alfabético
+        insensible a mayúsculas (es-PE) y, si coinciden, por id. Quien muestra la carta vigente
+        (el mozo en la Fase 2) filtra por isActive; la administración muestra todos para poder
+        reactivarlos. Cada producto lleva exactamente id, name, category, priceCents e isActive;
+        nunca createdAt ni updatedAt. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Carta de productos (puede estar vacía)
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsResponse'
+              examples:
+                respuesta:
+                  value:
+                    products:
+                      - id: 5
+                        name: '1/4 de Pollo'
+                        category: chicken
+                        priceCents: 1850
+                        isActive: true
+                      - id: 2
+                        name: 'Chicha Morada'
+                        category: drink
+                        priceCents: 500
+                        isActive: true
+                      - id: 7
+                        name: 'Ají'
+                        category: sauce
+                        priceCents: 0
+                        isActive: false
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createProduct
+      tags:
+        - products
+      summary: Crea un producto de la carta
+      description: >-
+        Roles permitidos: admin. Crea un producto activo con el nombre, la categoría y el precio
+        en céntimos del cuerpo. El nombre se recorta y debe ser único sin distinguir mayúsculas
+        entre todos los productos (activos o inactivos): si ya existe responde 409
+        PRODUCT_NAME_TAKEN. El precio es un entero de céntimos entre 0 y 99999 (S/ 0.00 a
+        S/ 999.99); 0 es válido (por ejemplo cremas que no se cobran). Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+            examples:
+              cuarto-de-pollo:
+                value:
+                  name: '1/4 de Pollo'
+                  category: chicken
+                  priceCents: 1850
+              crema-gratis:
+                value:
+                  name: 'Ají'
+                  category: sauce
+                  priceCents: 0
+      responses:
+        '201':
+          description: Producto creado
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+              examples:
+                respuesta:
+                  value:
+                    id: 5
+                    name: '1/4 de Pollo'
+                    category: chicken
+                    priceCents: 1850
+                    isActive: true
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/ProductNameTaken'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/{productId}:
+    patch:
+      operationId: updateProduct
+      tags:
+        - products
+      summary: Edita nombre, categoría, precio o estado de un producto
+      description: >-
+        Roles permitidos: admin. Cambia el nombre (name), la categoría (category), el precio en
+        céntimos (priceCents) o el estado (isActive) del producto indicado por productId, con al
+        menos una propiedad en el cuerpo. isActive false lo quita de la carta y true lo devuelve;
+        un producto nunca se borra. Renombrar a un nombre que ya existe (sin distinguir
+        mayúsculas, activo o inactivo) responde 409 PRODUCT_NAME_TAKEN. Editar el precio no
+        altera pedidos ya registrados: en la Fase 2 cada ítem copia el precio vigente al
+        agregarse. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductRequest'
+            examples:
+              precio-nuevo:
+                value:
+                  priceCents: 1950
+              desactivar:
+                value:
+                  isActive: false
+      responses:
+        '200':
+          description: Producto actualizado
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+              examples:
+                desactivado:
+                  value:
+                    id: 7
+                    name: 'Ají'
+                    category: sauce
+                    priceCents: 0
+                    isActive: false
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          $ref: '#/components/responses/ProductNameTaken'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   securitySchemes:
     sessionCookie:
@@ -650,11 +831,97 @@ components:
       properties:
         pin:
           $ref: '#/components/schemas/Pin'
+    ProductCategory:
+      type: string
+      enum: [chicken, dish, drink, dessert, sauce, extra]
+      description: |
+        Categoría de la carta (spec 005), fija: chicken = pollo, dish = plato, drink = bebida,
+        dessert = postre, sauce = crema, extra = extra (por ejemplo descartables con precio).
+        El orden del enum es también el orden de las categorías en la carta. Las etiquetas en
+        español las pone la web. 'combo' no es categoría todavía: los combos son la spec 007.
+      examples: [chicken]
+    ProductName:
+      type: string
+      minLength: 1
+      maxLength: 60
+      pattern: '^[\p{L}\p{N}][\p{L}\p{M}\p{N} .,''()/%+-]*$'
+      description: |
+        Nombre visible del producto ya normalizado: de 1 a 60 caracteres; empieza con letra o
+        número y puede llevar letras con tilde, números, espacios, punto, coma, apóstrofo,
+        paréntesis, barra, porcentaje, más o guion (por ejemplo "1/4 de Pollo", "Inca Kola 1.5 L").
+        La API recorta espacios y normaliza Unicode antes de validar. Único sin distinguir
+        mayúsculas.
+      examples: ['1/4 de Pollo']
+    PriceCents:
+      type: integer
+      minimum: 0
+      maximum: 99999
+      description: |
+        Precio en céntimos de sol como entero (S/ 18.50 = 1850): entre 0 y 99999
+        (S/ 0.00 a S/ 999.99). Nunca float ni texto. 0 es válido (por ejemplo cremas gratis).
+      examples: [1850]
+    Product:
+      type: object
+      additionalProperties: false
+      required: [id, name, category, priceCents, isActive]
+      description: |
+        Un producto de la carta (spec 005). Nunca incluye createdAt ni updatedAt.
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          $ref: '#/components/schemas/ProductName'
+        category:
+          $ref: '#/components/schemas/ProductCategory'
+        priceCents:
+          $ref: '#/components/schemas/PriceCents'
+        isActive:
+          type: boolean
+          description: false = desactivado; no está en la carta vigente pero sigue en la lista completa y puede reactivarse.
+    ProductsResponse:
+      type: object
+      additionalProperties: false
+      required: [products]
+      properties:
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+    CreateProductRequest:
+      type: object
+      additionalProperties: false
+      required: [name, category, priceCents]
+      description: Alta de un producto de la carta (spec 005). Nace activo.
+      properties:
+        name:
+          $ref: '#/components/schemas/ProductName'
+        category:
+          $ref: '#/components/schemas/ProductCategory'
+        priceCents:
+          $ref: '#/components/schemas/PriceCents'
+    UpdateProductRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: |
+        Edición de un producto (spec 005): al menos una propiedad. isActive false lo quita de la
+        carta (desactivar) y true lo devuelve (reactivar); un producto nunca se borra.
+      properties:
+        name:
+          $ref: '#/components/schemas/ProductName'
+        category:
+          $ref: '#/components/schemas/ProductCategory'
+        priceCents:
+          $ref: '#/components/schemas/PriceCents'
+        isActive:
+          type: boolean
+          description: false = desactivar (sale de la carta); true = reactivar.
     ErrorCode:
       type: string
       pattern: '^[A-Z][A-Z0-9_]*$'
       description: |
-        Código estable para que la web decida qué hacer. Códigos definidos hasta la spec 004:
+        Código estable para que la web decida qué hacer. Códigos definidos hasta la spec 005:
         - NOT_FOUND (404): la ruta no existe.
         - INVALID_JSON (400): el cuerpo no es un JSON válido.
         - INVALID_BODY (400): el cuerpo no se pudo leer (compresión corrupta o incompleta, solicitud cortada).
@@ -671,6 +938,9 @@ components:
         - USERNAME_TAKEN (409, spec 003): el nombre de usuario ya existe (activo o inactivo). Lo usa POST /users (spec 004).
         - USER_NOT_FOUND (404, spec 004): el userId de la ruta no corresponde a ningún usuario.
         - LAST_ADMIN_REQUIRED (409, spec 004): la operación dejaría el sistema sin administradores activos.
+        - PRODUCT_NOT_FOUND (404, spec 005): el productId de la ruta no corresponde a ningún producto.
+        - PRODUCT_NAME_TAKEN (409, spec 005): ya existe un producto con ese nombre, sin distinguir
+          mayúsculas, activo o inactivo. Lo usan POST /products y PATCH /products/{productId}.
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
       examples: [NOT_FOUND]
     ValidationIssue:
@@ -760,6 +1030,19 @@ components:
         minimum: 1
         maximum: 2147483647
       example: 3
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      description: |
+        Identificador del producto: solo dígitos, entero entre 1 y 2147483647 (entero de la base).
+        Si no cumple, la ruta responde 400 VALIDATION_ERROR con un issue en 'productId'
+        (mensaje 'El identificador del producto no es válido.').
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      example: 5
   responses:
     InvalidJson:
       description: El cuerpo de la solicitud no es un JSON válido. Aplica a cualquier ruta que reciba cuerpo.
@@ -868,7 +1151,8 @@ components:
     Forbidden:
       description: |
         La sesión es válida pero ninguno de los roles del usuario tiene permiso para esta operación
-        (requireRole). La usan las rutas /users, que solo admite el rol admin.
+        (requireRole). La usan las rutas /users (solo admin) y las escrituras de /products
+        (POST y PATCH, solo admin).
       content:
         application/json:
           schema:
@@ -951,4 +1235,34 @@ components:
             error:
               code: LAST_ADMIN_REQUIRED
               message: Debe quedar al menos un administrador activo.
+              details: null
+    ProductNotFound:
+      description: El productId de la ruta no corresponde a ningún producto (spec 005).
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: PRODUCT_NOT_FOUND
+              message: Ese producto no existe.
+              details: null
+    ProductNameTaken:
+      description: |
+        Ya existe un producto con ese nombre, sin distinguir mayúsculas, activo o inactivo
+        (spec 005). Nada quedó creado ni modificado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: PRODUCT_NAME_TAKEN
+              message: Ya existe un producto con ese nombre.
               details: null
