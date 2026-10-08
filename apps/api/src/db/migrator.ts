@@ -4,6 +4,15 @@ import type { QueryInterface, Sequelize } from 'sequelize';
 import { SequelizeStorage, Umzug } from 'umzug';
 import type { MigrationFn, MigrationParams, RunnableMigration } from 'umzug';
 
+/**
+ * Clave del bloqueo consultivo de PostgreSQL que serializa migraciones y seeds (spec 001, D-13):
+ * la fecha de la enmienda (2026-10-07) más 01. Es el registro de claves del proyecto: una spec
+ * futura que use bloqueos consultivos agrega aquí su clave y no reutiliza esta.
+ *
+ *   2026100701 = migraciones y seeds
+ */
+export const MIGRATION_LOCK_KEY = 2026100701;
+
 export interface MigratorOptions {
   /** Glob absoluto con barras normales (/) hacia los archivos .ts. Por defecto, las carpetas reales. */
   glob?: string;
@@ -90,32 +99,62 @@ function createMigrator(
   });
 }
 
-/** Aplica las migraciones pendientes en orden alfabético. Devuelve los nombres aplicados. */
-export async function migrateUp(
-  sequelize: Sequelize,
-  options: MigratorOptions = {},
-): Promise<string[]> {
-  const applied = await createMigrator(sequelize, options, MIGRATIONS).up();
+/**
+ * Ejecuta `operation` con el bloqueo consultivo de migraciones y seeds tomado (spec 001, D-13).
+ *
+ * El bloqueo es de transacción (pg_advisory_xact_lock) y vive en una transacción propia que fija
+ * una conexión del pool durante toda la operación: un bloqueo de sesión solo se suelta desde la
+ * conexión que lo tomó, y el pool podría entregar otra. `operation` no usa esa transacción (no hay
+ * CLS), así que las migraciones se ejecutan como siempre, en sus propias conexiones. El bloqueo se
+ * toma antes de leer o crear la tabla de registro y se suelta al terminar, también si falla.
+ *
+ * Si otra conexión lo tiene, la consulta espera sin límite de tiempo (SUPUESTO S-15).
+ */
+async function withMigrationLock<T>(sequelize: Sequelize, operation: () => Promise<T>): Promise<T> {
+  const lockTransaction = await sequelize.transaction();
 
-  return applied.map((migration) => migration.name);
+  try {
+    await sequelize.query('SELECT pg_advisory_xact_lock($1)', {
+      bind: [MIGRATION_LOCK_KEY],
+      transaction: lockTransaction,
+    });
+
+    return await operation();
+  } finally {
+    // Si el rollback falla es porque la conexión se perdió, y PostgreSQL suelta el bloqueo al
+    // cerrarla. Ese error no debe tapar el de la operación.
+    await lockTransaction.rollback().catch(() => undefined);
+  }
+}
+
+/** Ejecuta una operación de umzug bajo el bloqueo y devuelve los nombres que procesó. */
+function runLocked(
+  sequelize: Sequelize,
+  options: MigratorOptions,
+  defaults: MigratorDefaults,
+  run: (migrator: Umzug<QueryInterface>) => Promise<{ name: string }[]>,
+): Promise<string[]> {
+  return withMigrationLock(sequelize, async () => {
+    const processed = await run(createMigrator(sequelize, options, defaults));
+
+    return processed.map((migration) => migration.name);
+  });
+}
+
+/** Aplica las migraciones pendientes en orden alfabético. Devuelve los nombres aplicados. */
+export function migrateUp(sequelize: Sequelize, options: MigratorOptions = {}): Promise<string[]> {
+  return runLocked(sequelize, options, MIGRATIONS, (migrator) => migrator.up());
 }
 
 /** Revierte solo la última migración aplicada. Devuelve [] si no hay ninguna. */
-export async function migrateDown(
+export function migrateDown(
   sequelize: Sequelize,
   options: MigratorOptions = {},
 ): Promise<string[]> {
-  const reverted = await createMigrator(sequelize, options, MIGRATIONS).down();
-
-  return reverted.map((migration) => migration.name);
+  return runLocked(sequelize, options, MIGRATIONS, (migrator) => migrator.down());
 }
 
 /** Aplica los seeds que aún no se aplicaron. Devuelve los nombres aplicados. */
-export async function seedUp(
-  sequelize: Sequelize,
-  options: MigratorOptions = {},
-): Promise<string[]> {
-  const applied = await createMigrator(sequelize, options, SEEDERS).up();
-
-  return applied.map((seed) => seed.name);
+export function seedUp(sequelize: Sequelize, options: MigratorOptions = {}): Promise<string[]> {
+  return runLocked(sequelize, options, SEEDERS, (migrator) => migrator.up());
 }
