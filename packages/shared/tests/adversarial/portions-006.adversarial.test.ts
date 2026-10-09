@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CUTS,
   MIXED_PORTIONS,
   PORTIONS,
-  PORTIONS_DUPLICATED_MESSAGE,
-  PORTION_CUT_MESSAGE,
   PORTION_EIGHTHS,
   PRODUCT_PORTIONS_MAX,
   SINGLE_CUT_PORTIONS,
@@ -18,10 +15,14 @@ import {
 } from '../../src/index.ts';
 import type { Cut, Portion } from '../../src/index.ts';
 
-const PORTION_CUT_TEXT =
-  'La parte no corresponde a la presentaci\u00F3n: eighth y quarter llevan breast o leg; ' +
-  'half y whole no llevan parte.';
 const PORTIONS_DUPLICATED_TEXT = 'Hay presentaciones repetidas en la lista.';
+
+/** Etiqueta legible de un valor hostil para el mensaje del expect (cubre bigint, NaN e indefinidos). */
+const shown = (value: unknown): string => {
+  if (typeof value === 'bigint') return `${value}n`;
+  if (typeof value === 'number' && Number.isNaN(value)) return 'NaN';
+  return JSON.stringify(value) ?? 'undefined';
+};
 
 /** Las seis combinaciones válidas de (portion, cut) con sus precios. */
 const FULL_SET = [
@@ -40,8 +41,7 @@ function expectRejectedWith(
   message: string,
 ) {
   const result = schema.safeParse(input) as
-    | { success: true }
-    | { success: false; error: { issues: { message: string }[] } };
+    { success: true } | { success: false; error: { issues: { message: string }[] } };
   expect(result.success).toBe(false);
   if (!result.success) expect(result.error.issues.map((issue) => issue.message)).toContain(message);
 }
@@ -187,11 +187,7 @@ describe('006-adversarial: esquemas de presentaciones y consumo en octavos', () 
         { portion: 'half', cut: null, priceCents: 3400 },
       ],
     };
-    expectRejectedWith(
-      replaceProductPortionsRequestSchema,
-      nullVsAbsent,
-      PORTIONS_DUPLICATED_TEXT,
-    );
+    expectRejectedWith(replaceProductPortionsRequestSchema, nullVsAbsent, PORTIONS_DUPLICATED_TEXT);
     const wholeTwice = {
       portions: [
         { portion: 'whole', cut: null, priceCents: 6000 },
@@ -229,7 +225,7 @@ describe('006-adversarial: esquemas de presentaciones y consumo en octavos', () 
       expect(
         productPortionInputSchema.safeParse({ portion: 'quarter', cut: 'breast', priceCents })
           .success,
-        String(priceCents),
+        shown(priceCents),
       ).toBe(false);
     // Frontera que sí pasa: 0, -0 (queda como 0 en la base), 99999 y 5e4 (=50000 entero).
     for (const [priceCents, expected] of [

@@ -56,7 +56,6 @@ const INVALID_URL_BODY = {
     details: null,
   },
 };
-const PRODUCT_ID_MESSAGE = 'El identificador del producto no es v\u00E1lido.';
 const ADMIN_PIN = '975310';
 
 const TRIO_INPUT = [
@@ -87,6 +86,15 @@ const issuesOf = (response: { body: unknown }) =>
   (response.body as { error: { details: { issues: { path: string; message: string }[] } } }).error
     .details.issues;
 
+/** El cuerpo de una respuesta de presentaciones, según el contrato (body de supertest es any). */
+type PortionsBody = {
+  portions: { portion: string; cut: string | null; priceCents: number }[];
+};
+
+/** El código de error estándar de la API (el body de supertest llega como any). */
+const errorCode = (response: { body: unknown }) =>
+  (response.body as { error?: { code?: string } }).error?.code;
+
 /**
  * Guardia estricta de la conexión de pruebas (idéntica a la de la 005): la URL debe
  * ser exactamente polleria_test en localhost como usuario polleria, sin parámetros
@@ -106,13 +114,17 @@ function assertAuthorizedUrl(): void {
     parsed.search !== '' ||
     parsed.hash !== ''
   )
-    throw new Error('La conexi\u00F3n no cumple la autorizaci\u00F3n local exclusiva para polleria_test.');
+    throw new Error(
+      'La conexi\u00F3n no cumple la autorizaci\u00F3n local exclusiva para polleria_test.',
+    );
 }
 
 async function assertAuthorizedConnection(sequelize: Sequelize): Promise<void> {
   assertAuthorizedUrl();
   if ((await assertConnectedToTestDatabase(sequelize)) !== 'polleria_test') {
-    throw new Error('La base conectada no es exactamente polleria_test; preparaci\u00F3n cancelada.');
+    throw new Error(
+      'La base conectada no es exactamente polleria_test; preparaci\u00F3n cancelada.',
+    );
   }
 }
 
@@ -286,9 +298,7 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
     // path-to-regexp lanza URIError al decodificar '%' o un escape UTF-8 incompleto en
     // :productId; el errorHandler lo traduce a 400 VALIDATION_ERROR desde la 005.
     for (const id of ['%', '%E0%A4%A', 'abc%', '%%', '1%2']) {
-      const get = await request(auth.app)
-        .get(`/api/products/${id}/portions`)
-        .set('Cookie', cookie);
+      const get = await request(auth.app).get(`/api/products/${id}/portions`).set('Cookie', cookie);
       expect.soft(get.status, `GET ${id}`).toBe(400);
       expect.soft(get.body, `GET ${id}`).toEqual(INVALID_URL_BODY);
       expect.soft(get.headers['cache-control'], `GET ${id}`).toBe('no-store');
@@ -320,7 +330,10 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
       // Errores de auth y de método también llevan la cabecera.
       await getPortions(pollo.id),
       await putPortions(pollo.id, { portions: TRIO_INPUT }, mozo),
-      await request(auth.app).post(`/api/products/${pollo.id}/portions`).set('Cookie', cookie).send({}),
+      await request(auth.app)
+        .post(`/api/products/${pollo.id}/portions`)
+        .set('Cookie', cookie)
+        .send({}),
       await request(auth.app).delete(`/api/products/${pollo.id}/portions`).set('Cookie', cookie),
       await getPortions('abc', cookie),
       await getPortions(999999, cookie),
@@ -362,7 +375,6 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
     const pollo = await createChicken();
     await insertPortionSql(pollo.id, 'quarter', 'breast', 1850);
     await insertPortionSql(pollo.id, 'quarter', 'leg', 1700);
-    const before = await portionRows(pollo.id);
     const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const expect400 = async (
       raw: string | object,
@@ -373,10 +385,9 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
         .put(`/api/products/${pollo.id}/portions`)
         .set('Cookie', cookie)
         .set('Content-Type', 'application/json');
-      const response =
-        typeof raw === 'string' ? await call.send(raw) : await call.send(raw as object);
+      const response = typeof raw === 'string' ? await call.send(raw) : await call.send(raw);
       expect.soft(response.status, label).toBe(400);
-      expect.soft(response.body.error?.code, label).toBe(expectedCode);
+      expect.soft(errorCode(response), label).toBe(expectedCode);
       expect.soft(response.headers['cache-control'], label).toBe('no-store');
     };
     // Repetidas con el orden de claves cambiado y con cut null vs ausente (la base
@@ -459,7 +470,7 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
       Buffer.from('{"portions":[{"portion":"quarter",'),
     );
     expect(truncated.status).toBe(400);
-    expect(truncated.body.error?.code).toBe('INVALID_JSON');
+    expect(errorCode(truncated)).toBe('INVALID_JSON');
     expect(truncated.headers['cache-control']).toBe('no-store');
     // JSON con la clave repetida: gana la última (documentado en ADV-005-27).
     const dupKey = await sendRawBody(
@@ -481,7 +492,9 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
       .send('{"portions":[{"portion":"whole","priceCents":6000}]}');
     expect(notJson.status).toBe(400);
     // El conjunto vigente queda como el PUT válido del medio (todo o nada).
-    expect(strip((await getPortions(pollo.id, cookie)).body.portions)).toEqual(TRIO_ORDERED);
+    expect(strip(((await getPortions(pollo.id, cookie)).body as PortionsBody).portions)).toEqual(
+      TRIO_ORDERED,
+    );
     expect(Reflect.has({}, 'injected')).toBe(false);
     expect(log).not.toHaveBeenCalled();
   });
@@ -497,14 +510,14 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
       cookie,
     );
     expect(edgeOk.status).toBe(200);
-    expect(edgeOk.body.portions[0].priceCents).toBe(0);
+    expect((edgeOk.body as PortionsBody).portions[0]?.priceCents).toBe(0);
     const maxOk = await putPortions(
       pollo.id,
       { portions: [{ portion: 'whole', priceCents: 99999 }] },
       cookie,
     );
     expect(maxOk.status).toBe(200);
-    expect(maxOk.body.portions[0].priceCents).toBe(99999);
+    expect((maxOk.body as PortionsBody).portions[0]?.priceCents).toBe(99999);
     // -0 entra como entero y la base guarda 0 (mismo criterio que ADV-005-19).
     const minusZero = await putPortions(
       pollo.id,
@@ -512,7 +525,7 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
       cookie,
     );
     expect(minusZero.status).toBe(200);
-    expect(minusZero.body.portions[0].priceCents).toBe(0);
+    expect((minusZero.body as PortionsBody).portions[0]?.priceCents).toBe(0);
     const stored = await portionRows(pollo.id);
     expect(stored[0]?.price_cents).toBe(0);
     // Fuera de rango y tipos erróneos: 400 sin tocar nada.
@@ -556,9 +569,7 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
         portions: setA,
       });
       // La respuesta del PUT A ya delata la mezcla: debería devolver solo su conjunto.
-      expect(strip(resultA)).toEqual([
-        { portion: 'eighth', cut: 'breast', priceCents: 700 },
-      ]);
+      expect(strip(resultA)).toEqual([{ portion: 'eighth', cut: 'breast', priceCents: 700 }]);
     } finally {
       auth.models.ProductPortion.removeHook('beforeBulkCreate', 'adv006union');
     }
@@ -678,7 +689,6 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
     expect(rows).toHaveLength(3);
   });
 
-
   it('ADV-006-19: un producto borrado entre el check y el INSERT responde 500 crudo en vez de PRODUCT_NOT_FOUND', async () => {
     // La API nunca borra productos (RN-005-04), así que la ventana solo se abre por
     // SQL directo — misma clase que ADV-005-25 (que sí se corrigió para PATCH). Si
@@ -767,7 +777,7 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
       ]);
       const statuses = [a.status, b.status].sort();
       const finalList = strip(
-        (await getPortions(pollo.id, cookie)).body.portions as never,
+        ((await getPortions(pollo.id, cookie)).body as PortionsBody).portions,
       ).map(({ portion, cut, priceCents }) => `${portion}:${String(cut)}:${priceCents}`);
       const keyOf = (row: { portion: string; cut?: string; priceCents: number }) =>
         `${row.portion}:${String(row.cut ?? null)}:${row.priceCents}`;
@@ -796,9 +806,7 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
     const before = await portionRows(pollo.id);
     // Le quitan admin con la sesión abierta: la siguiente escritura es 403, la
     // lectura sigue abierta (RN-003-06/07 aplicados a las rutas nuevas).
-    const dueno = await rows<{ id: number }>(
-      "SELECT id FROM users WHERE username = 'admin006'",
-    );
+    const dueno = await rows<{ id: number }>("SELECT id FROM users WHERE username = 'admin006'");
     await database().query('UPDATE users SET roles = $1 WHERE id = $2', {
       bind: [['waiter'], dueno[0]!.id],
     });
@@ -837,10 +845,10 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
     await productService.updateProduct(pollo.id, { isActive: false });
     const put = await putPortions(pollo.id, { portions: TRIO_INPUT }, cookie);
     expect(put.status).toBe(200);
-    expect(strip(put.body.portions)).toEqual(TRIO_ORDERED);
+    expect(strip((put.body as PortionsBody).portions)).toEqual(TRIO_ORDERED);
     const get = await getPortions(pollo.id, cookie);
     expect(get.status).toBe(200);
-    expect(strip(get.body.portions)).toEqual(TRIO_ORDERED);
+    expect(strip((get.body as PortionsBody).portions)).toEqual(TRIO_ORDERED);
     // Y la guardia de categoría sigue protegiendo aunque esté inactivo.
     const blocked = await patchProduct(pollo.id, { category: 'dish' }, cookie);
     expect(blocked.status).toBe(409);
@@ -879,7 +887,7 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
     // presentaciones' depende íntegramente del servicio, la base no lo refuerza.
     const leaked = await getPortions(chaufa.id, cookie);
     expect(leaked.status).toBe(200);
-    expect(strip(leaked.body.portions)).toEqual([
+    expect(strip((leaked.body as PortionsBody).portions)).toEqual([
       { portion: 'quarter', cut: 'breast', priceCents: 1850 },
     ]);
   });
@@ -902,7 +910,7 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
     // producto, no el cuerpo).
     const invalid = await putPortions(chaufa.id, { portions: 'x' }, cookie);
     expect(invalid.status).toBe(400);
-    expect(invalid.body.error?.code).toBe('VALIDATION_ERROR');
+    expect(errorCode(invalid)).toBe('VALIDATION_ERROR');
   });
 
   it('ADV-006-26: el servicio confía en productId: NaN e Infinity escapan como error crudo', async () => {
@@ -936,9 +944,9 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
       expect.soft(replaced instanceof AppError, `replace ${String(badId)}`).toBe(false);
     }
     // Un id como texto dígito se coacciona y llega a la base igual.
-    expect(
-      await portionService.listProductPortions(String(pollo.id) as unknown as number),
-    ).toEqual([]);
+    expect(await portionService.listProductPortions(String(pollo.id) as unknown as number)).toEqual(
+      [],
+    );
   });
 
   it('ADV-006-27: las garantías de la base también cubren UPDATEs ilegales y el borrado con hijos', async () => {
@@ -992,7 +1000,11 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
       await getPortions('abc', cookie),
       await getPortions(999999, cookie),
       await putPortions(999999, { portions: TRIO_INPUT }, cookie),
-      await putPortions(pollo.id, { portions: [{ portion: 'half', cut: 'leg', priceCents: 1 }] }, cookie),
+      await putPortions(
+        pollo.id,
+        { portions: [{ portion: 'half', cut: 'leg', priceCents: 1 }] },
+        cookie,
+      ),
       await putPortions(pollo.id, {}, cookie),
       await request(auth.app).delete(`/api/products/${pollo.id}/portions`).set('Cookie', cookie),
     ];
@@ -1002,7 +1014,9 @@ describe('006-adversarial: API, servicio y concurrencia de presentaciones sobre 
       // datos de sesión ni trazas.
       expect
         .soft(JSON.stringify(response.body), String(response.status))
-        .not.toMatch(/created_at|updated_at|product_id|pinHash|tokenHash|polleria_dev|SELECT |at \//i);
+        .not.toMatch(
+          /created_at|updated_at|product_id|pinHash|tokenHash|polleria_dev|SELECT |at \//i,
+        );
     }
     expect(log).not.toHaveBeenCalled();
     // La respuesta exitosa solo expone las cinco claves del contrato por fila.
