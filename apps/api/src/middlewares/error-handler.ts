@@ -76,6 +76,19 @@ function toAppError(error: unknown): AppError | undefined {
     });
   }
 
+  // El router (path-to-regexp) lanza URIError con status 400 al decodificar un
+  // percent-encoding malformado en un parámetro de la ruta ('%', '%E0%A4%A'). Una URL
+  // rota es un dato de entrada inválido —4xx sin ruido—, no una falla del servidor
+  // (ADV-005-30). Solo URIError con status 400: un Error genérico que solo "parece" de
+  // cliente por traer `status` 4xx sigue siendo inesperado y se registra (AC-37).
+  if (error instanceof URIError && readErrorProperty(error, 'status') === 400) {
+    return new AppError({
+      code: ERROR_CODES.VALIDATION_ERROR,
+      message: 'La dirección no es válida.',
+      httpStatus: 400,
+    });
+  }
+
   // Solo los errores del lector del cuerpo: un Error cualquiera con `status` 4xx sigue siendo
   // inesperado (AC-37).
   if (error instanceof BodyReaderError) {

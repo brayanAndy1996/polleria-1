@@ -1,6 +1,6 @@
 import { DataTypes } from 'sequelize';
 import type { Model, ModelStatic, Optional, Sequelize } from 'sequelize';
-import type { UserRole } from '@polleria/shared';
+import type { ProductCategory, UserRole } from '@polleria/shared';
 
 export interface UserAttributes {
   id: number;
@@ -19,6 +19,15 @@ export interface SessionAttributes {
   expiresAt: Date;
   createdAt: Date;
 }
+export interface ProductAttributes {
+  id: number;
+  name: string;
+  category: ProductCategory;
+  priceCents: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 export type UserModel = Model<
   UserAttributes,
   Optional<UserAttributes, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>
@@ -29,16 +38,27 @@ export type SessionModel = Model<
   Optional<SessionAttributes, 'id' | 'createdAt'>
 > &
   SessionAttributes;
+export type ProductModel = Model<
+  ProductAttributes,
+  Optional<ProductAttributes, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>
+> &
+  ProductAttributes;
 export interface Models {
   User: ModelStatic<UserModel>;
   Session: ModelStatic<SessionModel>;
+  Product: ModelStatic<ProductModel>;
 }
 
 export function defineModels(sequelize: Sequelize): Models {
-  if (sequelize.isDefined('User') && sequelize.isDefined('Session')) {
+  if (
+    sequelize.isDefined('User') &&
+    sequelize.isDefined('Session') &&
+    sequelize.isDefined('Product')
+  ) {
     return {
       User: sequelize.model('User') as ModelStatic<UserModel>,
       Session: sequelize.model('Session') as ModelStatic<SessionModel>,
+      Product: sequelize.model('Product') as ModelStatic<ProductModel>,
     };
   }
   const User = sequelize.define<UserModel>(
@@ -66,7 +86,22 @@ export function defineModels(sequelize: Sequelize): Models {
     },
     { tableName: 'sessions', underscored: true, updatedAt: false },
   );
+  // Spec 005: la carta. La unicidad del nombre vive en el índice por expresión
+  // products_name_unique (lower(name)) de la migración, no como UNIQUE de la columna.
+  const Product = sequelize.define<ProductModel>(
+    'Product',
+    {
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+      name: { type: DataTypes.STRING(60), allowNull: false },
+      category: { type: DataTypes.STRING(16), allowNull: false },
+      priceCents: { type: DataTypes.INTEGER, allowNull: false },
+      isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+      createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+      updatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    },
+    { tableName: 'products', underscored: true },
+  );
   User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
   Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-  return { User, Session };
+  return { User, Session, Product };
 }

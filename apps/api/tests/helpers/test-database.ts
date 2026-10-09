@@ -132,15 +132,17 @@ export async function cleanFixtureTables(sequelize: Sequelize): Promise<void> {
 }
 
 /**
- * Borra las tablas de registro SequelizeMeta y SequelizeData que crea el migrador real, para que
- * cada prueba compruebe que el código las crea (y no que quedaron de una corrida anterior).
+ * Borra las tablas de dominio y las de registro SequelizeMeta y SequelizeData que crea el
+ * migrador real, para que cada prueba compruebe que el código las crea (y no que quedaron de una
+ * corrida anterior).
  *
- * Mientras no existan migraciones ni seeds reales (spec 001) basta con esto. Cuando una spec
- * posterior agregue tablas de dominio, el test-writer de esa spec debe ampliar esta limpieza para
- * borrarlas también, de lo contrario volver a migrar fallaría con "la tabla ya existe".
+ * La lista crece con cada spec que agrega una migración: sin borrar las tablas de dominio, volver
+ * a migrar fallaría con "la tabla ya existe". La spec 005 autorizó limpiar `products` igual que
+ * `users` y `sessions` (D-005-10 y sección 12); va primero porque una tabla futura (ítems de
+ * pedido, presentaciones) puede referenciarla.
  */
 export async function resetMigrationTables(sequelize: Sequelize): Promise<void> {
-  await dropTables(sequelize, ['sessions', 'users', ...MIGRATION_TABLES]);
+  await dropTables(sequelize, ['products', 'sessions', 'users', ...MIGRATION_TABLES]);
 }
 
 export async function clearAuthTables(sequelize: Sequelize): Promise<void> {
@@ -152,6 +154,19 @@ export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<v
   await assertConnectedToTestDatabase(sequelize);
   await migrateUp(sequelize);
   await clearAuthTables(sequelize);
+}
+
+/**
+ * Vacía la tabla `products` (spec 005, D-005-10): la carta está autorizada a la limpieza de
+ * pruebas igual que users y sessions. Llamar después de migrateUp (o de
+ * migrateAndClearAuthTables). Si la tabla aún no existe —por ejemplo en la fase roja, cuando la
+ * migración no está escrita— no hace nada: así la prueba falla por lo que verifica y no en la
+ * limpieza.
+ */
+export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
+  await assertConnectedToTestDatabase(sequelize);
+  if (await tableExists(sequelize, 'products'))
+    await sequelize.query('TRUNCATE products RESTART IDENTITY');
 }
 
 /** Indica si existe una tabla en el esquema actual (el nombre distingue mayúsculas). */
