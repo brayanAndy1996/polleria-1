@@ -21,6 +21,8 @@ import { createProductService } from './services/products/product.service.ts';
 import { createProductsController } from './controllers/products.controller.ts';
 import { createProductPortionService } from './services/products/product-portion.service.ts';
 import { createProductPortionsController } from './controllers/product-portions.controller.ts';
+import { createComboItemService } from './services/combo-items/combo-item.service.ts';
+import { createComboItemsController } from './controllers/combo-items.controller.ts';
 
 export interface AppDependencies {
   sequelize: Sequelize;
@@ -74,6 +76,8 @@ export function createApp({
   const productPortionsController = createProductPortionsController({
     productPortionService,
   });
+  const comboItemService = createComboItemService({ models });
+  const comboItemsController = createComboItemsController({ comboItemService });
   const requireAuth = createRequireAuth({ sessionService });
 
   const app = express();
@@ -87,6 +91,11 @@ export function createApp({
       res.set('Cache-Control', 'no-store');
     next();
   });
+  // PUT .../items exige INVALID_BODY ante un JSON válido que no sea objeto (AC-15 de la
+  // 007), distinto del INVALID_JSON estricto del resto de la API: la ruta lee el cuerpo
+  // con un lector laxo que corre antes del estricto global —una vez leído, el global lo
+  // deja pasar— y la forma de objeto la verifica requireJsonObject en su router.
+  app.use('/api/products/:productId/items', createBodyReader({ strict: false }));
   app.use(createBodyReader());
   app.use(
     '/api',
@@ -96,6 +105,7 @@ export function createApp({
       usersController,
       productsController,
       productPortionsController,
+      comboItemsController,
       requireAuth,
     }),
   );
