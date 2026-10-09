@@ -249,7 +249,9 @@ describe('007: tabla combo_items y su migración sobre polleria_test', () => {
     // La unicidad es por combo: el mismo (product_id, portion, cut) en otro combo pasa.
     await insertItem(9, 6, 1, 'quarter', 'breast');
     await insertItem(9, 7, 1);
-    expect(await itemCount()).toHaveLength(6);
+    // Sobreviven 5 filas: las dos del dúo, la del NULL/NULL y las dos del otro
+    // combo; las dos repetidas no dejaron fila.
+    expect(await itemCount()).toHaveLength(5);
   });
 
   it('AC-07: aplica, revierte y reaplica la migración dentro de la lista completa', async () => {
