@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.6.0
+  version: 0.7.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -80,6 +80,34 @@ info:
       PRODUCT_HAS_PORTIONS (hay que quitar las presentaciones primero). Un producto
       'chicken' sin presentaciones se vende como ítem simple a su priceCents; con
       presentaciones, el precio de venta es el de la fila correspondiente.
+
+    Combos (spec 007):
+    - Un combo es un producto más de la carta, de la categoría 'combo' (segundo lugar,
+      después del Pollo): se crea, renombra, reprecia, activa y desactiva con las rutas
+      de la spec 005, y cobra su propio priceCents — el administrador fija el precio del
+      combo a mano; los componentes no llevan precio dentro del combo.
+    - Sus componentes son filas que dicen "este combo lleva quantity unidades de este
+      producto (con esta presentación y parte, si el componente es pollo)". Cualquier
+      producto que no sea 'combo' puede ser componente — un combo nunca es componente
+      de otro ni de sí mismo. Si el componente es 'chicken', portion es obligatoria y
+      cut sigue la regla de la 006; si no lo es, portion y cut van en null.
+    - GET /products/{productId}/items la puede leer cualquier rol con sesión y devuelve
+      los componentes con el producto embebido (id, name, category, priceCents, isActive
+      actuales), ordenados por categoría del componente en el orden de la carta, luego
+      por nombre y por id. PUT /products/{productId}/items es solo admin y reemplaza el
+      conjunto completo de una vez, de forma atómica: las filas ausentes se borran e
+      items vacío deja el combo sin componentes. El id de cada ítem no es estable entre
+      PUTs. Un combo sin componentes se vende como ítem simple a su priceCents.
+    - El consumo en octavos del combo no se guarda: se deriva con comboChickenConsumption
+      de @polleria/shared sumando quantity × chickenConsumption(portion, cut) de cada
+      componente de pollo. En la Fase 2 el ítem del pedido copiará precio, componentes
+      y octavos resueltos.
+    - Reglas cruzadas: PUT sobre un producto que no es 'combo' responde 409
+      COMBO_ITEMS_NOT_ALLOWED; PATCH /products/{productId} que cambia la categoría a
+      algo distinto de 'combo' en un combo con componentes responde 409
+      PRODUCT_HAS_ITEMS (primero se vacía con items: []), y PATCH que cambia la
+      categoría de un producto referenciado como componente responde 409
+      PRODUCT_IS_COMPONENT (primero se quita del combo).
 servers:
   - url: http://localhost:3000/api
     description: A través de la web, en el mismo origen. Es lo que usan los navegadores (PC de caja y celulares).
@@ -93,7 +121,7 @@ tags:
   - name: users
     description: Gestión de usuarios por el administrador (spec 004).
   - name: products
-    description: Carta de productos y precios (spec 005) y presentaciones del pollo en octavos (spec 006).
+    description: Carta de productos y precios (spec 005), presentaciones del pollo en octavos (spec 006) y componentes de combos (spec 007).
 paths:
   /health:
     get:
@@ -605,7 +633,11 @@ paths:
         agregarse. Desde la spec 006: cambiar la categoría a algo distinto de 'chicken' en
         un producto que tiene presentaciones cargadas responde 409 PRODUCT_HAS_PORTIONS
         (primero se quitan las presentaciones con PUT .../portions y portions vacío).
-        Cabecera Cache-Control: no-store.
+        Desde la spec 007: cambiar la categoría a algo distinto de 'combo' en un combo
+        con componentes responde 409 PRODUCT_HAS_ITEMS (primero se vacía con PUT
+        .../items e items vacío), y cambiar la categoría de un producto que es
+        componente de algún combo responde 409 PRODUCT_IS_COMPONENT (primero se quita
+        del combo). Cabecera Cache-Control: no-store.
       security:
         - sessionCookie: []
       parameters:
@@ -652,9 +684,12 @@ paths:
         '409':
           description: >-
             Conflicto al guardar: ya existe un producto con ese nombre
-            (PRODUCT_NAME_TAKEN, spec 005) o el producto tiene presentaciones cargadas y
+            (PRODUCT_NAME_TAKEN, spec 005), el producto tiene presentaciones cargadas y
             se intentó cambiar su categoría fuera de 'chicken' (PRODUCT_HAS_PORTIONS,
-            spec 006).
+            spec 006), el producto es un combo con componentes y se intentó cambiar su
+            categoría fuera de 'combo' (PRODUCT_HAS_ITEMS, spec 007), o el producto es
+            componente de algún combo y se intentó cambiar su categoría
+            (PRODUCT_IS_COMPONENT, spec 007).
           headers:
             Cache-Control:
               $ref: '#/components/headers/CacheControlNoStore'
@@ -674,6 +709,18 @@ paths:
                     error:
                       code: PRODUCT_HAS_PORTIONS
                       message: Este producto tiene presentaciones de pollo; quítalas antes de cambiar su categoría.
+                      details: null
+                combo-con-componentes:
+                  value:
+                    error:
+                      code: PRODUCT_HAS_ITEMS
+                      message: Este producto es un combo con componentes; quita sus componentes antes de cambiar su categoría.
+                      details: null
+                es-componente:
+                  value:
+                    error:
+                      code: PRODUCT_IS_COMPONENT
+                      message: Este producto es componente de un combo; quítalo del combo antes de cambiar su categoría.
                       details: null
         '500':
           $ref: '#/components/responses/InternalError'
@@ -801,6 +848,147 @@ paths:
           $ref: '#/components/responses/ProductNotFound'
         '409':
           $ref: '#/components/responses/PortionsNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/{productId}/items:
+    get:
+      operationId: listComboItems
+      tags:
+        - products
+      summary: Lista los componentes de un combo
+      description: >-
+        Roles permitidos: cualquier rol con sesión (waiter, kitchen, cashier, admin).
+        Devuelve los componentes del producto indicado por productId, cada uno con el
+        producto embebido (id, name, category, priceCents e isActive actuales), su
+        cantidad y su presentación/parte si el componente es de pollo. Ordenados por
+        categoría del componente en el orden de la carta (el pollo primero), luego por
+        nombre en orden alfabético insensible a mayúsculas (es-PE) y empates por id del
+        ítem. Un producto sin componentes —incluido uno de otra categoría— responde con
+        la lista vacía. El consumo en octavos no viene en la respuesta: se deriva con
+        comboChickenConsumption de @polleria/shared. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Componentes del combo (puede estar vacía)
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComboItemsResponse'
+              examples:
+                mostrito:
+                  value:
+                    items:
+                      - id: 1
+                        comboId: 9
+                        product:
+                          id: 5
+                          name: 'Pollo a la brasa'
+                          category: chicken
+                          priceCents: 1850
+                          isActive: true
+                        quantity: 1
+                        portion: quarter
+                        cut: leg
+                      - id: 2
+                        comboId: 9
+                        product:
+                          id: 8
+                          name: 'Chaufa'
+                          category: dish
+                          priceCents: 1400
+                          isActive: true
+                        quantity: 1
+                        portion: null
+                        cut: null
+                      - id: 3
+                        comboId: 9
+                        product:
+                          id: 2
+                          name: 'Inca Kola 500 ml'
+                          category: drink
+                          priceCents: 400
+                          isActive: true
+                        quantity: 1
+                        portion: null
+                        cut: null
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      operationId: replaceComboItems
+      tags:
+        - products
+      summary: Reemplaza los componentes de un combo
+      description: >-
+        Roles permitidos: admin. Recibe el conjunto completo de componentes del combo y
+        lo deja exactamente así, en una sola operación atómica: las filas que no vienen
+        en la lista se borran e items vacío deja el combo sin componentes (queda como
+        ítem simple a su priceCents). Todo o nada: si el cuerpo es inválido no cambia
+        nada. Solo productos de categoría 'combo' (409 COMBO_ITEMS_NOT_ALLOWED en otra).
+        Cada fila lleva productId (de un producto existente que no sea 'combo': un combo
+        nunca es componente, ni el propio), quantity entera de 1 a 99 y, si el
+        componente es 'chicken', portion obligatoria con cut según la regla de la 006
+        (breast/leg en eighth y quarter; null en half y whole); si no es 'chicken',
+        portion y cut van ausentes o null. Máximo 10 filas, sin repetir
+        (productId, portion, cut). Los problemas por fila se devuelven juntos en
+        details.issues (paths items.N.*). El id de cada ítem no es estable entre PUTs;
+        los pedidos copiarán los valores (Fase 2). Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceComboItemsRequest'
+            examples:
+              mostrito:
+                value:
+                  items:
+                    - productId: 5
+                      quantity: 1
+                      portion: quarter
+                      cut: leg
+                    - productId: 8
+                      quantity: 1
+                    - productId: 2
+                      quantity: 1
+              vaciar:
+                value:
+                  items: []
+      responses:
+        '200':
+          description: Conjunto de componentes resultante
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComboItemsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          $ref: '#/components/responses/ComboItemsNotAllowed'
         '500':
           $ref: '#/components/responses/InternalError'
 components:
@@ -1009,12 +1197,14 @@ components:
           $ref: '#/components/schemas/Pin'
     ProductCategory:
       type: string
-      enum: [chicken, dish, drink, dessert, sauce, extra]
+      enum: [chicken, combo, dish, drink, dessert, sauce, extra]
       description: |
-        Categoría de la carta (spec 005), fija: chicken = pollo, dish = plato, drink = bebida,
-        dessert = postre, sauce = crema, extra = extra (por ejemplo descartables con precio).
-        El orden del enum es también el orden de las categorías en la carta. Las etiquetas en
-        español las pone la web. 'combo' no es categoría todavía: los combos son la spec 007.
+        Categoría de la carta, fija: chicken = pollo, combo = combo (spec 007: un producto
+        compuesto con precio propio, como el mostrito), dish = plato, drink = bebida,
+        dessert = postre, sauce = crema, extra = extra (por ejemplo descartables con
+        precio). El orden del enum es también el orden de las categorías en la carta
+        (los combos van inmediatamente después del pollo). Las etiquetas en español
+        las pone la web.
       examples: [chicken]
     ProductName:
       type: string
@@ -1174,6 +1364,94 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProductPortion'
+    ComboItemInput:
+      type: object
+      additionalProperties: false
+      required: [productId, quantity]
+      description: |
+        Una fila del conjunto de componentes (PUT /products/{productId}/items, spec 007).
+        productId referencia un producto existente que no sea 'combo'. Si el componente
+        es 'chicken', portion es obligatoria y cut sigue la regla de la 006 (breast/leg
+        en eighth y quarter; ausente o null en half y whole); si no lo es, portion y
+        cut van ausentes o null — otra combinación es 400 VALIDATION_ERROR.
+      properties:
+        productId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          description: Producto componente. No puede ser un 'combo' (sin anidación) ni el propio combo.
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+          description: Unidades del componente dentro del combo; en pollo multiplica sus octavos.
+        portion:
+          oneOf:
+            - $ref: '#/components/schemas/Portion'
+            - type: 'null'
+          description: Obligatoria solo si el componente es 'chicken'; null en los demás.
+        cut:
+          oneOf:
+            - $ref: '#/components/schemas/Cut'
+            - type: 'null'
+          description: breast o leg en eighth y quarter; null en half, whole y en componentes que no son pollo.
+    ReplaceComboItemsRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      description: |
+        Conjunto completo de componentes de un producto 'combo' (spec 007): de 0 a 10
+        filas, sin repetir (productId, portion, cut) — 400 con 'Hay componentes
+        repetidos en la lista.'. La lista vacía deja el combo sin componentes.
+      properties:
+        items:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/ComboItemInput'
+    ComboItem:
+      type: object
+      additionalProperties: false
+      required: [id, comboId, product, quantity, portion, cut]
+      description: |
+        Un componente de un combo (spec 007) con el producto embebido: su nombre,
+        categoría, precio y estado se leen al momento (un componente desactivado llega
+        con isActive false). portion y cut son null en componentes que no son pollo.
+        Nunca incluye createdAt ni updatedAt. El id no es estable entre PUTs (el
+        conjunto se reemplaza borrando e insertando).
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        comboId:
+          type: integer
+          minimum: 1
+          description: Id del producto 'combo' dueño de la fila.
+        product:
+          $ref: '#/components/schemas/Product'
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        portion:
+          oneOf:
+            - $ref: '#/components/schemas/Portion'
+            - type: 'null'
+          description: Presentación del pollo del componente; null si no es 'chicken'.
+        cut:
+          oneOf:
+            - $ref: '#/components/schemas/Cut'
+            - type: 'null'
+          description: breast o leg en eighth y quarter; null en half, whole y en componentes que no son pollo.
+    ComboItemsResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComboItem'
     ErrorCode:
       type: string
       pattern: '^[A-Z][A-Z0-9_]*$'
@@ -1202,6 +1480,12 @@ components:
           tener presentaciones. Lo usa PUT /products/{productId}/portions.
         - PRODUCT_HAS_PORTIONS (409, spec 006): el producto tiene presentaciones cargadas y se
           intentó cambiar su categoría fuera de 'chicken'. Lo usa PATCH /products/{productId}.
+        - COMBO_ITEMS_NOT_ALLOWED (409, spec 007): solo los productos de la categoría Combos
+          pueden tener componentes. Lo usa PUT /products/{productId}/items.
+        - PRODUCT_HAS_ITEMS (409, spec 007): el producto es un combo con componentes y se
+          intentó cambiar su categoría fuera de 'combo'. Lo usa PATCH /products/{productId}.
+        - PRODUCT_IS_COMPONENT (409, spec 007): el producto es componente de algún combo y se
+          intentó cambiar su categoría. Lo usa PATCH /products/{productId}.
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
       examples: [NOT_FOUND]
     ValidationIssue:
@@ -1413,7 +1697,7 @@ components:
       description: |
         La sesión es válida pero ninguno de los roles del usuario tiene permiso para esta operación
         (requireRole). La usan las rutas /users (solo admin) y las escrituras de /products
-        (POST y PATCH, y PUT de presentaciones, solo admin).
+        (POST y PATCH, y PUT de presentaciones y de componentes, solo admin).
       content:
         application/json:
           schema:
@@ -1561,4 +1845,56 @@ components:
             error:
               code: PRODUCT_HAS_PORTIONS
               message: Este producto tiene presentaciones de pollo; quítalas antes de cambiar su categoría.
+              details: null
+    ComboItemsNotAllowed:
+      description: |
+        Solo los productos de la categoría Combos (combo) pueden tener componentes
+        (spec 007). Lo responde PUT /products/{productId}/items sobre un producto de
+        otra categoría. Nada quedó creado ni modificado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: COMBO_ITEMS_NOT_ALLOWED
+              message: Solo los productos de la categoría Combos pueden tener componentes.
+              details: null
+    ProductHasItems:
+      description: |
+        El producto es un combo con componentes y se intentó cambiar su categoría a algo
+        distinto de 'combo' (spec 007). Lo responde PATCH /products/{productId}. Primero
+        hay que vaciar los componentes (PUT .../items con items vacío). El producto
+        queda sin cambios.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: PRODUCT_HAS_ITEMS
+              message: Este producto es un combo con componentes; quita sus componentes antes de cambiar su categoría.
+              details: null
+    ProductIsComponent:
+      description: |
+        El producto es componente de algún combo y se intentó cambiar su categoría
+        (spec 007). Lo responde PATCH /products/{productId}. Primero hay que quitarlo
+        del combo con PUT .../items del combo dueño. El producto queda sin cambios.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: PRODUCT_IS_COMPONENT
+              message: Este producto es componente de un combo; quítalo del combo antes de cambiar su categoría.
               details: null
