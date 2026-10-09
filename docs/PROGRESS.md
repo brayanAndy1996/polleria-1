@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: 005-menu-products (cerrada e integrada). Siguiente: propuesta 006.
-- Paso: 005 terminada e integrada a main el 2026-10-08 (merge 2af8023). Spec aprobada con las 10 respuestas recomendadas (15 AC; OpenAPI 0.5.0; solo dominio + API, sin pantallas). Adversariales: 33 casos, 2 hallazgos corregidos y revalidados (abiertos 0); 3 huecos documentados como deuda futura. Reviewer: APROBADO; verificación del orquestador completada.
-- Siguiente acción: encargar al spec-writer la propuesta 006 (presentaciones y partes con consumo en octavos, RF-19) en una rama feat/006-*; el usuario la aprueba antes de tests e implementación. Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev y pruebas manuales de la 005).
-- Rama: main (integradas la 003, la 004 y la 005).
+- Funcionalidad: 006-portions-eighths (spec aprobada). Siguiente: pruebas en rojo del test-writer.
+- Paso: spec 006 aprobada el 2026-10-09 con las 6 respuestas recomendadas (14 AC; OpenAPI 0.6.0; solo dominio + API, sin pantallas). La 005 se integró a main el 2026-10-08 (merge 2af8023).
+- Siguiente acción: encargar al test-writer las pruebas en rojo T-01 a T-04 de la spec 006. Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev y pruebas manuales de la 005).
+- Rama: feat/006-portions-eighths (main tiene integradas la 003, la 004 y la 005).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -21,7 +21,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 003 | users-pin-login (usuarios con varios roles, login con PIN, sesión en la base, requireAuth/requireRole, áreas por rol) | 1 | Cerrada (APROBADO; 44 AC cubiertos; 44 adversariales verdes; integrada a main en el merge 80340c3; pendientes manuales registrados) | feat/003-users-pin-login | 2026-10-08 |
 | 004 | users-admin (alta/edición de usuarios con varios roles, PIN fuerte, activar/desactivar, restablecer PIN, guardia del último admin; /admin/usuarios*) | 1 | Cerrada (APROBADO; 27 AC; 53 adversariales; 9 hallazgos corregidos; integrada a main en el merge 35334d6; pendientes manuales registrados) | feat/004-users-admin | 2026-10-08 |
 | 005 | menu-products (productos y precios: categorías fijas, precio en céntimos 0-99999, nombre único sin mayúsculas, desactivar en vez de borrar; GET/POST/PATCH /api/products) | 1 | Cerrada (APROBADO; 15 AC; 33 adversariales verdes; integrada a main en el merge 2af8023; pendientes manuales registrados) | feat/005-menu-products | 2026-10-08 |
-| 006 | (propuesta) presentaciones y partes con consumo en octavos (RF-19) | 1 | Pendiente | — | — |
+| 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | En curso (spec aprobada 2026-10-09; falta TDD completo) | feat/006-portions-eighths | — |
 | 007 | (propuesta) combos | 1 | Pendiente | — | — |
 | 008 | (propuesta) pantallas de administración de la carta | 1 | Pendiente | — | — |
 
@@ -63,6 +63,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-08 | Spec 005 aprobada con las 10 respuestas recomendadas: categorías fijas chicken/dish/drink/dessert/sauce/extra; precio en céntimos 0-99999 (S/ 0.00 válido para cremas gratis); nombre único con lower(name); desactivar reversible, nunca borrar; GET abierto a cualquier rol con sesión; POST/PATCH solo admin; sin descripción/foto/SKU; sin pantallas (van en la 008); combos en la 007 y octavos en la 006. |
 | 2026-10-08 | Corregidos los 2 hallazgos adversariales de la 005 (medio ADV-005-30: URIError → 400 VALIDATION_ERROR; bajo ADV-005-25: releer la fila tras el UPDATE) con regresiones en rojo/verde y revalidación. Deuda documentada: colapso de espacios internos, homoglifos Unicode, CHECKs más laxos que el dominio y validación defensiva de productId en el servicio. |
 | 2026-10-08 | Autoriza integrar la 005 a main (merge --no-ff 2af8023). |
+| 2026-10-09 | Spec 006 aprobada con las 6 respuestas recomendadas: el sistema permite 1/8 por producto sin obligar; precio por presentación y parte (igual o distinto); medio 2+2 por defecto (otra distribución se copia al ítem del pedido en Fase 2); solo 'chicken' lleva presentaciones; PUT de reemplazo atómico del conjunto; products.price_cents obligatorio aunque haya presentaciones (cobra el precio de la fila). |
 
 ## Notas técnicas del orquestador
 
