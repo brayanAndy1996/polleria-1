@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: 007-combos (cerrada e integrada). Siguiente: propuesta 008.
-- Paso: 007 terminada e integrada a main el 2026-10-09 (merge 892914a). Spec aprobada el 2026-10-09 con las 10 respuestas recomendadas (15 AC; OpenAPI 0.7.0; solo dominio + API, sin pantallas). Adversariales: 30 casos, 0 hallazgos (10 observaciones documentadas como deuda). Reviewer: APROBADO; verificación del orquestador completada.
-- Siguiente acción: encargar al spec-writer la propuesta 008 (pantallas de administración de la carta: productos, presentaciones y combos) en una rama feat/008-*; el usuario la aprueba antes de tests e implementación. Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev para las migraciones de products, product_portions y combo_items; pruebas manuales de la 005, 006 y 007).
-- Rama: main (integradas la 003, la 004, la 005, la 006 y la 007).
+- Funcionalidad: 008-menu-admin (spec aprobada; siguiente: tests en rojo).
+- Paso: propuesta 008 redactada por el spec-writer y aprobada por el usuario el 2026-10-09 con las 10 respuestas recomendadas (21 AC; OpenAPI sin cambios, sigue en 0.7.0 — la 008 solo consume el contrato; incluye 4 E2E). La 007 quedó integrada a main el 2026-10-09 (merge 892914a).
+- Siguiente acción: test-writer escribe los AC-01 a AC-21 en rojo (T-01 a T-06); luego backend-dev (T-07, solo money.ts en shared), frontend-dev (T-08 a T-14), adversarial-tester y reviewer. Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev; pruebas manuales).
+- Rama: feat/008-menu-admin (creada desde main tras integrar la 007).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -23,7 +23,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 005 | menu-products (productos y precios: categorías fijas, precio en céntimos 0-99999, nombre único sin mayúsculas, desactivar en vez de borrar; GET/POST/PATCH /api/products) | 1 | Cerrada (APROBADO; 15 AC; 33 adversariales verdes; integrada a main en el merge 2af8023; pendientes manuales registrados) | feat/005-menu-products | 2026-10-08 |
 | 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada (APROBADO; 14 AC; 28 adversariales verdes; integrada a main en el merge 4afbc66; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
 | 007 | combos (producto de categoría 'combo' + tabla combo_items; precio fijo; consumo en octavos derivado; GET + PUT /api/products/{id}/items; sin pantallas) | 1 | Cerrada (APROBADO; 15 AC; 30 adversariales con 0 hallazgos; integrada a main en el merge 892914a; pendientes manuales registrados) | feat/007-combos | 2026-10-09 |
-| 008 | (propuesta) pantallas de administración de la carta | 1 | Pendiente | — | — |
+| 008 | menu-admin (pantallas /admin/carta: lista por categorías, alta/edición de productos, grilla de presentaciones del pollo, editor de componentes del combo con comparación de precios) | 1 | En curso (spec aprobada 2026-10-09; 21 AC) | feat/008-menu-admin | — |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec.
 
@@ -69,6 +69,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-09 | Spec 007 aprobada con las 10 respuestas recomendadas: combo = producto de categoría 'combo' con tabla combo_items; precio fijo a mano en price_cents; parte por defecto del pollo en el componente (la elección real se copia al pedido en Fase 2); descartables aparte como 'extra'; 'combo' en 2.º lugar de la carta tras el Pollo; componentes inactivos permitidos en configuración; solo dominio + API; porción libre sin exigir venta suelta; topes 10 componentes y 99 unidades. |
 | 2026-10-09 | Adversarial-tester de la 007: 30 casos propios, 0 hallazgos (la serialización FOR NO KEY UPDATE aplicada desde el diseño resistió los vectores que reventaron la 006); 10 observaciones documentadas como deuda. Reviewer: APROBADO. |
 | 2026-10-09 | Autoriza integrar la 007 a main (merge --no-ff 892914a). |
+| 2026-10-09 | Spec 008 aprobada con las 10 respuestas recomendadas: solo admin gestiona la carta; pantallas con secciones apiladas (no pestañas); 4 E2E (3 desktop + 1 móvil a 360 px); lista completa sin paginar; precio en soles con vista previa; tras el alta de pollo/combo va a su edición; comparación de combo por precio de presentación vendida suelta con respaldo priceCents; desactivar pide confirmación; componente de pollo preselecciona cuarto+pierna; funciones de dinero en shared. |
 
 ## Notas técnicas del orquestador
 
