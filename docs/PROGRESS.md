@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: 006-portions-eighths (cerrada técnicamente, pendiente de integración). Siguiente: propuesta 007.
-- Paso: 006 terminada en feat/006-portions-eighths. Spec aprobada el 2026-10-09 con las 6 respuestas recomendadas (14 AC; OpenAPI 0.6.0; solo dominio + API, sin pantallas). Adversariales: 28 casos, 3 hallazgos altos y 1 bajo corregidos y revalidados (abiertos 0); observaciones bajas documentadas como deuda. Reviewer: APROBADO; verificación del orquestador completada.
-- Siguiente acción: pedir autorización del usuario para integrar feat/006-portions-eighths a main (merge --no-ff); después el spec-writer prepara la propuesta 007 (combos). Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev para la migración de product_portions y pruebas manuales de la 005 y la 006).
-- Rama: feat/006-portions-eighths (main tiene integradas la 003, la 004 y la 005).
+- Funcionalidad: 006-portions-eighths (cerrada e integrada). Siguiente: propuesta 007.
+- Paso: 006 terminada e integrada a main el 2026-10-09 (merge 4afbc66). Spec aprobada el 2026-10-09 con las 6 respuestas recomendadas (14 AC; OpenAPI 0.6.0; solo dominio + API, sin pantallas). Adversariales: 28 casos, 3 hallazgos altos y 1 bajo corregidos y revalidados (abiertos 0); observaciones bajas documentadas como deuda. Reviewer: APROBADO; verificación del orquestador completada.
+- Siguiente acción: encargar al spec-writer la propuesta 007 (combos) en una rama feat/007-*; el usuario la aprueba antes de tests e implementación. Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev para las migraciones de products y product_portions; pruebas manuales de la 005 y la 006).
+- Rama: main (integradas la 003, la 004, la 005 y la 006).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -21,7 +21,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 003 | users-pin-login (usuarios con varios roles, login con PIN, sesión en la base, requireAuth/requireRole, áreas por rol) | 1 | Cerrada (APROBADO; 44 AC cubiertos; 44 adversariales verdes; integrada a main en el merge 80340c3; pendientes manuales registrados) | feat/003-users-pin-login | 2026-10-08 |
 | 004 | users-admin (alta/edición de usuarios con varios roles, PIN fuerte, activar/desactivar, restablecer PIN, guardia del último admin; /admin/usuarios*) | 1 | Cerrada (APROBADO; 27 AC; 53 adversariales; 9 hallazgos corregidos; integrada a main en el merge 35334d6; pendientes manuales registrados) | feat/004-users-admin | 2026-10-08 |
 | 005 | menu-products (productos y precios: categorías fijas, precio en céntimos 0-99999, nombre único sin mayúsculas, desactivar en vez de borrar; GET/POST/PATCH /api/products) | 1 | Cerrada (APROBADO; 15 AC; 33 adversariales verdes; integrada a main en el merge 2af8023; pendientes manuales registrados) | feat/005-menu-products | 2026-10-08 |
-| 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada técnicamente (APROBADO; 14 AC; 28 adversariales verdes; pendiente de integrar a main; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
+| 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada (APROBADO; 14 AC; 28 adversariales verdes; integrada a main en el merge 4afbc66; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
 | 007 | (propuesta) combos | 1 | Pendiente | — | — |
 | 008 | (propuesta) pantallas de administración de la carta | 1 | Pendiente | — | — |
 
@@ -65,6 +65,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-08 | Autoriza integrar la 005 a main (merge --no-ff 2af8023). |
 | 2026-10-09 | Spec 006 aprobada con las 6 respuestas recomendadas: el sistema permite 1/8 por producto sin obligar; precio por presentación y parte (igual o distinto); medio 2+2 por defecto (otra distribución se copia al ítem del pedido en Fase 2); solo 'chicken' lleva presentaciones; PUT de reemplazo atómico del conjunto; products.price_cents obligatorio aunque haya presentaciones (cobra el precio de la fila). |
 | 2026-10-09 | Autoriza corregir los hallazgos adversariales de la 006 (3 altos: unión de PUTs concurrentes, 500 por doble clic, TOCTOU PUT↔PATCH de categoría; 1 bajo: producto borrado → 500). Corregidos con FOR NO KEY UPDATE + ON CONFLICT DO UPDATE + reversión post-UPDATE; revalidados en verde. |
+| 2026-10-09 | Autoriza integrar la 006 a main (merge --no-ff 4afbc66). |
 
 ## Notas técnicas del orquestador
 
@@ -95,6 +96,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 - La 005 se integró a main el 2026-10-08 (merge 2af8023). El árbol quedó limpio; no hay commits ni merges pendientes.
 - Ciclo 006 ejecutado íntegramente con subagentes separados: spec-writer (propuesta + registro de aprobación), test-writer (rojo: 141 pruebas nuevas; arbitraje corregido: TRUNCATE multi-tabla en clearMenuTables por la FK), backend-dev (T-05..T-09 + fix de concurrencia: FOR NO KEY UPDATE tras descartar FOR UPDATE por deadlock real con FOR KEY SHARE de la FK, ON CONFLICT DO UPDATE, reversión post-UPDATE en updateProduct), adversarial-tester (28 casos; 3 altos + 1 bajo corregidos; lint de sus archivos), reviewer (APROBADO verificado personalmente).
 - Verificación final del orquestador de la 006: pnpm test 1376 verdes + 7 fallas esperadas de la 002 (1383; 80 archivos); pnpm lint y pnpm typecheck con código 0 (ejecutados por el orquestador); pnpm test:coverage código 0 verificado por el reviewer sobre el mismo árbol (global 98,35 %; shared 99,04 %; services/products 95,89 %); pnpm test:e2e 16 verdes y 4 no aplicables (reviewer, mismo árbol). OpenAPI 0.6.0 validado con Redocly. Nada de la 006 tocó polleria_dev ni apps/web.
+- La 006 se integró a main el 2026-10-09 (merge 4afbc66). El árbol quedó limpio; no hay commits ni merges pendientes.
 
 
 - 2026-10-07: el entorno tiene Windows 11, Node 24.1.0 (LTS), pnpm 10.12.1, Git 2.49 y PostgreSQL 17.5 en localhost:5432. También hay un PostgreSQL 18 en el puerto 5433, que el proyecto no usa.
