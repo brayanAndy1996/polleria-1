@@ -1,6 +1,6 @@
 # Tareas — Spec 008: pantallas de administración de la carta
 
-- Spec: docs/specs/008-menu-admin/spec.md (Borrador pendiente de aprobación del usuario)
+- Spec: docs/specs/008-menu-admin/spec.md (Aprobada, 2026-10-09)
 - Rama: feat/008-menu-admin
 - Contrato: docs/api/openapi.yaml (versión 0.7.0, sin cambios: /products GET/POST, /products/{productId} PATCH, /products/{productId}/portions GET/PUT, /products/{productId}/items GET/PUT)
 - ADR: ninguno nuevo (reutiliza lo ya decidido: sesión en la base, RoleGuard, TanStack Query, MSW, Playwright, formato de errores)
@@ -14,7 +14,7 @@
 3. **Implementación**: backend-dev solo T-07 (money.ts de shared, que la web importa); frontend-dev T-08 a T-13 (cliente PUT, funciones de API, etiquetas y las pantallas) y T-14 (E2E en verde).
 4. **Cierre (T-15)**: definición de terminado y requisitos R-008-01 a R-008-07.
 
-Aprobación: pendiente — la spec está en Borrador hasta que el usuario responda las preguntas 1 a 10 de la sección 17 (supuestos S-008-01 a S-008-14).
+Aprobación: el usuario aprobó la spec el 2026-10-09 con las respuestas recomendadas a las preguntas 1 a 10 (supuestos S-008-01 a S-008-14 confirmados). Decisiones confirmadas: solo el rol admin gestiona la carta; lista completa agrupada por categoría; edición en una página con secciones apiladas; el precio se escribe en soles con vista previa 'S/ X.XX'; tras crear un chicken o combo se aterriza en su edición; la comparación del combo usa el precio de venta suelto de cada presentación de pollo con respaldo al priceCents; desactivar pide confirmación; en un componente de pollo se preseleccionan cuarto y pierna; formatSoles, parseSolesToCents y PRICE_INPUT_MESSAGE viven en shared; y se incluyen cuatro recorridos E2E con la semilla de D-008-14.
 
 ## Pruebas en rojo (test-writer)
 

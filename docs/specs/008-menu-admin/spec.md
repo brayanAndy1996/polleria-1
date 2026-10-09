@@ -1,6 +1,6 @@
 # Spec 008 — Pantallas de administración de la carta
 
-- Estado: Borrador (propuesta pendiente de aprobación del usuario)
+- Estado: Aprobada (2026-10-09, por el usuario, con las respuestas recomendadas a las preguntas 1 a 10)
 - Fase: 1 (Usuarios y carta)
 - Rama: feat/008-menu-admin
 - Fecha: 2026-10-09
@@ -27,7 +27,7 @@ Las specs 005, 006 y 007 dejaron lista la carta por API: productos con nombre, c
 
 ## 3. Decisiones técnicas
 
-Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Preguntas abiertas (sección 17).
+Todas fueron confirmadas por el usuario el 2026-10-09 con la respuesta recomendada (sección 17); las que partieron como supuesto conservan la marca SUPUESTO con su ID S-008-xx como registro.
 
 **D-008-01. Alcance: solo apps/web + dos funciones puras nuevas en shared (SUPUESTO S-008-01).**
 - La API, la base de datos y el contrato no cambian: docs/api/openapi.yaml queda en la versión 0.7.0 sin una línea nueva. La 008 consume tal cual GET/POST/PATCH /api/products, GET/PUT /api/products/{productId}/portions y GET/PUT /api/products/{productId}/items.
@@ -423,7 +423,9 @@ Ninguna nueva ni de soporte: TanStack Query, MSW, Playwright, HeroUI, Tailwind, 
 
 ## 16. Supuestos
 
-| ID | Supuesto (a confirmar por el usuario vía el orquestador) |
+Confirmados por el usuario el 2026-10-09: S-008-01 a S-008-14, todos con la respuesta recomendada. Ya no son supuestos: son decisiones; se conservan abajo como registro.
+
+| ID | Supuesto |
 | --- | --- |
 | S-008-01 | Solo se toca apps/web y se agregan dos funciones puras a shared; la API, la base y openapi.yaml no cambian. |
 | S-008-02 | Rutas /admin/carta, /admin/carta/nuevo y /admin/carta/[id], protegidas con RoleGuard area '/admin'; enlace 'Carta' en /admin. |
@@ -442,16 +444,18 @@ Ninguna nueva ni de soporte: TanStack Query, MSW, Playwright, HeroUI, Tailwind, 
 
 ## 17. Preguntas abiertas (con recomendación)
 
-1. **¿Solo el admin gestiona la carta, o también un rol 'supervisor'?** Recomendación: solo admin. El modelo de usuarios no tiene supervisor (003) y la API ya exige requireRole('admin') en las escrituras; agregar un rol es cambio de modelo que correspondería a otra spec.
-2. **¿Cómo se organizan las pantallas?** Recomendación: lista en /admin/carta agrupada por categoría y edición en una sola página con secciones apiladas (Datos, luego Presentaciones o Componentes según la categoría, luego Estado), no pestañas — es lo que ya hace la edición de usuario y a 360 px se recorre con scroll.
-3. **¿Entran pruebas E2E?** Recomendación: sí, cuatro recorridos (AC-18 a AC-21): tres en desktop y uno móvil a 360 px que verifica el requisito del celular. Es el mismo patrón de la 004 y la infraestructura ya existe.
-4. **¿Lista completa o paginada?** Recomendación: completa, sin buscador — una carta de pollería ronda los 40 productos y la API ya la devuelve ordenada.
-5. **¿El precio se escribe en soles o en céntimos?** Recomendación: en soles ('18.50', con punto o coma) mostrando la vista previa 'S/ 18.50' junto al campo; la alternativa de escribir céntimos se descarta porque el dueño piensa en soles.
-6. **¿Adónde se va después de crear un producto?** Recomendación: si es chicken o combo, a su página de edición para cargar presentaciones o componentes; si no, a la lista para seguir agregando. La alternativa es volver siempre a la lista, como hace el alta de usuarios.
-7. **¿Cómo se calcula 'los componentes suman S/ X'?** Recomendación: cada componente de pollo toma el precio de la presentación elegida en su venta suelta (GET /portions de ese producto) y, si no la vende suelta, su priceCents; los demás usan su priceCents embebido. Alternativa más simple pero menos precisa: sumar siempre el priceCents del producto.
-8. **¿Desactivar desde la lista pide confirmación?** Recomendación: sí ('¿Desactivar <nombre>? Dejará de aparecer en la carta.'), igual que en usuarios; activar no pide.
-9. **¿Se preselecciona algo en un componente de pollo?** Recomendación: cuarto y pierna (lo más común en combos); el admin lo puede cambiar.
-10. **¿Dónde viven las funciones de formato de dinero?** Recomendación: en shared (las reutilizan la carta del mozo y la caja); alternativa: en apps/web si se prefiere no tocar shared.
+Respondidas el 2026-10-09, todas con la respuesta recomendada: 1 (solo admin gestiona la carta; no existe rol supervisor en el modelo), 2 (lista agrupada por categoría y edición en una página con secciones apiladas, no pestañas), 3 (sí a las pruebas E2E: cuatro recorridos, tres en desktop y uno móvil a 360 px), 4 (lista completa sin paginar ni buscar), 5 (el precio se escribe en soles con punto o coma, con la vista previa 'S/ X.XX'), 6 (tras crear un chicken o combo se aterriza en su edición; con otra categoría se vuelve a la lista), 7 (la comparación usa el precio de venta suelto de cada presentación de pollo, con respaldo al priceCents), 8 (desactivar pide confirmación en lista y edición; activar no), 9 (en un componente de pollo se preseleccionan cuarto y pierna) y 10 (formatSoles, parseSolesToCents y PRICE_INPUT_MESSAGE viven en shared). Se conservan abajo como registro, cada una marcada como resuelta.
+
+1. **¿Solo el admin gestiona la carta, o también un rol 'supervisor'?** Recomendación: solo admin. El modelo de usuarios no tiene supervisor (003) y la API ya exige requireRole('admin') en las escrituras; agregar un rol es cambio de modelo que correspondería a otra spec. **Resuelta el 2026-10-09: recomendación aceptada.**
+2. **¿Cómo se organizan las pantallas?** Recomendación: lista en /admin/carta agrupada por categoría y edición en una sola página con secciones apiladas (Datos, luego Presentaciones o Componentes según la categoría, luego Estado), no pestañas — es lo que ya hace la edición de usuario y a 360 px se recorre con scroll. **Resuelta el 2026-10-09: recomendación aceptada.**
+3. **¿Entran pruebas E2E?** Recomendación: sí, cuatro recorridos (AC-18 a AC-21): tres en desktop y uno móvil a 360 px que verifica el requisito del celular. Es el mismo patrón de la 004 y la infraestructura ya existe. **Resuelta el 2026-10-09: recomendación aceptada.**
+4. **¿Lista completa o paginada?** Recomendación: completa, sin buscador — una carta de pollería ronda los 40 productos y la API ya la devuelve ordenada. **Resuelta el 2026-10-09: recomendación aceptada.**
+5. **¿El precio se escribe en soles o en céntimos?** Recomendación: en soles ('18.50', con punto o coma) mostrando la vista previa 'S/ 18.50' junto al campo; la alternativa de escribir céntimos se descarta porque el dueño piensa en soles. **Resuelta el 2026-10-09: recomendación aceptada.**
+6. **¿Adónde se va después de crear un producto?** Recomendación: si es chicken o combo, a su página de edición para cargar presentaciones o componentes; si no, a la lista para seguir agregando. La alternativa es volver siempre a la lista, como hace el alta de usuarios. **Resuelta el 2026-10-09: recomendación aceptada.**
+7. **¿Cómo se calcula 'los componentes suman S/ X'?** Recomendación: cada componente de pollo toma el precio de la presentación elegida en su venta suelta (GET /portions de ese producto) y, si no la vende suelta, su priceCents; los demás usan su priceCents embebido. Alternativa más simple pero menos precisa: sumar siempre el priceCents del producto. **Resuelta el 2026-10-09: recomendación aceptada.**
+8. **¿Desactivar desde la lista pide confirmación?** Recomendación: sí ('¿Desactivar <nombre>? Dejará de aparecer en la carta.'), igual que en usuarios; activar no pide. **Resuelta el 2026-10-09: recomendación aceptada.**
+9. **¿Se preselecciona algo en un componente de pollo?** Recomendación: cuarto y pierna (lo más común en combos); el admin lo puede cambiar. **Resuelta el 2026-10-09: recomendación aceptada.**
+10. **¿Dónde viven las funciones de formato de dinero?** Recomendación: en shared (las reutilizan la carta del mozo y la caja); alternativa: en apps/web si se prefiere no tocar shared. **Resuelta el 2026-10-09: recomendación aceptada.**
 
 ## 18. Acción del usuario y verificación manual
 
