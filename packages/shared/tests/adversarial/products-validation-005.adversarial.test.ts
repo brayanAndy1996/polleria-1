@@ -348,7 +348,8 @@ describe('005-adversarial: esquemas de productos y dinero en c\u00e9ntimos', () 
       expect.soft(productsResponseSchema.safeParse(body).success).toBe(false);
   });
 
-  it('ADV-005-09: productCategorySchema solo acepta las seis cadenas exactas', () => {
+  it('ADV-005-09: productCategorySchema solo acepta las siete cadenas exactas', () => {
+    // Spec 007: 'combo' es la séptima categoría (segundo lugar). 'combos' sigue fuera.
     for (const input of [
       'admin', // escalar de privilegio no es categoría
       'CHICKEN ',
@@ -365,7 +366,7 @@ describe('005-adversarial: esquemas de productos y dinero en c\u00e9ntimos', () 
       Symbol('chicken'),
     ])
       expect.soft(productCategorySchema.safeParse(input).success).toBe(false);
-    // Las seis exactas sí.
+    // Las siete exactas sí.
     for (const category of PRODUCT_CATEGORIES)
       expect.soft(productCategorySchema.safeParse(category).success).toBe(true);
   });

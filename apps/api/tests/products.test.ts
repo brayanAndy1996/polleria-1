@@ -287,7 +287,7 @@ describe('005: API de productos contra polleria_test', () => {
     for (const body of [
       {},
       { name: 'Chicha Morada', category: 'drink' },
-      { ...valid, category: 'combo' },
+      { ...valid, category: 'combos' },
       { ...valid, category: 'pollo' },
       { ...valid, priceCents: 18.5 },
       { ...valid, priceCents: '1850' },
@@ -402,7 +402,7 @@ describe('005: API de productos contra polleria_test', () => {
       { id: 7 },
       { stock: 3 },
       { name: ' ' },
-      { category: 'combo' },
+      { category: 'combos' },
       { priceCents: 18.5 },
       { isActive: 'si' },
       { name: 'Otra', createdAt: '2026-10-08T15:00:00.000Z' },

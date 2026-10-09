@@ -200,7 +200,7 @@ describe('005: servicio de productos sobre polleria_test', () => {
   it('AC-09: las entradas inválidas se rechazan con ZodError sin crear fila', async () => {
     for (const input of [
       { name: 'Chicha', category: 'drink' },
-      { name: 'Chicha', category: 'combo', priceCents: 100 },
+      { name: 'Chicha', category: 'combos', priceCents: 100 },
       { name: 'Chicha', category: 'drink', priceCents: 18.5 },
       { name: '', category: 'drink', priceCents: 100 },
       { name: 'Chicha', category: 'drink', priceCents: 100, stock: 3 },

@@ -14,9 +14,11 @@ const MIGRATIONS = [
   '20261008120100-create-sessions.ts',
   '20261008180000-create-products.ts',
   '20261009120000-create-product-portions.ts',
+  '20261009180000-create-combo-items.ts',
 ];
 const PRODUCTS_MIGRATION = '20261008180000-create-products.ts';
 const PRODUCT_PORTIONS_MIGRATION = '20261009120000-create-product-portions.ts';
+const COMBO_ITEMS_MIGRATION = '20261009180000-create-combo-items.ts';
 
 /**
  * Nombre del índice único o de la restricción que reporta el driver pg en un error. Los índices
@@ -186,8 +188,12 @@ describe('005: tabla products y su migración sobre polleria_test', () => {
     expect(await tableExists(sequelize, 'sessions')).toBe(true);
     expect(await tableExists(sequelize, 'products')).toBe(true);
     expect(await tableExists(sequelize, 'product_portions')).toBe(true);
+    expect(await tableExists(sequelize, 'combo_items')).toBe(true);
 
-    // La última migración aplicada es la de la spec 006: revierte primero ella.
+    // La última migración aplicada es la de la spec 007: revierte primero ella.
+    expect(await migrateDown(sequelize)).toEqual([COMBO_ITEMS_MIGRATION]);
+    expect(await tableExists(sequelize, 'combo_items')).toBe(false);
+    expect(await tableExists(sequelize, 'product_portions')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([PRODUCT_PORTIONS_MIGRATION]);
     expect(await tableExists(sequelize, 'product_portions')).toBe(false);
     expect(await tableExists(sequelize, 'products')).toBe(true);
@@ -197,9 +203,14 @@ describe('005: tabla products y su migración sobre polleria_test', () => {
     expect(await tableExists(sequelize, 'sessions')).toBe(true);
 
     // Las migraciones son reaplicables tras revertir y las tablas vuelven a funcionar.
-    expect(await migrateUp(sequelize)).toEqual([PRODUCTS_MIGRATION, PRODUCT_PORTIONS_MIGRATION]);
+    expect(await migrateUp(sequelize)).toEqual([
+      PRODUCTS_MIGRATION,
+      PRODUCT_PORTIONS_MIGRATION,
+      COMBO_ITEMS_MIGRATION,
+    ]);
     expect(await tableExists(sequelize, 'products')).toBe(true);
     expect(await tableExists(sequelize, 'product_portions')).toBe(true);
+    expect(await tableExists(sequelize, 'combo_items')).toBe(true);
     await insertProduct('Chicha', 'drink', 500);
     expect(await rows<{ id: number }>('SELECT id FROM products')).toEqual([{ id: 1 }]);
   });
