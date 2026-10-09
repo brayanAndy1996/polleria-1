@@ -93,11 +93,20 @@ export function createProductService({ models }: { models: Models }): ProductSer
       if (changes.isActive !== undefined) updates.isActive = changes.isActive;
       try {
         await product.update(updates);
-        return toProduct(product);
       } catch (error) {
         if (error instanceof UniqueConstraintError) throw createProductNameTakenError();
         throw error;
       }
+      // ADV-005-25: si la fila desapareció entre el findByPk y el UPDATE (hoy solo
+      // posible por SQL directo — la API nunca borra productos, RN-005-04), el UPDATE
+      // no falla: afecta cero filas y la instancia conserva los valores en memoria.
+      // Devolverla respondería 200 de un producto fantasma, así que la existencia se
+      // confirma con una lectura y un id borrado a mitad de vuelo responde 404 igual
+      // que uno inexistente. Sin transacción (D-005-13): solo se detecta el UPDATE
+      // sin filas.
+      if ((await models.Product.findByPk(productId, { attributes: ['id'] })) === null)
+        throw createProductNotFoundError();
+      return toProduct(product);
     },
   };
 }
