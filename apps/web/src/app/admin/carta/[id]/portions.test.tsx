@@ -126,6 +126,9 @@ describe('008: grilla de presentaciones del pollo', () => {
     const invalidate = vi.spyOn(client, 'invalidateQueries');
     const calls: unknown[] = [];
     server.use(
+      // El GET de /portions también hace falta: mockBase no lo registra y sin él la
+      // sección queda en estado de error ('Reintentar') antes de poder guardar.
+      http.get('*/api/products/1/portions', () => HttpResponse.json(PORTIONS_LOADED)),
       http.put('*/api/products/1/portions', async ({ request }) => {
         calls.push(await request.json());
         return HttpResponse.json({

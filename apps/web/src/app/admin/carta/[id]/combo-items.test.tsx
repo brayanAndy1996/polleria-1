@@ -62,22 +62,28 @@ function show(node: ReactNode, client?: QueryClient) {
     client ?? new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return render(<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>);
 }
-// MSW evalúa los handlers en orden inverso a su registro (el último tiene prioridad):
-// primero van los comodines por defecto y después los específicos del producto 1 y 2.
+// MSW 3 evalúa los handlers en el orden en que quedan registrados y gana el PRIMERO
+// que coincide con la petición. Dentro de un mismo server.use el orden es el de los
+// argumentos, así que los específicos de los productos 1 y 2 van antes que los
+// comodines :productId, que de lo contrario los taparían con respuestas vacías.
 function mockBase(products: unknown[] = PRODUCTS, items: typeof ITEMS_LOADED = ITEMS_LOADED) {
   server.use(
     http.get('*/api/auth/me', () => HttpResponse.json(SESSION_ADMIN)),
+    http.get('*/api/products/1/portions', () => HttpResponse.json(POLLO_PORTIONS)),
+    http.get('*/api/products/2/items', () => HttpResponse.json(items)),
     http.get('*/api/products', () => HttpResponse.json({ products })),
     http.get('*/api/products/:productId/items', () => HttpResponse.json({ items: [] })),
     http.get('*/api/products/:productId/portions', () => HttpResponse.json({ portions: [] })),
-    http.get('*/api/products/1/portions', () => HttpResponse.json(POLLO_PORTIONS)),
-    http.get('*/api/products/2/items', () => HttpResponse.json(items)),
   );
 }
 /** Editor de componentes cargado para el combo 2. */
-async function renderCombo(products?: unknown[], items?: typeof ITEMS_LOADED) {
+async function renderCombo(
+  products?: unknown[],
+  items?: typeof ITEMS_LOADED,
+  client?: QueryClient,
+) {
   if (products !== undefined || items !== undefined) mockBase(products, items ?? ITEMS_LOADED);
-  const view = show(<EditPage />);
+  const view = show(<EditPage />, client);
   expect(
     await screen.findByRole('heading', { name: 'Componentes del combo', level: 2 }),
   ).toBeVisible();
@@ -148,7 +154,8 @@ describe('008: componentes del combo', () => {
         return HttpResponse.json(ITEMS_LOADED);
       }),
     );
-    await renderCombo();
+    // El render usa el mismo QueryClient espiado para comprobar la invalidación.
+    await renderCombo(undefined, undefined, client);
     fireEvent.click(screen.getByRole('button', { name: 'Guardar componentes' }));
     expect(await screen.findByText('Componentes guardados.')).toBeVisible();
     expect(calls).toEqual([
@@ -318,10 +325,10 @@ describe('008: componentes del combo', () => {
   it('AC-16: una presentación que no se vende suelta usa el priceCents del producto', async () => {
     server.use(http.get('*/api/products/1/portions', () => HttpResponse.json({ portions: [] })));
     await renderCombo();
-    // 6500 (base del pollo) + 1400 + 400 = 8500.
-    expect(await screen.findByText('Los componentes por separado suman S/ 85.00.')).toBeVisible();
+    // 6500 (base del pollo) + 1400 + 400 = 8300.
+    expect(await screen.findByText('Los componentes por separado suman S/ 83.00.')).toBeVisible();
     expect(
-      screen.getByText('El combo cuesta S/ 30.00 (S/ 55.00 menos que por separado).'),
+      screen.getByText('El combo cuesta S/ 30.00 (S/ 53.00 menos que por separado).'),
     ).toBeVisible();
     expect(screen.getByText(NOTA_SUMA)).toBeVisible();
   });
