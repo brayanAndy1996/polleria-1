@@ -98,3 +98,19 @@ export type {
   ProductPortion,
   ProductPortionsResponse,
 } from './portions.ts';
+export {
+  COMBO_ITEMS_MAX,
+  COMBO_ITEM_QUANTITY_MAX,
+  comboItemInputSchema,
+  comboItemsUniqueRefinement,
+  replaceComboItemsRequestSchema,
+  comboItemSchema,
+  comboItemsResponseSchema,
+  comboChickenConsumption,
+} from './combos.ts';
+export type {
+  ComboItemInput,
+  ReplaceComboItemsRequest,
+  ComboItem,
+  ComboItemsResponse,
+} from './combos.ts';
