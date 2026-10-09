@@ -39,3 +39,32 @@ describe('004: enlace a Usuarios en Administración', () => {
     expect(link).toHaveAttribute('href', '/admin/usuarios');
   });
 });
+
+describe('008: enlace a Carta en Administración', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    window.history.replaceState({}, '', '/admin');
+    server.use(
+      http.get('*/api/auth/me', () =>
+        HttpResponse.json({
+          user: { id: 1, username: 'dueno', displayName: 'Carlos', roles: ['admin'] },
+          expiresAt: '2026-10-09T07:00:00.000Z',
+        }),
+      ),
+    );
+  });
+  it('AC-05: muestra el enlace Carta a /admin/carta junto al de Usuarios', async () => {
+    show(<AdminPage />);
+    expect(
+      await screen.findByRole('heading', { name: 'Administraci\u00F3n', level: 1 }),
+    ).toBeVisible();
+    const carta = screen.getByRole('link', { name: 'Carta' });
+    expect(carta).toBeVisible();
+    expect(carta).toHaveAttribute('href', '/admin/carta');
+    expect(screen.getByRole('link', { name: 'Usuarios' })).toHaveAttribute(
+      'href',
+      '/admin/usuarios',
+    );
+  });
+});
