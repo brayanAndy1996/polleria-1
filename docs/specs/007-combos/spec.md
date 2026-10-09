@@ -1,6 +1,6 @@
 # Spec 007 — Combos (productos compuestos con precio propio)
 
-- Estado: Borrador (propuesta pendiente de aprobación del usuario)
+- Estado: Aprobada (2026-10-09, por el usuario, con las respuestas recomendadas a las preguntas 1 a 10)
 - Fase: 1 (Usuarios y carta)
 - Rama: feat/007-combos
 - Fecha: 2026-10-09
@@ -25,7 +25,7 @@ La carta ya tiene productos sueltos (005) y el pollo sabe sus presentaciones y p
 
 ## 3. Decisiones técnicas
 
-Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Preguntas abiertas (sección 17).
+Todas fueron confirmadas por el usuario el 2026-10-09 con la respuesta recomendada (sección 17); las que partieron como supuesto conservan la marca SUPUESTO con su ID S-007-xx como registro.
 
 **D-007-01. Alcance: solo dominio + API, sin pantallas (SUPUESTO S-007-08).**
 - Igual que la 005 y la 006: esta spec deja listo el modelo, los esquemas compartidos, la función de consumo, el servicio y las rutas. Las pantallas de administración son la spec 008 y la venta del combo por el mozo la Fase 2. No hay tareas de frontend-dev ni pruebas E2E.
@@ -398,7 +398,9 @@ Ninguna. Reutiliza lo ya instalado: Sequelize (transacción + locks FOR NO KEY U
 - **El mostrito y sus acompañamientos deben existir como productos:** chaufa, papas, gaseosas se cargan primero con la 005; un combo no puede llevar algo que no esté en la carta. Mitigación: es el comportamiento deseado (RN-007-02) — y las cremas también pueden ser componentes ('sauce').
 - **Un PUT concurrente con un PATCH de categoría:** cubierto por la serialización de D-007-06 (locks FOR NO KEY UPDATE ordenados + re-verificaciones) — el patrón ya probado en la 006.
 
-## 16. Supuestos (a confirmar con el usuario)
+## 16. Supuestos
+
+Confirmados por el usuario el 2026-10-09: S-007-01 a S-007-11, todos con la respuesta recomendada. Ya no son supuestos: son decisiones; se conservan abajo como registro.
 
 | ID | Supuesto |
 | --- | --- |
@@ -416,16 +418,18 @@ Ninguna. Reutiliza lo ya instalado: Sequelize (transacción + locks FOR NO KEY U
 
 ## 17. Preguntas abiertas (con recomendación)
 
-1. **(dueño) ¿Qué combos vendes hoy y a qué precio?** (mostrito, pollo + gaseosa, familiar, dúo…). *Recomendación:* el modelo ya cubre cualquier combinación; la lista servirá para el seed de demostración de la Fase 6. No bloquea la spec.
-2. **(dueño) ¿El precio del combo lo pones tú o debería calcularse sumando los componentes con un descuento?** *Recomendación:* precio propio fijo en `price_cents` (D-007-05) — es como se piensan las promociones y cumple RNF-12; la suma con descuento puede evaluarse después sin romper nada.
-3. **(dueño) El pollo del combo: ¿va siempre con la misma parte (por ejemplo, pierna) o el cliente elige pecho/pierna al pedir?** *Recomendación:* guardar la parte por defecto en el componente; si el cliente puede elegir, la Fase 2 copia la parte real al ítem (RN-007-11) — no requiere cambio aquí, solo confirmarlo.
-4. **(dueño) Los descartables y bolsas para llevar: ¿se cobran aparte o ya van incluidos en el precio del combo?** *Recomendación:* aparte como producto 'extra' (como quedó en la 005); si algún combo los incluye de verdad, pueden agregarse como componente sin costo visible.
-5. **(técnica) ¿Combo como producto de categoría 'combo' con tabla `combo_items`?** *Recomendación:* sí (D-007-02/D-007-03); la alternativa de tabla `combos` aparte duplicaba precio/estado/orden y complicaba el pedido.
-6. **(técnica) ¿'combo' en la carta inmediatamente después del Pollo?** *Recomendación:* sí (D-007-02) — coincide con el orden de la tabla de planificación; moverlo es cambiar una posición del enum.
-7. **(técnica) ¿Permitir componentes desactivados dentro del combo?** *Recomendación:* sí, solo en configuración — el GET los expone con `isActive: false`; la regla "combo vendible solo con componentes activos" se decide en la Fase 2.
-8. **(técnica) ¿Solo dominio + API, sin pantallas?** *Recomendación:* sí — la 008 administra la carta completa y la Fase 2 vende; adelantar UI ahora repetiría trabajo de la 008.
-9. **(técnica) ¿La porción del componente de pollo se declara libre aunque el producto no la venda suelto?** *Recomendación:* sí (D-007-04) — la presentación dentro del combo es consumo, no oferta.
-10. **(técnica) ¿Topes de 10 componentes por combo y 99 unidades por componente?** *Recomendación:* sí (S-007-10) — cubre de sobra los combos reales y corta errores de captura.
+Respondidas el 2026-10-09, todas con la respuesta recomendada: 1 (la lista de combos la dará el dueño; el modelo ya cubre cualquier combinación y servirá para el seed de la Fase 6), 2 (precio propio fijo en price_cents; la suma con descuento queda descartada salvo pedido futuro), 3 (la parte del pollo del combo es la por defecto del componente; si el cliente elige, el ítem de la Fase 2 copiará la real), 4 (los descartables se cobran aparte como producto 'extra'; si un combo los incluye pueden ser componente), 5 (combo = producto de categoría 'combo' con tabla combo_items), 6 ('combo' en la carta en segundo lugar, después del Pollo), 7 (componentes desactivados permitidos en la configuración; el GET los muestra con isActive false y la regla de venta se decide en la Fase 2), 8 (solo dominio + API; las pantallas son la 008 y la venta la Fase 2), 9 (la porción del componente de pollo se declara libre, sin exigir que el producto la venda suelto) y 10 (máximo 10 componentes por combo y 99 unidades por componente). Se conservan abajo como registro, cada una marcada como resuelta.
+
+1. **(dueño) ¿Qué combos vendes hoy y a qué precio?** (mostrito, pollo + gaseosa, familiar, dúo…). *Recomendación:* el modelo ya cubre cualquier combinación; la lista servirá para el seed de demostración de la Fase 6. No bloquea la spec. **Resuelta el 2026-10-09: recomendación aceptada.**
+2. **(dueño) ¿El precio del combo lo pones tú o debería calcularse sumando los componentes con un descuento?** *Recomendación:* precio propio fijo en `price_cents` (D-007-05) — es como se piensan las promociones y cumple RNF-12; la suma con descuento puede evaluarse después sin romper nada. **Resuelta el 2026-10-09: recomendación aceptada.**
+3. **(dueño) El pollo del combo: ¿va siempre con la misma parte (por ejemplo, pierna) o el cliente elige pecho/pierna al pedir?** *Recomendación:* guardar la parte por defecto en el componente; si el cliente puede elegir, la Fase 2 copia la parte real al ítem (RN-007-11) — no requiere cambio aquí, solo confirmarlo. **Resuelta el 2026-10-09: recomendación aceptada.**
+4. **(dueño) Los descartables y bolsas para llevar: ¿se cobran aparte o ya van incluidos en el precio del combo?** *Recomendación:* aparte como producto 'extra' (como quedó en la 005); si algún combo los incluye de verdad, pueden agregarse como componente sin costo visible. **Resuelta el 2026-10-09: recomendación aceptada.**
+5. **(técnica) ¿Combo como producto de categoría 'combo' con tabla `combo_items`?** *Recomendación:* sí (D-007-02/D-007-03); la alternativa de tabla `combos` aparte duplicaba precio/estado/orden y complicaba el pedido. **Resuelta el 2026-10-09: recomendación aceptada.**
+6. **(técnica) ¿'combo' en la carta inmediatamente después del Pollo?** *Recomendación:* sí (D-007-02) — coincide con el orden de la tabla de planificación; moverlo es cambiar una posición del enum. **Resuelta el 2026-10-09: recomendación aceptada.**
+7. **(técnica) ¿Permitir componentes desactivados dentro del combo?** *Recomendación:* sí, solo en configuración — el GET los expone con `isActive: false`; la regla "combo vendible solo con componentes activos" se decide en la Fase 2. **Resuelta el 2026-10-09: recomendación aceptada.**
+8. **(técnica) ¿Solo dominio + API, sin pantallas?** *Recomendación:* sí — la 008 administra la carta completa y la Fase 2 vende; adelantar UI ahora repetiría trabajo de la 008. **Resuelta el 2026-10-09: recomendación aceptada.**
+9. **(técnica) ¿La porción del componente de pollo se declara libre aunque el producto no la venda suelto?** *Recomendación:* sí (D-007-04) — la presentación dentro del combo es consumo, no oferta. **Resuelta el 2026-10-09: recomendación aceptada.**
+10. **(técnica) ¿Topes de 10 componentes por combo y 99 unidades por componente?** *Recomendación:* sí (S-007-10) — cubre de sobra los combos reales y corta errores de captura. **Resuelta el 2026-10-09: recomendación aceptada.**
 
 ## 18. Acción del usuario y verificación manual
 

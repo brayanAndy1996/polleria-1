@@ -1,6 +1,6 @@
 # Tareas — Spec 007: combos (productos compuestos con precio propio)
 
-- Spec: docs/specs/007-combos/spec.md (Borrador/Propuesta, pendiente de aprobación del usuario)
+- Spec: docs/specs/007-combos/spec.md (Aprobada, 2026-10-09)
 - Rama: feat/007-combos
 - Contrato: docs/api/openapi.yaml (versión 0.7.0: /products/{productId}/items GET y PUT; ComboItemInput, ReplaceComboItemsRequest, ComboItem, ComboItemsResponse; 'combo' en ProductCategory; códigos COMBO_ITEMS_NOT_ALLOWED, PRODUCT_HAS_ITEMS y PRODUCT_IS_COMPONENT)
 - ADR: ninguno nuevo (reutiliza lo ya decidido: umzug, Sequelize, Zod, requireAuth/requireRole, formato de errores; D-007-15)
@@ -14,7 +14,7 @@
 3. **Implementación (backend-dev)**: primero T-05 (esquemas, función y códigos de shared, los necesita todo lo demás), luego T-06 (migración y modelo ComboItem), T-07 (servicio de componentes y guardias en product.service) y T-08 (controller, rutas y app).
 4. **Cierre (T-09)**: definición de terminado y requisitos R-007-01 a R-007-07.
 
-Aprobación: pendiente — la spec queda en Borrador/Propuesta con 10 preguntas abiertas y su recomendación (sección 17); las tareas no se ejecutan hasta la aprobación explícita del usuario.
+Aprobación: el usuario aprobó la spec el 2026-10-09 con las respuestas recomendadas a las preguntas 1 a 10 (supuestos S-007-01 a S-007-11 confirmados). Las cuatro consultas del dueño (qué combos vende, precio fijo o suma con descuento, parte del pollo elegible en el mostrador y descartables) quedaron resueltas: la lista la dará el dueño y servirá para el seed de la Fase 6, el precio del combo es fijo en price_cents, la parte por defecto va en el componente y el pedido copiará la real elegida en la Fase 2, y los descartables se cobran aparte como producto 'extra'.
 
 ## Pruebas en rojo (test-writer)
 
