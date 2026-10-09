@@ -1,6 +1,6 @@
 import { DataTypes } from 'sequelize';
 import type { Model, ModelStatic, Optional, Sequelize } from 'sequelize';
-import type { ProductCategory, UserRole } from '@polleria/shared';
+import type { Cut, Portion, ProductCategory, UserRole } from '@polleria/shared';
 
 export interface UserAttributes {
   id: number;
@@ -28,6 +28,15 @@ export interface ProductAttributes {
   createdAt: Date;
   updatedAt: Date;
 }
+export interface ProductPortionAttributes {
+  id: number;
+  productId: number;
+  portion: Portion;
+  cut: Cut | null;
+  priceCents: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
 export type UserModel = Model<
   UserAttributes,
   Optional<UserAttributes, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>
@@ -43,22 +52,30 @@ export type ProductModel = Model<
   Optional<ProductAttributes, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>
 > &
   ProductAttributes;
+export type ProductPortionModel = Model<
+  ProductPortionAttributes,
+  Optional<ProductPortionAttributes, 'id' | 'cut' | 'createdAt' | 'updatedAt'>
+> &
+  ProductPortionAttributes;
 export interface Models {
   User: ModelStatic<UserModel>;
   Session: ModelStatic<SessionModel>;
   Product: ModelStatic<ProductModel>;
+  ProductPortion: ModelStatic<ProductPortionModel>;
 }
 
 export function defineModels(sequelize: Sequelize): Models {
   if (
     sequelize.isDefined('User') &&
     sequelize.isDefined('Session') &&
-    sequelize.isDefined('Product')
+    sequelize.isDefined('Product') &&
+    sequelize.isDefined('ProductPortion')
   ) {
     return {
       User: sequelize.model('User') as ModelStatic<UserModel>,
       Session: sequelize.model('Session') as ModelStatic<SessionModel>,
       Product: sequelize.model('Product') as ModelStatic<ProductModel>,
+      ProductPortion: sequelize.model('ProductPortion') as ModelStatic<ProductPortionModel>,
     };
   }
   const User = sequelize.define<UserModel>(
@@ -101,7 +118,26 @@ export function defineModels(sequelize: Sequelize): Models {
     },
     { tableName: 'products', underscored: true },
   );
+  // Spec 006: presentaciones del pollo. La unicidad (product_id, portion, cut) con
+  // NULLS NOT DISTINCT, los CHECK de correspondencia parte-presentación y el índice
+  // por product_id viven en la migración, no en el modelo.
+  const ProductPortion = sequelize.define<ProductPortionModel>(
+    'ProductPortion',
+    {
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+      productId: { type: DataTypes.INTEGER, allowNull: false },
+      portion: { type: DataTypes.STRING(8), allowNull: false },
+      // La única columna que admite NULL: half y whole llevan ambas partes (RN-006-04).
+      cut: { type: DataTypes.STRING(8), allowNull: true },
+      priceCents: { type: DataTypes.INTEGER, allowNull: false },
+      createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+      updatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    },
+    { tableName: 'product_portions', underscored: true },
+  );
   User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
   Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-  return { User, Session, Product };
+  Product.hasMany(ProductPortion, { foreignKey: 'productId' });
+  ProductPortion.belongsTo(Product, { foreignKey: 'productId' });
+  return { User, Session, Product, ProductPortion };
 }
