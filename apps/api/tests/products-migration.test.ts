@@ -171,7 +171,9 @@ describe('005: tabla products y su migración sobre polleria_test', () => {
     const unique = indexes.find((index) => index.indexname === 'products_name_unique');
     expect(unique).toBeDefined();
     expect(unique?.indexdef).toContain('UNIQUE');
-    expect(unique?.indexdef).toMatch(/lower\(name/);
+    // Postgres deparsea lower() sobre varchar como lower((name)::text): el match admite ese cast
+    // sin debilitar el AC (la unicidad sin distinguir mayúsculas ya se comprobó con los INSERT).
+    expect(unique?.indexdef).toMatch(/lower\(\(?name/);
     expect(await rows('SELECT id FROM products')).toHaveLength(1);
   });
 
