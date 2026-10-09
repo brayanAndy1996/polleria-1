@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: 006-portions-eighths (cerrada e integrada). Siguiente: propuesta 007.
-- Paso: 006 terminada e integrada a main el 2026-10-09 (merge 4afbc66). Spec aprobada el 2026-10-09 con las 6 respuestas recomendadas (14 AC; OpenAPI 0.6.0; solo dominio + API, sin pantallas). Adversariales: 28 casos, 3 hallazgos altos y 1 bajo corregidos y revalidados (abiertos 0); observaciones bajas documentadas como deuda. Reviewer: APROBADO; verificación del orquestador completada.
-- Siguiente acción: encargar al spec-writer la propuesta 007 (combos) en una rama feat/007-*; el usuario la aprueba antes de tests e implementación. Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev para las migraciones de products y product_portions; pruebas manuales de la 005 y la 006).
-- Rama: main (integradas la 003, la 004, la 005 y la 006).
+- Funcionalidad: 007-combos (spec aprobada; siguiente: tests en rojo).
+- Paso: propuesta 007 redactada por el spec-writer y aprobada por el usuario el 2026-10-09 con las 10 respuestas recomendadas (15 AC; OpenAPI 0.7.0; solo dominio + API, sin pantallas). La 006 quedó integrada a main el 2026-10-09 (merge 4afbc66).
+- Siguiente acción: test-writer escribe los AC-01 a AC-15 en rojo (T-01 a T-04); luego backend-dev (T-05 a T-08), adversarial-tester y reviewer. Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev; pruebas manuales).
+- Rama: feat/007-combos (creada desde main tras integrar la 006).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -22,7 +22,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 004 | users-admin (alta/edición de usuarios con varios roles, PIN fuerte, activar/desactivar, restablecer PIN, guardia del último admin; /admin/usuarios*) | 1 | Cerrada (APROBADO; 27 AC; 53 adversariales; 9 hallazgos corregidos; integrada a main en el merge 35334d6; pendientes manuales registrados) | feat/004-users-admin | 2026-10-08 |
 | 005 | menu-products (productos y precios: categorías fijas, precio en céntimos 0-99999, nombre único sin mayúsculas, desactivar en vez de borrar; GET/POST/PATCH /api/products) | 1 | Cerrada (APROBADO; 15 AC; 33 adversariales verdes; integrada a main en el merge 2af8023; pendientes manuales registrados) | feat/005-menu-products | 2026-10-08 |
 | 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada (APROBADO; 14 AC; 28 adversariales verdes; integrada a main en el merge 4afbc66; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
-| 007 | (propuesta) combos | 1 | Pendiente | — | — |
+| 007 | combos (producto de categoría 'combo' + tabla combo_items; precio fijo; consumo en octavos derivado; GET + PUT /api/products/{id}/items; sin pantallas) | 1 | En curso (spec aprobada 2026-10-09; 15 AC) | feat/007-combos | — |
 | 008 | (propuesta) pantallas de administración de la carta | 1 | Pendiente | — | — |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec.
@@ -66,6 +66,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-09 | Spec 006 aprobada con las 6 respuestas recomendadas: el sistema permite 1/8 por producto sin obligar; precio por presentación y parte (igual o distinto); medio 2+2 por defecto (otra distribución se copia al ítem del pedido en Fase 2); solo 'chicken' lleva presentaciones; PUT de reemplazo atómico del conjunto; products.price_cents obligatorio aunque haya presentaciones (cobra el precio de la fila). |
 | 2026-10-09 | Autoriza corregir los hallazgos adversariales de la 006 (3 altos: unión de PUTs concurrentes, 500 por doble clic, TOCTOU PUT↔PATCH de categoría; 1 bajo: producto borrado → 500). Corregidos con FOR NO KEY UPDATE + ON CONFLICT DO UPDATE + reversión post-UPDATE; revalidados en verde. |
 | 2026-10-09 | Autoriza integrar la 006 a main (merge --no-ff 4afbc66). |
+| 2026-10-09 | Spec 007 aprobada con las 10 respuestas recomendadas: combo = producto de categoría 'combo' con tabla combo_items; precio fijo a mano en price_cents; parte por defecto del pollo en el componente (la elección real se copia al pedido en Fase 2); descartables aparte como 'extra'; 'combo' en 2.º lugar de la carta tras el Pollo; componentes inactivos permitidos en configuración; solo dominio + API; porción libre sin exigir venta suelta; topes 10 componentes y 99 unidades. |
 
 ## Notas técnicas del orquestador
 
