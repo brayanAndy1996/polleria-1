@@ -21,8 +21,10 @@ const PRODUCT_ID_MAX = 2147483647;
  * Convierte el parámetro `productId` de la ruta en un entero positivo: ^[0-9]+$ y entre 1
  * y 2147483647. Cualquier otra cosa ('abc', '0', '1.5', '-3', números enormes o un
  * parámetro repetido) es un VALIDATION_ERROR con el issue en `productId` (D-005-09).
+ * Exportado para que el controller de presentaciones de la 006 use la misma regla sin
+ * duplicarla (sección 12 de la spec 006).
  */
-function parseProductIdParam(raw: string | string[] | undefined): number {
+export function parseProductIdParam(raw: string | string[] | undefined): number {
   const productId = typeof raw === 'string' && /^[0-9]+$/.test(raw) ? Number(raw) : Number.NaN;
   if (!Number.isSafeInteger(productId) || productId < 1 || productId > PRODUCT_ID_MAX)
     throw new AppError({

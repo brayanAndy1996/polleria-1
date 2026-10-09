@@ -19,6 +19,8 @@ import { createUserService } from './services/users/user.service.ts';
 import { createUserAdminService } from './services/users/user-admin.service.ts';
 import { createProductService } from './services/products/product.service.ts';
 import { createProductsController } from './controllers/products.controller.ts';
+import { createProductPortionService } from './services/products/product-portion.service.ts';
+import { createProductPortionsController } from './controllers/product-portions.controller.ts';
 
 export interface AppDependencies {
   sequelize: Sequelize;
@@ -68,6 +70,10 @@ export function createApp({
   const usersController = createUsersController({ userService, userAdminService });
   const productService = createProductService({ models });
   const productsController = createProductsController({ productService });
+  const productPortionService = createProductPortionService({ models });
+  const productPortionsController = createProductPortionsController({
+    productPortionService,
+  });
   const requireAuth = createRequireAuth({ sessionService });
 
   const app = express();
@@ -89,6 +95,7 @@ export function createApp({
       authController,
       usersController,
       productsController,
+      productPortionsController,
       requireAuth,
     }),
   );
