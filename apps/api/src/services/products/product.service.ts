@@ -7,6 +7,7 @@ import {
 import type { Product } from '@polleria/shared';
 import { AppError } from '../../errors/app-error.ts';
 import type { Models } from '../../models/index.ts';
+import { createProductHasPortionsError } from './product-portion.service.ts';
 
 export interface ProductService {
   listProducts(): Promise<Product[]>;
@@ -85,6 +86,14 @@ export function createProductService({ models }: { models: Models }): ProductSer
       const changes = updateProductRequestSchema.parse(input);
       const product = await models.Product.findByPk(productId);
       if (product === null) throw createProductNotFoundError();
+      // Guardia de la 006 (RN-006-03): la categoría no se puede retirar de 'chicken'
+      // mientras el producto tenga presentaciones cargadas — primero se vacían con
+      // PUT .../portions (portions: []) y después se cambia la categoría. Pasar a
+      // 'chicken' o editar name/priceCents/isActive se permite con o sin presentaciones.
+      if (changes.category !== undefined && changes.category !== 'chicken') {
+        const portionsCount = await models.ProductPortion.count({ where: { productId } });
+        if (portionsCount > 0) throw createProductHasPortionsError();
+      }
       // Solo los campos recibidos: lo que no vino queda como está.
       const updates: Partial<Pick<Product, 'name' | 'category' | 'priceCents' | 'isActive'>> = {};
       if (changes.name !== undefined) updates.name = changes.name;
