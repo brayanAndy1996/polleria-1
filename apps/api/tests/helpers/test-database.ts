@@ -138,11 +138,17 @@ export async function cleanFixtureTables(sequelize: Sequelize): Promise<void> {
  *
  * La lista crece con cada spec que agrega una migración: sin borrar las tablas de dominio, volver
  * a migrar fallaría con "la tabla ya existe". La spec 005 autorizó limpiar `products` igual que
- * `users` y `sessions` (D-005-10 y sección 12); va primero porque una tabla futura (ítems de
- * pedido, presentaciones) puede referenciarla.
+ * `users` y `sessions` (D-005-10 y sección 12); la 006 autorizó `product_portions` (D-006-10),
+ * que va antes que `products` porque la referencia con una FK.
  */
 export async function resetMigrationTables(sequelize: Sequelize): Promise<void> {
-  await dropTables(sequelize, ['products', 'sessions', 'users', ...MIGRATION_TABLES]);
+  await dropTables(sequelize, [
+    'product_portions',
+    'products',
+    'sessions',
+    'users',
+    ...MIGRATION_TABLES,
+  ]);
 }
 
 export async function clearAuthTables(sequelize: Sequelize): Promise<void> {
@@ -157,14 +163,17 @@ export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<v
 }
 
 /**
- * Vacía la tabla `products` (spec 005, D-005-10): la carta está autorizada a la limpieza de
- * pruebas igual que users y sessions. Llamar después de migrateUp (o de
- * migrateAndClearAuthTables). Si la tabla aún no existe —por ejemplo en la fase roja, cuando la
- * migración no está escrita— no hace nada: así la prueba falla por lo que verifica y no en la
- * limpieza.
+ * Vacía las tablas de la carta: `product_portions` (spec 006, D-006-10) y `products` (spec 005,
+ * D-005-10), autorizadas a la limpieza de pruebas igual que users y sessions.
+ * `product_portions` se trunca antes que `products` porque la referencia con una FK. Llamar
+ * después de migrateUp (o de migrateAndClearAuthTables). Si una tabla aún no existe —por
+ * ejemplo en la fase roja, cuando la migración no está escrita— no hace nada: así la prueba
+ * falla por lo que verifica y no en la limpieza.
  */
 export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
+  if (await tableExists(sequelize, 'product_portions'))
+    await sequelize.query('TRUNCATE product_portions RESTART IDENTITY');
   if (await tableExists(sequelize, 'products'))
     await sequelize.query('TRUNCATE products RESTART IDENTITY');
 }

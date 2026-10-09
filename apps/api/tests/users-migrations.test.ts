@@ -12,11 +12,13 @@ import {
 } from './helpers/test-database.ts';
 
 // La lista completa del migrador crece con cada spec que agrega una migración
-// (la 005 sumó create-products): AC-07 verifica que todo corre en orden, no un recorte.
+// (la 005 sumó create-products y la 006 create-product-portions): AC-07 verifica que
+// todo corre en orden, no un recorte.
 const MIGRATIONS = [
   '20261008120000-create-users.ts',
   '20261008120100-create-sessions.ts',
   '20261008180000-create-products.ts',
+  '20261009120000-create-product-portions.ts',
 ];
 
 describe('003: migraciones de usuarios y sesiones', () => {
@@ -245,8 +247,13 @@ describe('003: migraciones de usuarios y sesiones', () => {
     expect(await tableExists(sequelize, 'users')).toBe(true);
     expect(await tableExists(sequelize, 'sessions')).toBe(true);
     expect(await tableExists(sequelize, 'products')).toBe(true);
+    expect(await tableExists(sequelize, 'product_portions')).toBe(true);
     // migrateDown revierte una migración por llamada: el down encadenado baja la lista
-    // completa en orden inverso (products, sessions, users).
+    // completa en orden inverso (product_portions, products, sessions, users).
+    await assertConnectedToTestDatabase(sequelize);
+    expect(await migrateDown(sequelize)).toEqual([MIGRATIONS[3]]);
+    expect(await tableExists(sequelize, 'product_portions')).toBe(false);
+    expect(await tableExists(sequelize, 'products')).toBe(true);
     await assertConnectedToTestDatabase(sequelize);
     expect(await migrateDown(sequelize)).toEqual([MIGRATIONS[2]]);
     expect(await tableExists(sequelize, 'products')).toBe(false);
@@ -262,5 +269,6 @@ describe('003: migraciones de usuarios y sesiones', () => {
     expect(await tableExists(sequelize, 'users')).toBe(true);
     expect(await tableExists(sequelize, 'sessions')).toBe(true);
     expect(await tableExists(sequelize, 'products')).toBe(true);
+    expect(await tableExists(sequelize, 'product_portions')).toBe(true);
   });
 });
