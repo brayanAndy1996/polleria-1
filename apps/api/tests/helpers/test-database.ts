@@ -164,18 +164,25 @@ export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<v
 
 /**
  * Vacía las tablas de la carta: `product_portions` (spec 006, D-006-10) y `products` (spec 005,
- * D-005-10), autorizadas a la limpieza de pruebas igual que users y sessions.
- * `product_portions` se trunca antes que `products` porque la referencia con una FK. Llamar
- * después de migrateUp (o de migrateAndClearAuthTables). Si una tabla aún no existe —por
- * ejemplo en la fase roja, cuando la migración no está escrita— no hace nada: así la prueba
- * falla por lo que verifica y no en la limpieza.
+ * D-005-10), autorizadas a la limpieza de pruebas igual que users y sessions. Llamar después de
+ * migrateUp (o de migrateAndClearAuthTables).
+ *
+ * `product_portions` referencia `products` con una FK y PostgreSQL bloquea `TRUNCATE` sobre una
+ * tabla referenciada, aunque esté vacía: por eso ambas se truncan en UN solo comando (un TRUNCATE
+ * por tabla falla con "cannot truncate a table referenced in a foreign key constraint").
+ * `product_portions` no puede existir sin `products` por esa misma FK.
+ *
+ * Si `product_portions` aún no existe —por ejemplo en la fase roja, cuando la migración no está
+ * escrita— se trunca solo `products`; si ninguna existe no hace nada: así la prueba falla por lo
+ * que verifica y no en la limpieza.
  */
 export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
-  if (await tableExists(sequelize, 'product_portions'))
-    await sequelize.query('TRUNCATE product_portions RESTART IDENTITY');
-  if (await tableExists(sequelize, 'products'))
+  if (await tableExists(sequelize, 'product_portions')) {
+    await sequelize.query('TRUNCATE product_portions, products RESTART IDENTITY');
+  } else if (await tableExists(sequelize, 'products')) {
     await sequelize.query('TRUNCATE products RESTART IDENTITY');
+  }
 }
 
 /** Indica si existe una tabla en el esquema actual (el nombre distingue mayúsculas). */
