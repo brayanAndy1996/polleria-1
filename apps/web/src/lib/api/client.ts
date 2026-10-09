@@ -1,4 +1,5 @@
 import { errorResponseSchema } from '@polleria/shared';
+import type { z } from 'zod';
 import { hardNavigate } from '../navigation.ts';
 
 export const DEFAULT_API_TIMEOUT_MS = 10000;
@@ -15,7 +16,7 @@ export class ApiError extends Error {
   }
 }
 export interface ApiRequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH';
+  method?: 'GET' | 'POST' | 'PATCH' | 'PUT';
   body?: unknown;
   skipAuthRedirect?: boolean;
   expectedStatus?: number;
@@ -26,6 +27,17 @@ export function unexpectedResponse(status: number): ApiError {
     'UNEXPECTED_RESPONSE',
     'Respuesta inesperada del servidor. Intenta nuevamente.',
   );
+}
+/**
+ * Valida el cuerpo de una respuesta con su esquema de shared: si no cuadra lanza
+ * ApiError UNEXPECTED_RESPONSE conservando el status real de la respuesta — un
+ * esquema que no cuadra en un 201 se reporta como 201, no como un 200 ficticio
+ * (ADV-004-33). Lo comparten todas las funciones de lib/api.
+ */
+export function parseResponse<T>(schema: z.ZodType<T>, status: number, body: unknown): T {
+  const result = schema.safeParse(body);
+  if (!result.success) throw unexpectedResponse(status);
+  return result.data;
 }
 export function createApiClient(
   options: { onUnauthenticated?: () => void; timeoutMs?: number } = {},
