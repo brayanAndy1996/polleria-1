@@ -138,11 +138,13 @@ export async function cleanFixtureTables(sequelize: Sequelize): Promise<void> {
  *
  * La lista crece con cada spec que agrega una migración: sin borrar las tablas de dominio, volver
  * a migrar fallaría con "la tabla ya existe". La spec 005 autorizó limpiar `products` igual que
- * `users` y `sessions` (D-005-10 y sección 12); la 006 autorizó `product_portions` (D-006-10),
- * que va antes que `products` porque la referencia con una FK.
+ * `users` y `sessions` (D-005-10 y sección 12); la 006 autorizó `product_portions` (D-006-10);
+ * la 007 autorizó `combo_items` (D-007-14). Las tablas de la carta van antes que `products`
+ * porque la referencian con una FK (combo_items la referencia dos veces).
  */
 export async function resetMigrationTables(sequelize: Sequelize): Promise<void> {
   await dropTables(sequelize, [
+    'combo_items',
     'product_portions',
     'products',
     'sessions',
@@ -163,25 +165,28 @@ export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<v
 }
 
 /**
- * Vacía las tablas de la carta: `product_portions` (spec 006, D-006-10) y `products` (spec 005,
- * D-005-10), autorizadas a la limpieza de pruebas igual que users y sessions. Llamar después de
- * migrateUp (o de migrateAndClearAuthTables).
+ * Vacía las tablas de la carta: `combo_items` (spec 007, D-007-14), `product_portions` (spec 006,
+ * D-006-10) y `products` (spec 005, D-005-10), autorizadas a la limpieza de pruebas igual que
+ * users y sessions. Llamar después de migrateUp (o de migrateAndClearAuthTables).
  *
- * `product_portions` referencia `products` con una FK y PostgreSQL bloquea `TRUNCATE` sobre una
- * tabla referenciada, aunque esté vacía: por eso ambas se truncan en UN solo comando (un TRUNCATE
- * por tabla falla con "cannot truncate a table referenced in a foreign key constraint").
- * `product_portions` no puede existir sin `products` por esa misma FK.
+ * `combo_items` y `product_portions` referencian `products` con una FK (combo_items dos veces:
+ * `combo_id` y `product_id`) y PostgreSQL bloquea `TRUNCATE` sobre una tabla referenciada, aunque
+ * esté vacía: por eso todas las que existen se truncan en UN solo comando (un TRUNCATE por tabla
+ * falla con "cannot truncate a table referenced in a foreign key constraint"). Ninguna puede
+ * existir sin `products` por esa misma FK.
  *
- * Si `product_portions` aún no existe —por ejemplo en la fase roja, cuando la migración no está
- * escrita— se trunca solo `products`; si ninguna existe no hace nada: así la prueba falla por lo
- * que verifica y no en la limpieza.
+ * Cada tabla va detrás de su `tableExists`: en la fase roja, cuando la migración de la tabla aún
+ * no está escrita, se trunca solo lo que hay; si ninguna existe no hace nada: así la prueba falla
+ * por lo que verifica y no en la limpieza.
  */
 export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
-  if (await tableExists(sequelize, 'product_portions')) {
-    await sequelize.query('TRUNCATE product_portions, products RESTART IDENTITY');
-  } else if (await tableExists(sequelize, 'products')) {
-    await sequelize.query('TRUNCATE products RESTART IDENTITY');
+  const tables: string[] = [];
+  for (const table of ['combo_items', 'product_portions', 'products']) {
+    if (await tableExists(sequelize, table)) tables.push(table);
+  }
+  if (tables.length > 0) {
+    await sequelize.query(`TRUNCATE ${tables.join(', ')} RESTART IDENTITY`);
   }
 }
 

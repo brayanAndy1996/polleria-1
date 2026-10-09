@@ -14,8 +14,10 @@ const MIGRATIONS = [
   '20261008120100-create-sessions.ts',
   '20261008180000-create-products.ts',
   '20261009120000-create-product-portions.ts',
+  '20261009180000-create-combo-items.ts',
 ];
 const PRODUCT_PORTIONS_MIGRATION = '20261009120000-create-product-portions.ts';
+const COMBO_ITEMS_MIGRATION = '20261009180000-create-combo-items.ts';
 
 /**
  * Nombre del CHECK, la unicidad o la FK que reporta el driver pg en un error (mismo
@@ -248,14 +250,20 @@ describe('006: tabla product_portions y su migración sobre polleria_test', () =
     expect(await migrateUp(sequelize)).toEqual(MIGRATIONS);
     expect(await tableExists(sequelize, 'product_portions')).toBe(true);
     expect(await tableExists(sequelize, 'products')).toBe(true);
+    expect(await tableExists(sequelize, 'combo_items')).toBe(true);
 
+    // La última aplicada es la de la spec 007: revierte primero ella, luego la de la 006.
+    expect(await migrateDown(sequelize)).toEqual([COMBO_ITEMS_MIGRATION]);
+    expect(await tableExists(sequelize, 'combo_items')).toBe(false);
+    expect(await tableExists(sequelize, 'product_portions')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([PRODUCT_PORTIONS_MIGRATION]);
     expect(await tableExists(sequelize, 'product_portions')).toBe(false);
     expect(await tableExists(sequelize, 'products')).toBe(true);
 
-    // La migración es reaplicable tras revertir y la tabla vuelve a funcionar.
-    expect(await migrateUp(sequelize)).toEqual([PRODUCT_PORTIONS_MIGRATION]);
+    // Las migraciones son reaplicables tras revertir, en su orden de la lista.
+    expect(await migrateUp(sequelize)).toEqual([PRODUCT_PORTIONS_MIGRATION, COMBO_ITEMS_MIGRATION]);
     expect(await tableExists(sequelize, 'product_portions')).toBe(true);
+    expect(await tableExists(sequelize, 'combo_items')).toBe(true);
     await insertProduct(5, 'Pollo a la brasa');
     await insertPortion(5, 'quarter', 'breast', 1850);
     expect(await rows<{ id: number }>('SELECT id FROM product_portions')).toEqual([{ id: 1 }]);

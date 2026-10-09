@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: 006-portions-eighths (cerrada e integrada). Siguiente: propuesta 007.
-- Paso: 006 terminada e integrada a main el 2026-10-09 (merge 4afbc66). Spec aprobada el 2026-10-09 con las 6 respuestas recomendadas (14 AC; OpenAPI 0.6.0; solo dominio + API, sin pantallas). Adversariales: 28 casos, 3 hallazgos altos y 1 bajo corregidos y revalidados (abiertos 0); observaciones bajas documentadas como deuda. Reviewer: APROBADO; verificación del orquestador completada.
-- Siguiente acción: encargar al spec-writer la propuesta 007 (combos) en una rama feat/007-*; el usuario la aprueba antes de tests e implementación. Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev para las migraciones de products y product_portions; pruebas manuales de la 005 y la 006).
-- Rama: main (integradas la 003, la 004, la 005 y la 006).
+- Funcionalidad: 007-combos (cerrada técnicamente; pendiente de autorización para integrar a main).
+- Paso: ciclo completo de la 007 terminado el 2026-10-09 — spec aprobada con las 10 respuestas recomendadas (15 AC; OpenAPI 0.7.0; solo dominio + API, sin pantallas), rojo → verde, 30 adversariales con 0 hallazgos, reviewer APROBADO y verificación del orquestador completada.
+- Siguiente acción: pedir autorización del usuario para integrar feat/007-combos a main con merge --no-ff; después el spec-writer prepara la propuesta 008 (administración de la carta: pantallas de productos, presentaciones y combos). Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev; pruebas manuales).
+- Rama: feat/007-combos (integradas a main la 003, la 004, la 005 y la 006).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -22,7 +22,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 004 | users-admin (alta/edición de usuarios con varios roles, PIN fuerte, activar/desactivar, restablecer PIN, guardia del último admin; /admin/usuarios*) | 1 | Cerrada (APROBADO; 27 AC; 53 adversariales; 9 hallazgos corregidos; integrada a main en el merge 35334d6; pendientes manuales registrados) | feat/004-users-admin | 2026-10-08 |
 | 005 | menu-products (productos y precios: categorías fijas, precio en céntimos 0-99999, nombre único sin mayúsculas, desactivar en vez de borrar; GET/POST/PATCH /api/products) | 1 | Cerrada (APROBADO; 15 AC; 33 adversariales verdes; integrada a main en el merge 2af8023; pendientes manuales registrados) | feat/005-menu-products | 2026-10-08 |
 | 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada (APROBADO; 14 AC; 28 adversariales verdes; integrada a main en el merge 4afbc66; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
-| 007 | (propuesta) combos | 1 | Pendiente | — | — |
+| 007 | combos (producto de categoría 'combo' + tabla combo_items; precio fijo; consumo en octavos derivado; GET + PUT /api/products/{id}/items; sin pantallas) | 1 | Cerrada (APROBADO; 15 AC; 30 adversariales con 0 hallazgos; pendiente de integración a main; pendientes manuales registrados) | feat/007-combos | 2026-10-09 |
 | 008 | (propuesta) pantallas de administración de la carta | 1 | Pendiente | — | — |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec.
@@ -66,6 +66,8 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-09 | Spec 006 aprobada con las 6 respuestas recomendadas: el sistema permite 1/8 por producto sin obligar; precio por presentación y parte (igual o distinto); medio 2+2 por defecto (otra distribución se copia al ítem del pedido en Fase 2); solo 'chicken' lleva presentaciones; PUT de reemplazo atómico del conjunto; products.price_cents obligatorio aunque haya presentaciones (cobra el precio de la fila). |
 | 2026-10-09 | Autoriza corregir los hallazgos adversariales de la 006 (3 altos: unión de PUTs concurrentes, 500 por doble clic, TOCTOU PUT↔PATCH de categoría; 1 bajo: producto borrado → 500). Corregidos con FOR NO KEY UPDATE + ON CONFLICT DO UPDATE + reversión post-UPDATE; revalidados en verde. |
 | 2026-10-09 | Autoriza integrar la 006 a main (merge --no-ff 4afbc66). |
+| 2026-10-09 | Spec 007 aprobada con las 10 respuestas recomendadas: combo = producto de categoría 'combo' con tabla combo_items; precio fijo a mano en price_cents; parte por defecto del pollo en el componente (la elección real se copia al pedido en Fase 2); descartables aparte como 'extra'; 'combo' en 2.º lugar de la carta tras el Pollo; componentes inactivos permitidos en configuración; solo dominio + API; porción libre sin exigir venta suelta; topes 10 componentes y 99 unidades. |
+| 2026-10-09 | Adversarial-tester de la 007: 30 casos propios, 0 hallazgos (la serialización FOR NO KEY UPDATE aplicada desde el diseño resistió los vectores que reventaron la 006); 10 observaciones documentadas como deuda. Reviewer: APROBADO. |
 
 ## Notas técnicas del orquestador
 
@@ -97,6 +99,9 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 - Ciclo 006 ejecutado íntegramente con subagentes separados: spec-writer (propuesta + registro de aprobación), test-writer (rojo: 141 pruebas nuevas; arbitraje corregido: TRUNCATE multi-tabla en clearMenuTables por la FK), backend-dev (T-05..T-09 + fix de concurrencia: FOR NO KEY UPDATE tras descartar FOR UPDATE por deadlock real con FOR KEY SHARE de la FK, ON CONFLICT DO UPDATE, reversión post-UPDATE en updateProduct), adversarial-tester (28 casos; 3 altos + 1 bajo corregidos; lint de sus archivos), reviewer (APROBADO verificado personalmente).
 - Verificación final del orquestador de la 006: pnpm test 1376 verdes + 7 fallas esperadas de la 002 (1383; 80 archivos); pnpm lint y pnpm typecheck con código 0 (ejecutados por el orquestador); pnpm test:coverage código 0 verificado por el reviewer sobre el mismo árbol (global 98,35 %; shared 99,04 %; services/products 95,89 %); pnpm test:e2e 16 verdes y 4 no aplicables (reviewer, mismo árbol). OpenAPI 0.6.0 validado con Redocly. Nada de la 006 tocó polleria_dev ni apps/web.
 - La 006 se integró a main el 2026-10-09 (merge 4afbc66). El árbol quedó limpio; no hay commits ni merges pendientes.
+- Ciclo 007 ejecutado íntegramente con subagentes separados: spec-writer (propuesta + registro de aprobación), test-writer (rojo: ~150 pruebas nuevas en 4 archivos; arbitraje corregido: aserción de filas del AC-06 6→5 porque el dúo ya estaba cubierto), backend-dev (T-05 a T-09: CHECK portion_cut con CASE por agujero NULL de la forma literal; lector laxo solo en /items para distinguir INVALID_BODY de INVALID_JSON), adversarial-tester (30 casos, 0 hallazgos), reviewer (APROBADO verificado con números reales).
+- Verificación final del orquestador de la 007: pnpm test 1549 verdes + 7 fallas esperadas de la 002 (1556; 86 archivos); pnpm lint y pnpm typecheck con código 0 (ejecutados por el orquestador); pnpm test:e2e 16 verdes y 4 no aplicables (ejecutado por el orquestador); pnpm test:coverage código 0 verificado por el reviewer sobre el mismo árbol (global 98,47 %; shared 99,29 % con combos.ts al 100 %; services/combo-items 98,41 %). OpenAPI 0.7.0 validado con Redocly. Nada de la 007 tocó polleria_dev ni apps/web.
+- La 007 queda pendiente de integración a main: requiere autorización explícita del usuario.
 
 
 - 2026-10-07: el entorno tiene Windows 11, Node 24.1.0 (LTS), pnpm 10.12.1, Git 2.49 y PostgreSQL 17.5 en localhost:5432. También hay un PostgreSQL 18 en el puerto 5433, que el proyecto no usa.
@@ -156,6 +161,16 @@ Ataques de la 002 sin fallas (regresión en verde): ningún punto de código Uni
 - Reviewer: la reversión post-UPDATE de updateProduct no está en transacción — ventana de microsegundos con estado inconsistente entre el UPDATE a no-'chicken' y la reversión (recuperable con PUT portions: []). Evaluar transacción si se quiere endurecer.
 - Reviewer: components.responses.ProductHasPortions de openapi.yaml quedó definido pero el 409 del PATCH usa respuesta inline (Redocly lo marca "never used"); el contrato documenta ambos códigos correctamente.
 - Convención sugerida por el tester: username único por archivo de tests que cree usuarios (la colisión USERNAME_TAKEN entre archivos se resolvió así en la 006); revisar si los subprocesos de tests que escriben en polleria_test quedan cubiertos por la serialización.
+
+### Observaciones documentadas de la 007 (adversarial-tester y reviewer; deuda para decidir después)
+
+- ADV-007-06: comboChickenConsumption acepta la unión Iterable | ítem suelto (un ítem no iterable lanza TypeError, documentado a propósito para it.each) y no defiende quantity fraccionario/negativo/NaN con datos forzados (imposibles vía servicio). Recomendación del reviewer: en la Fase 2, con llamadores reales, estrechar la firma a Iterable puro o defender quantity.
+- comboItemSchema (esquema de salida) no refina la correspondencia presentación-parte: solo la forma; el invariante lo garantiza el servicio en la escritura.
+- PRODUCT_CATEGORIES mutable en runtime (misma clase que ADV-006-08); getter hostil en el cuerpo → excepción genérica (misma clase que ADV-006-07); claves JSON duplicadas ganan la última (paridad ADV-005-27).
+- Asimetría del lector: [] raíz → VALIDATION_ERROR en /portions y PATCH vs INVALID_BODY en /items (ambos 400 con no-store; frontera distinta pero consistente).
+- La guardia PRODUCT_HAS_ITEMS se define como "categoría distinta de 'combo'": un dish con combo_items inyectadas por SQL recibe 409 aunque no cambie de categoría (solo alcanzable por SQL directo, igual que el residual de la 006).
+- productId NaN/±∞ en el servicio llega crudo al SQL (paridad ADV-005-22/ADV-006-26; la ruta lo impide).
+- OpenAPI: components.responses.ProductHasItems/ProductIsComponent definidos pero el PATCH usa respuesta inline (2 warnings nuevos de no-unused-components; cosmético) y el GET dice "es-PE" mientras el collator es 'es' (mismo patrón que 005/006; corregir si se toca el contrato).
 
 ### Otras deudas bajas abiertas
 

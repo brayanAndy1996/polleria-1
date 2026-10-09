@@ -1,13 +1,15 @@
 import { z } from 'zod';
 
 /**
- * Categorías fijas de la carta (D-005-03), en el orden en que se muestran: Pollo, Platos,
- * Bebidas, Postres, Cremas y Extras. La base las garantiza con un CHECK; agregar una
- * categoría es una migración y un cambio de esta lista. 'combo' no es categoría todavía
- * (lo decide la spec 007).
+ * Categorías fijas de la carta (D-005-03, ampliada por D-007-02), en el orden en que se
+ * muestran: Pollo, Combos, Platos, Bebidas, Postres, Cremas y Extras. La base las
+ * garantiza con un CHECK; agregar una categoría es una migración y un cambio de esta
+ * lista. 'combo' entró en segundo lugar en la spec 007: en las cartas de pollería los
+ * combos y promociones van junto al pollo.
  */
 export const PRODUCT_CATEGORIES = [
   'chicken',
+  'combo',
   'dish',
   'drink',
   'dessert',

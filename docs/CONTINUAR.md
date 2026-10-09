@@ -1,7 +1,7 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
 Documento de traspaso para retomar el trabajo en una conversación nueva. Lo mantiene el orquestador.
-Corte: 2026-10-08. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
+Corte: 2026-10-09. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 
 ## Actualización de esta copia en Devin (prioridad sobre el traspaso histórico de abajo)
 
@@ -17,11 +17,13 @@ Corte: 2026-10-08. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 - Integraciones 003 y 004: autorizadas y hechas (merges 80340c3 y 35334d6). main queda con ambas.
 - La 006 (presentaciones y partes del pollo en octavos) está INTEGRADA a main (merge 4afbc66, 2026-10-09): spec aprobada con 6 recomendaciones, 14 AC, TDD (141 pruebas nuevas en rojo), tabla product_portions + chickenConsumption + GET/PUT /api/products/{id}/portions, 28 adversariales con 3 altos + 1 bajo corregidos y revalidados (abiertos 0; observaciones bajas documentadas como deuda en PROGRESS.md), reviewer APROBADO, verificación del orquestador completa (pnpm test 1376+7 esperadas, lint, typecheck, cobertura código 0 —global 98,35 %, shared 99,04 %, services/products 95,89 %— y E2E 16/16; OpenAPI 0.6.0 validado con Redocly).
 - Integraciones 003, 004, 005 y 006: autorizadas y hechas (merges 80340c3, 35334d6, 2af8023 y 4afbc66). main queda con las cuatro.
-- Próxima acción: el spec-writer prepara la propuesta 007 (combos) en una rama feat/007-*, que debe aprobar el usuario antes de tests/implementación.
+- La 007 (combos) está CERRADA técnicamente en feat/007-combos, pendiente de autorización para integrar a main: spec aprobada con 10 recomendaciones, 15 AC, TDD (~150 pruebas nuevas en rojo), categoría 'combo' + tabla combo_items + comboChickenConsumption + GET/PUT /api/products/{id}/items con reemplazo atómico serializado (FOR NO KEY UPDATE desde el diseño), 30 adversariales con 0 hallazgos (10 observaciones como deuda), reviewer APROBADO, verificación del orquestador completa (pnpm test 1549+7 esperadas, lint, typecheck y E2E 16/16 en verde; cobertura global 98,47 % —verificada por el reviewer sobre el mismo árbol—; OpenAPI 0.7.0 validado con Redocly).
+- Próxima acción: pedir autorización del usuario para integrar feat/007-combos a main con merge --no-ff; después el spec-writer prepara la propuesta 008 (pantallas de administración de la carta) en una rama feat/008-*.
 - Seguridad: nunca tocar polleria_dev. El usuario autorizó limpiezas solo de users, sessions, SequelizeMeta, SequelizeData, fixture_a, fixture_b, fixture_seed_rows, FixtureMeta y FixtureData en polleria_test, con guardias. No crear/borrar bases ni roles. Serializar Vitest, cobertura y Playwright y asignar turnos exclusivos de la base a los subagentes.
 - Pendientes MANUALES: R-003-06 (PIN oculto y Ctrl+C en PowerShell real), celular del local sin internet y versión real de Chrome; se documentan conforme a T-21/T-26 y no se sustituyen con E2E. No se han migrado polleria_dev ni creado administradores reales. CLAUDE.md ya registra bcrypt y users:create-admin.
 - Pendientes MANUALES de la 005: el usuario debe ejecutar `pnpm db:migrate` en polleria_dev (aplica 20261008180000-create-products) y, con pnpm dev y una cookie polleria_session, probar: POST de un producto como admin → 201; GET sin cookie → 401; PATCH de precio e isActive; duplicado con otra capitalización → 409 'Ya existe un producto con ese nombre.'; priceCents 185000 → error de rango; POST como mozo → 403 'No tienes permiso para realizar esta acción.'.
 - Pendientes MANUALES de la 006 (spec §18): el usuario debe ejecutar `pnpm db:migrate` en polleria_dev (aplica 20261009120000-create-product-portions.ts) y, con pnpm dev y la cookie polleria_session de un admin, probar: POST producto 'chicken' → 201; PUT /api/products/{id}/portions con la grilla → 200; GET ordenada (sin cookie → 401); PUT con portions:[] → lista vacía; half con cut 'leg' → 400 'La parte no corresponde...'; PUT en producto de otra categoría → 409 'Solo los productos de la categoría Pollo pueden tener presentaciones.'; PATCH de category con filas cargadas → 409 'Este producto tiene presentaciones de pollo; quítalas antes de cambiar su categoría.'; PUT como mozo → 403.
+- Pendientes MANUALES de la 007 (spec §18): `pnpm db:migrate` en polleria_dev (aplica 20261009180000-create-combo-items.ts, que también amplía el CHECK de categorías) y, con pnpm dev y la cookie polleria_session de un admin, probar: POST /api/products `{ name: 'Mostrito', category: 'combo', priceCents: 2200 }` → 201; PUT /api/products/{id}/items con pollo (quarter, leg) + chaufa → 200 con el producto embebido; GET con sesión de mozo → 200 (sin cookie → 401); PUT sobre un 'dish' → 409 COMBO_ITEMS_NOT_ALLOWED; componente 'combo' → 400 con su issue; PATCH `{ category: 'dish' }` sobre el combo → 409 PRODUCT_HAS_ITEMS; PUT `{ items: [] }` y reintentar → 200.
 - Pendientes MANUALES de la 004 (spec §17): con pnpm dev, como administrador en /admin → Usuarios: crear un mozo y verlo en la lista; rechazo de PIN '1234' y username repetido; el mozo entra con su PIN a /mozo; cambio de roles (mozo → cajero solo entra a Caja); restablecer PIN (su sesión muere y entra con el nuevo); desactivar (sale de /login) y reactivar (vuelve con el último PIN); el único admin no puede quitarse el último rol admin; probar a 360 px sin desplazamiento horizontal.
 - Redocly CLI 1.34.5 exacta validó OpenAPI 0.3.1 con código 0 y 11 advertencias admitidas por R-003-08; no se añadió al proyecto. devin doctor validó los siete perfiles mediante el ejecutable instalado (no está en PATH), y no quedaron servidores de prueba activos.
 
@@ -136,13 +138,14 @@ Decisiones aprobadas de la 003 (detalle en la spec y en PROGRESS.md):
 
 - Marca y modelo de la impresora térmica (para el driver escpos de la Fase 3).
 - Versión de Chrome en los celulares de los mozos (se asume 111 o superior).
-- ¿Vende 1/8? ¿Cómo arma el 1/2 (pecho + pierna o a elección)? ¿Cobra distinto pecho y pierna? Combos, platos y precios (Fase 1, specs 005 a 007).
-- ¿Las cremas se cobran? ¿Descartables para llevar? ¿Cuántos vasos rinde una jarra?
+- ¿Vende 1/8? ¿Cómo arma el 1/2 (pecho + pierna o a elección)? ¿Cobra distinto pecho y pierna? Platos y precios sueltos (el modelo de la 006 ya cubre todas las respuestas).
+- Combos: ¿qué combos vende hoy y a qué precio (mostrito, pollo + gaseosa, familiar)? Sirve para el seed de la Fase 6 — el modelo de la 007 ya está decidido. ¿El cliente elige pecho/pierna del pollo del combo al pedir? (decisión de la Fase 2).
+- ¿Las cremas se cobran? ¿Descartables para llevar? (quedaron como producto 'extra' aparte) ¿Cuántos vasos rinde una jarra?
 - ¿Quién puede anular pedidos? (Fase 2). ¿Qué comprobante emite y en qué régimen? (fuera del prototipo).
 
 ## 10. Plan que sigue
 
-- Fase 1 (propuesta, cada una con su spec): 004 gestión de usuarios (alta, roles, cambio de PIN, desactivar, rechazar PIN fáciles); 005 productos y precios; 006 presentaciones y partes con consumo en octavos (RF-19); 007 combos; 008 pantallas de administración de la carta. Al terminar: punto de control de fin de fase con el usuario.
+- Fase 1 (propuesta, cada una con su spec): 004 gestión de usuarios, 005 productos y precios, 006 presentaciones y octavos, 007 combos — todas cerradas o integradas; 008 pantallas de administración de la carta (siguiente). Al terminar: punto de control de fin de fase con el usuario.
 - Fase 2 mesas y pedidos (RF-02 a RF-07), Fase 3 comandas impresas (RF-08 a RF-11; antes corregir ADV-002-02 y revisar ADV-002-01), Fase 4 caja y cobro (RF-13 a RF-17), Fase 5 inventario (RF-20 a RF-24), Fase 6 reportes, auditoría y datos de demostración (RF-25 a RF-27).
 
 ## 11. Comandos útiles

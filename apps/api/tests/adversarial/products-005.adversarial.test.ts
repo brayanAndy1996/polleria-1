@@ -836,7 +836,7 @@ describe('005-adversarial: API, servicio y migración de productos sobre polleri
       await getProducts(),
       await postProducts({ name: 'Ok', category: 'dish', priceCents: 100 }, cookie),
       await postProducts({ name: 'ok', category: 'dish', priceCents: 100 }, cookie),
-      await postProducts({ name: 'Malo', category: 'combo', priceCents: 100 }, cookie),
+      await postProducts({ name: 'Malo', category: 'combos', priceCents: 100 }, cookie),
       await postProducts({ name: 'Malo' }, cookie),
       await patchProduct(999999, { priceCents: 1 }, cookie),
       await patchProduct('abc', { priceCents: 1 }, cookie),

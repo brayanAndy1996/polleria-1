@@ -62,12 +62,23 @@ function expectRejectedWith(
 
 describe('005: esquemas de productos de la carta', () => {
   it('AC-01: PRODUCT_CATEGORIES es exactamente la lista fija en el orden de la carta', () => {
-    expect(PRODUCT_CATEGORIES).toEqual(['chicken', 'dish', 'drink', 'dessert', 'sauce', 'extra']);
-    // El type ProductCategory queda fijado por esta asignación (typecheck).
+    // Spec 007 (D-007-02): 'combo' entra en segundo lugar, después del pollo.
+    expect(PRODUCT_CATEGORIES).toEqual([
+      'chicken',
+      'combo',
+      'dish',
+      'drink',
+      'dessert',
+      'sauce',
+      'extra',
+    ]);
+    // El type ProductCategory queda fijado por estas asignaciones (typecheck).
     const category: ProductCategory = 'chicken';
+    const combo: ProductCategory = 'combo';
     expect(category).toBe('chicken');
+    expect(combo).toBe('combo');
   });
-  it.each(['chicken', 'dish', 'drink', 'dessert', 'sauce', 'extra'])(
+  it.each(['chicken', 'combo', 'dish', 'drink', 'dessert', 'sauce', 'extra'])(
     'AC-01: productCategorySchema acepta la categoría %s y devuelve el mismo valor',
     (category) => {
       expect(productCategorySchema.parse(category)).toBe(category);
@@ -77,7 +88,10 @@ describe('005: esquemas de productos de la carta', () => {
     'pollo',
     'Chicken',
     'CHICKEN',
-    'combo',
+    'combos',
+    'COMBO',
+    'Combo',
+    'comida',
     'bebida',
     '',
     ' chicken',
@@ -87,6 +101,19 @@ describe('005: esquemas de productos de la carta', () => {
     ['chicken'],
   ])('AC-01: productCategorySchema rechaza %s', (input) => {
     expect(productCategorySchema.safeParse(input).success).toBe(false);
+  });
+  it('AC-01: createProductRequestSchema y updateProductRequestSchema aceptan la categoría combo', () => {
+    // Un combo se crea y se recategoriza con los esquemas de la 005 (spec 007, AC-01).
+    expect(
+      createProductRequestSchema.parse({
+        name: 'Mostrito',
+        category: 'combo',
+        priceCents: 2200,
+      }),
+    ).toEqual({ name: 'Mostrito', category: 'combo', priceCents: 2200 });
+    expect(updateProductRequestSchema.parse({ category: 'combo' })).toEqual({
+      category: 'combo',
+    });
   });
 
   it('AC-02: exporta el largo máximo, el patrón y el mensaje único del nombre', () => {
@@ -168,7 +195,7 @@ describe('005: esquemas de productos de la carta', () => {
     { name: 'Chicha Morada', category: 'drink', priceCents: 500, stock: 10 },
     { name: '', category: 'drink', priceCents: 500 },
     { name: '  ', category: 'drink', priceCents: 500 },
-    { name: 'Chicha Morada', category: 'combo', priceCents: 500 },
+    { name: 'Chicha Morada', category: 'combos', priceCents: 500 },
     { name: 'Chicha Morada', category: 'pollo', priceCents: 500 },
     { name: 'Chicha Morada', category: 'drink', priceCents: -1 },
     { name: 'Chicha Morada', category: 'drink', priceCents: 18.5 },

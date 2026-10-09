@@ -8,6 +8,10 @@ import type { Product } from '@polleria/shared';
 import { AppError } from '../../errors/app-error.ts';
 import type { Models } from '../../models/index.ts';
 import { createProductHasPortionsError } from './product-portion.service.ts';
+import {
+  createProductHasItemsError,
+  createProductIsComponentError,
+} from '../combo-items/combo-item.service.ts';
 
 export interface ProductService {
   listProducts(): Promise<Product[]>;
@@ -95,6 +99,27 @@ export function createProductService({ models }: { models: Models }): ProductSer
         const portionsCount = await models.ProductPortion.count({ where: { productId } });
         if (portionsCount > 0) throw createProductHasPortionsError();
       }
+      // Guardia de la 007 (D-007-07, RN-007-10): la categoría no se puede retirar de
+      // 'combo' mientras el producto tenga componentes — primero se vacían con
+      // PUT .../items (items: []) y después se cambia la categoría. Pasar a 'combo' o
+      // editar name/priceCents/isActive se permite con o sin componentes.
+      const leavingCombo = changes.category !== undefined && changes.category !== 'combo';
+      if (leavingCombo) {
+        const itemsCount = await models.ComboItem.count({ where: { comboId: productId } });
+        if (itemsCount > 0) throw createProductHasItemsError();
+      }
+      // Guardia de la 007 (D-007-07, RN-007-10): un producto que es componente de algún
+      // combo no puede cambiar de categoría — cubre los dos huecos reales de invariante
+      // (volver 'combo' un componente, que sería anidado, y sacar de 'chicken' un
+      // componente con portion declarada). El flujo correcto es quitarlo del combo con
+      // PUT .../items y recién cambiarle la categoría. PATCH a la misma categoría o de
+      // otros campos se permite.
+      const changingCategory =
+        changes.category !== undefined && changes.category !== product.category;
+      if (changingCategory) {
+        const usesCount = await models.ComboItem.count({ where: { productId } });
+        if (usesCount > 0) throw createProductIsComponentError();
+      }
       // Solo los campos recibidos: lo que no vino queda como está.
       const updates: Partial<Pick<Product, 'name' | 'category' | 'priceCents' | 'isActive'>> = {};
       if (changes.name !== undefined) updates.name = changes.name;
@@ -138,6 +163,26 @@ export function createProductService({ models }: { models: Models }): ProductSer
         if (portionsCount > 0) {
           await product.update(original);
           throw createProductHasPortionsError();
+        }
+      }
+      // El mismo hueco con PUT .../items (D-007-07): si un PUT de componentes se
+      // confirmó entre el conteo y el UPDATE —su INSERT esperó al FOR NO KEY UPDATE
+      // de esta fila— el re-count posterior lo ve y el PATCH se revierte: nunca un
+      // producto fuera de 'combo' con componentes (PRODUCT_HAS_ITEMS) ni un producto
+      // recategorizado mientras sigue siendo componente de un combo
+      // (PRODUCT_IS_COMPONENT).
+      if (leavingCombo) {
+        const itemsCount = await models.ComboItem.count({ where: { comboId: productId } });
+        if (itemsCount > 0) {
+          await product.update(original);
+          throw createProductHasItemsError();
+        }
+      }
+      if (changingCategory) {
+        const usesCount = await models.ComboItem.count({ where: { productId } });
+        if (usesCount > 0) {
+          await product.update(original);
+          throw createProductIsComponentError();
         }
       }
       return toProduct(product);
