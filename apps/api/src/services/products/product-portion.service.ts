@@ -1,3 +1,4 @@
+import { ForeignKeyConstraintError, Op, Transaction } from 'sequelize';
 import { CUTS, PORTIONS, replaceProductPortionsRequestSchema } from '@polleria/shared';
 import type { ProductPortion } from '@polleria/shared';
 import { AppError } from '../../errors/app-error.ts';
@@ -91,21 +92,75 @@ export function createProductPortionService({ models }: { models: Models }): Pro
       });
       if (product === null) throw createProductNotFoundError();
       if (product.category !== 'chicken') throw createPortionsNotAllowedError();
-      await sequelize.transaction(async (transaction) => {
-        // Reemplazo atómico (D-006-06): si algo falla, el conjunto anterior queda intacto.
-        await models.ProductPortion.destroy({ where: { productId }, transaction });
-        if (portions.length > 0)
-          await models.ProductPortion.bulkCreate(
-            portions.map(({ portion, cut, priceCents }) => ({
-              productId,
-              portion,
-              // En half y whole el cut ausente y el null valen lo mismo: la fila queda NULL.
-              cut: cut ?? null,
-              priceCents,
-            })),
-            { transaction },
-          );
-      });
+      try {
+        await sequelize.transaction(async (transaction) => {
+          // Reemplazo atómico (D-006-06): si algo falla, el conjunto anterior queda intacto.
+          await models.ProductPortion.destroy({ where: { productId }, transaction });
+          const created =
+            portions.length === 0
+              ? []
+              : await models.ProductPortion.bulkCreate(
+                  portions.map(({ portion, cut, priceCents }) => ({
+                    productId,
+                    portion,
+                    // En half y whole el cut ausente y el null valen lo mismo: la fila queda NULL.
+                    cut: cut ?? null,
+                    priceCents,
+                  })),
+                  {
+                    transaction,
+                    // Dos PUT que confirman la misma clave (product_id, portion, cut) no
+                    // deben romperse: el último gana el precio con DO UPDATE (RN y caso
+                    // borde de la spec: "gana el último en confirmar").
+                    updateOnDuplicate: ['priceCents'],
+                    conflictAttributes: ['productId', 'portion', 'cut'],
+                  },
+                );
+          // Serialización por la fila del producto. El lock se toma DESPUÉS del
+          // bulkCreate a propósito: así un PUT o PATCH concurrente que corrió en el
+          // hueco ya confirmó y su efecto es visible aquí (READ COMMITTED lee la
+          // versión más reciente tras esperar el lock). Quien confirma segundo ve el
+          // estado del primero: si la categoría dejó de ser 'chicken' o la fila
+          // desapareció a mitad de vuelo, esta transacción se aborta y el conjunto
+          // propio se revierte — nunca queda un no-chicken con presentaciones
+          // (RN-006-03) ni filas huérfanas.
+          // Es FOR NO KEY UPDATE y no FOR UPDATE: el INSERT de product_portions ya
+          // dejó un FOR KEY SHARE sobre esta misma fila (el disparador de la FK hacia
+          // products). FOR UPDATE choca con el FOR KEY SHARE que retiene el otro PUT
+          // en vuelo y los dos esperan mutuamente: deadlock 40P01. FOR NO KEY UPDATE
+          // no choca con FOR KEY SHARE pero sí consigo mismo y con el UPDATE de
+          // updateProduct (categoría no es columna clave), así que la serialización
+          // PUT||PUT y PUT||PATCH sigue completa sin abrir esa trampa.
+          const locked = await models.Product.findByPk(productId, {
+            attributes: ['id', 'category'],
+            lock: Transaction.LOCK.NO_KEY_UPDATE,
+            transaction,
+          });
+          if (locked === null) throw createProductNotFoundError();
+          if (locked.category !== 'chicken') throw createPortionsNotAllowedError();
+          // Filas confirmadas por otro PUT que corrió en el hueco (antes de que esta
+          // transacción tomara el lock): el que confirma último gana — se borra todo
+          // lo que no sea mío. Con un conjunto vacío se borra todo, igual que pide
+          // PUT {portions: []}.
+          const keepIds = created.map((row) => row.id);
+          await models.ProductPortion.destroy({
+            where: keepIds.length > 0 ? { productId, id: { [Op.notIn]: keepIds } } : { productId },
+            transaction,
+          });
+        });
+      } catch (error) {
+        // Si la fila del producto desapareció entre la lectura inicial y el INSERT
+        // (hoy solo posible por SQL directo — la API nunca borra productos,
+        // RN-005-04), el bulkCreate cae en la FK con un error crudo de Sequelize que
+        // sería 500 con log. Se relee la existencia del producto y se traduce al
+        // 404 de dominio, igual que la corrección ADV-005-25 en updateProduct.
+        if (
+          error instanceof ForeignKeyConstraintError &&
+          (await models.Product.findByPk(productId, { attributes: ['id'] })) === null
+        )
+          throw createProductNotFoundError();
+        throw error;
+      }
       return listRows(productId);
     },
   };
