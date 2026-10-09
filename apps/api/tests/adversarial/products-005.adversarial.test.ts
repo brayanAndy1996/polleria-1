@@ -6,6 +6,7 @@ import type { UserRole } from '@polleria/shared';
 import { assertTestDatabase } from '../../src/db/assert-test-database.ts';
 import { getPostgresConnectionParts } from '../../src/db/postgres-url.ts';
 import { AppError } from '../../src/errors/app-error.ts';
+import { errorHandler } from '../../src/middlewares/error-handler.ts';
 import { createProductService } from '../../src/services/products/product.service.ts';
 import {
   assertConnectedToTestDatabase,
@@ -867,7 +868,148 @@ describe('005-adversarial: API, servicio y migración de productos sobre polleri
       const response = await patchProduct(id, { isActive: false }, cookie);
       expect.soft(response.status, id).toBe(400);
       expect.soft(response.headers['cache-control'], id).toBe('no-store');
+      expect.soft(response.body, id).toEqual({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'La dirección no es válida.',
+          details: null,
+        },
+      });
     }
     expect(log).not.toHaveBeenCalled();
+  });
+
+  it('ADV-005-31: posarreglo — el % malformado responde 400 en TODAS las rutas con parámetro', async () => {
+    // El URIError de decodeParam no es exclusivo de productId: cualquier router con
+    // :parametro lo dispara (users tiene PATCH /:userId y POST /:userId/pin). La
+    // corrección vive en el errorHandler común, así que el 400 vale para todas.
+    const cookie = await adminCookie();
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const invalidUrlBody = {
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'La dirección no es válida.',
+        details: null,
+      },
+    };
+    for (const response of [
+      await request(auth.app).patch('/api/users/%').set('Cookie', cookie).send({}),
+      await request(auth.app)
+        .post('/api/users/%E0%A4/pin')
+        .set('Cookie', cookie)
+        .send({ pin: '1234' }),
+      await request(auth.app).patch('/api/products/%%').set('Cookie', cookie).send({}),
+      await request(auth.app).patch('/api/products/1%2').set('Cookie', cookie).send({}),
+      await request(auth.app).patch('/api/products/%C3%28').set('Cookie', cookie).send({}),
+    ]) {
+      expect.soft(response.status).toBe(400);
+      expect.soft(response.body).toEqual(invalidUrlBody);
+      expect.soft(response.headers['cache-control']).toBe('no-store');
+    }
+    // Un segmento malformado donde NO hay parámetro sigue siendo 404 NOT_FOUND:
+    // no se decodifica nada porque ninguna ruta de /api/auth usa :parametro.
+    const authRoute = await request(auth.app).post('/api/auth/%').set('Cookie', cookie).send({});
+    expect(authRoute.status).toBe(404);
+    expect(authRoute.body).toEqual(NOT_FOUND_BODY);
+    // Y un escape válido que decodifica a un carácter ilegal llega al controller:
+    // '%' decodifica a '%' y el patrón ^[0-9]+$ lo rechaza como issue productId.
+    const decoded = await patchProduct('%25', { isActive: false }, cookie);
+    expect(decoded.status).toBe(400);
+    expect(issuesOf(decoded)).toEqual([{ path: 'productId', message: PRODUCT_ID_MESSAGE }]);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it('ADV-005-32: posarreglo — el errorHandler solo traduce URIError con status 400; el resto sigue siendo 500 con log', () => {
+    // La corrección de ADV-005-30 abrió una clasificación nueva: hay que comprobar
+    // que no se relajó AC-37 (un Error cualquiera con `status` 4xx sigue siendo
+    // inesperado y se registra). Se llama al errorHandler directo con errores
+    // sintéticos porque ningún endpoint público los produce.
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const req = { method: 'GET', path: '/api/products/%' };
+    const invoke = (error: unknown) => {
+      const res = {
+        headersSent: false,
+        statusCode: 0,
+        body: undefined as unknown,
+        status(code: number) {
+          res.statusCode = code;
+          return res;
+        },
+        json(payload: unknown) {
+          res.body = payload;
+          return res;
+        },
+      };
+      errorHandler(error, req as never, res as never, vi.fn() as never);
+      return { statusCode: res.statusCode, body: res.body };
+    };
+    // Lo que el router lanza de verdad: URIError con status 400 → 400 sin log.
+    const decoded = invoke(
+      Object.assign(new URIError("Failed to decode param '%'"), { status: 400 }),
+    );
+    expect(decoded.statusCode).toBe(400);
+    expect(decoded.body).toEqual({
+      error: { code: 'VALIDATION_ERROR', message: 'La dirección no es válida.', details: null },
+    });
+    // Todo lo demás sigue siendo 500 + registro: Error genérico con status 4xx,
+    // URIError sin status, URIError con otro status, status como texto, y un objeto
+    // que solo "parece" de cliente.
+    for (const error of [
+      Object.assign(new Error('boom'), { status: 403 }),
+      Object.assign(new Error('boom'), { status: 404 }),
+      new URIError('URI malformed'),
+      Object.assign(new URIError('x'), { status: 404 }),
+      Object.assign(new URIError('x'), { status: '400' }),
+      { status: 400 },
+      Object.assign(new TypeError('x'), { status: 400 }),
+    ]) {
+      const result = invoke(error);
+      expect
+        .soft(result.statusCode, (error as { constructor?: { name?: string } }).constructor?.name)
+        .toBe(500);
+      expect.soft(result.body).toEqual({
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Ocurrió un error inesperado. Intenta nuevamente.',
+          details: null,
+        },
+      });
+    }
+    expect(log).toHaveBeenCalledTimes(7);
+  });
+
+  it('ADV-005-33: posarreglo — borrar la fila en afterUpdate (entre el UPDATE y la verificación) también es 404', async () => {
+    // La corrección de ADV-005-25 verifica la existencia DESPUÉS del UPDATE: cubre el
+    // hueco original (borrado en beforeUpdate) y también un borrado más tardío, entre
+    // el UPDATE y la lectura de confirmación. Sin el check, este caso devolvería el
+    // objeto en memoria igual.
+    const product = await service.createProduct({
+      name: 'Tarde',
+      category: 'dish',
+      priceCents: 100,
+    });
+    let armed = true;
+    auth.models.Product.addHook(
+      'afterUpdate',
+      'adv005latephantom',
+      async (_instance: unknown, options: InstanceUpdateOptions) => {
+        if (!armed || options.transaction !== undefined) return;
+        armed = false;
+        await database().query('DELETE FROM products WHERE id = $1', { bind: [product.id] });
+      },
+    );
+    try {
+      await expect(service.updateProduct(product.id, { priceCents: 700 })).rejects.toMatchObject({
+        code: 'PRODUCT_NOT_FOUND',
+      });
+    } finally {
+      auth.models.Product.removeHook('afterUpdate', 'adv005latephantom');
+    }
+    expect(await rows('SELECT id FROM products WHERE id = $1', [product.id])).toEqual([]);
+    // Y el camino feliz no se tocó: un UPDATE sobre fila existente sigue devolviendo
+    // el producto actualizado.
+    const alive = await service.createProduct({ name: 'Vivo', category: 'dish', priceCents: 100 });
+    const updated = await service.updateProduct(alive.id, { priceCents: 999 });
+    expect(updated).toMatchObject({ id: alive.id, priceCents: 999 });
   });
 });
