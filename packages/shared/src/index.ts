@@ -72,3 +72,29 @@ export type {
   Product,
   ProductsResponse,
 } from './products.ts';
+export {
+  PORTIONS,
+  portionSchema,
+  CUTS,
+  cutSchema,
+  PORTION_EIGHTHS,
+  SINGLE_CUT_PORTIONS,
+  MIXED_PORTIONS,
+  chickenConsumption,
+  PRODUCT_PORTIONS_MAX,
+  PORTION_CUT_MESSAGE,
+  PORTIONS_DUPLICATED_MESSAGE,
+  productPortionInputSchema,
+  replaceProductPortionsRequestSchema,
+  productPortionSchema,
+  productPortionsResponseSchema,
+} from './portions.ts';
+export type {
+  Portion,
+  Cut,
+  ChickenConsumption,
+  ProductPortionInput,
+  ReplaceProductPortionsRequest,
+  ProductPortion,
+  ProductPortionsResponse,
+} from './portions.ts';

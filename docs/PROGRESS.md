@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: 005-menu-products (cerrada e integrada). Siguiente: propuesta 006.
-- Paso: 005 terminada e integrada a main el 2026-10-08 (merge 2af8023). Spec aprobada con las 10 respuestas recomendadas (15 AC; OpenAPI 0.5.0; solo dominio + API, sin pantallas). Adversariales: 33 casos, 2 hallazgos corregidos y revalidados (abiertos 0); 3 huecos documentados como deuda futura. Reviewer: APROBADO; verificación del orquestador completada.
-- Siguiente acción: encargar al spec-writer la propuesta 006 (presentaciones y partes con consumo en octavos, RF-19) en una rama feat/006-*; el usuario la aprueba antes de tests e implementación. Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev y pruebas manuales de la 005).
-- Rama: main (integradas la 003, la 004 y la 005).
+- Funcionalidad: 006-portions-eighths (cerrada técnicamente, pendiente de integración). Siguiente: propuesta 007.
+- Paso: 006 terminada en feat/006-portions-eighths. Spec aprobada el 2026-10-09 con las 6 respuestas recomendadas (14 AC; OpenAPI 0.6.0; solo dominio + API, sin pantallas). Adversariales: 28 casos, 3 hallazgos altos y 1 bajo corregidos y revalidados (abiertos 0); observaciones bajas documentadas como deuda. Reviewer: APROBADO; verificación del orquestador completada.
+- Siguiente acción: pedir autorización del usuario para integrar feat/006-portions-eighths a main (merge --no-ff); después el spec-writer prepara la propuesta 007 (combos). Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev para la migración de product_portions y pruebas manuales de la 005 y la 006).
+- Rama: feat/006-portions-eighths (main tiene integradas la 003, la 004 y la 005).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -21,7 +21,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 003 | users-pin-login (usuarios con varios roles, login con PIN, sesión en la base, requireAuth/requireRole, áreas por rol) | 1 | Cerrada (APROBADO; 44 AC cubiertos; 44 adversariales verdes; integrada a main en el merge 80340c3; pendientes manuales registrados) | feat/003-users-pin-login | 2026-10-08 |
 | 004 | users-admin (alta/edición de usuarios con varios roles, PIN fuerte, activar/desactivar, restablecer PIN, guardia del último admin; /admin/usuarios*) | 1 | Cerrada (APROBADO; 27 AC; 53 adversariales; 9 hallazgos corregidos; integrada a main en el merge 35334d6; pendientes manuales registrados) | feat/004-users-admin | 2026-10-08 |
 | 005 | menu-products (productos y precios: categorías fijas, precio en céntimos 0-99999, nombre único sin mayúsculas, desactivar en vez de borrar; GET/POST/PATCH /api/products) | 1 | Cerrada (APROBADO; 15 AC; 33 adversariales verdes; integrada a main en el merge 2af8023; pendientes manuales registrados) | feat/005-menu-products | 2026-10-08 |
-| 006 | (propuesta) presentaciones y partes con consumo en octavos (RF-19) | 1 | Pendiente | — | — |
+| 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada técnicamente (APROBADO; 14 AC; 28 adversariales verdes; pendiente de integrar a main; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
 | 007 | (propuesta) combos | 1 | Pendiente | — | — |
 | 008 | (propuesta) pantallas de administración de la carta | 1 | Pendiente | — | — |
 
@@ -63,6 +63,8 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-08 | Spec 005 aprobada con las 10 respuestas recomendadas: categorías fijas chicken/dish/drink/dessert/sauce/extra; precio en céntimos 0-99999 (S/ 0.00 válido para cremas gratis); nombre único con lower(name); desactivar reversible, nunca borrar; GET abierto a cualquier rol con sesión; POST/PATCH solo admin; sin descripción/foto/SKU; sin pantallas (van en la 008); combos en la 007 y octavos en la 006. |
 | 2026-10-08 | Corregidos los 2 hallazgos adversariales de la 005 (medio ADV-005-30: URIError → 400 VALIDATION_ERROR; bajo ADV-005-25: releer la fila tras el UPDATE) con regresiones en rojo/verde y revalidación. Deuda documentada: colapso de espacios internos, homoglifos Unicode, CHECKs más laxos que el dominio y validación defensiva de productId en el servicio. |
 | 2026-10-08 | Autoriza integrar la 005 a main (merge --no-ff 2af8023). |
+| 2026-10-09 | Spec 006 aprobada con las 6 respuestas recomendadas: el sistema permite 1/8 por producto sin obligar; precio por presentación y parte (igual o distinto); medio 2+2 por defecto (otra distribución se copia al ítem del pedido en Fase 2); solo 'chicken' lleva presentaciones; PUT de reemplazo atómico del conjunto; products.price_cents obligatorio aunque haya presentaciones (cobra el precio de la fila). |
+| 2026-10-09 | Autoriza corregir los hallazgos adversariales de la 006 (3 altos: unión de PUTs concurrentes, 500 por doble clic, TOCTOU PUT↔PATCH de categoría; 1 bajo: producto borrado → 500). Corregidos con FOR NO KEY UPDATE + ON CONFLICT DO UPDATE + reversión post-UPDATE; revalidados en verde. |
 
 ## Notas técnicas del orquestador
 
@@ -91,6 +93,8 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 - Ciclo 005 ejecutado íntegramente con subagentes separados: spec-writer (propuesta + registro de aprobación), test-writer (rojo: 113 casos nuevos en 4 archivos; arbitrajes: deparse de PostgreSQL lower((name)::text) y lista de migraciones de la 003 ampliada con create-products), backend-dev (T-05 a T-09 + 2 fixes adversariales), adversarial-tester (33 casos; revalidación completa), reviewer (APROBADO verificado personalmente). Sin frontend ni E2E nuevos: la 005 es solo dominio + API.
 - Verificación final del orquestador de la 005: pnpm test 1207 verdes + 7 fallas esperadas de la 002 (1214; 74 archivos); pnpm lint, pnpm typecheck y pnpm test:coverage con código 0 (global ~98,32 % líneas; shared 98,7 %; services/products 93,54 %); pnpm test:e2e 16 verdes y 4 no aplicables por proyecto. OpenAPI 0.5.0 validado con Redocly. Nada de la 005 tocó polleria_dev ni apps/web.
 - La 005 se integró a main el 2026-10-08 (merge 2af8023). El árbol quedó limpio; no hay commits ni merges pendientes.
+- Ciclo 006 ejecutado íntegramente con subagentes separados: spec-writer (propuesta + registro de aprobación), test-writer (rojo: 141 pruebas nuevas; arbitraje corregido: TRUNCATE multi-tabla en clearMenuTables por la FK), backend-dev (T-05..T-09 + fix de concurrencia: FOR NO KEY UPDATE tras descartar FOR UPDATE por deadlock real con FOR KEY SHARE de la FK, ON CONFLICT DO UPDATE, reversión post-UPDATE en updateProduct), adversarial-tester (28 casos; 3 altos + 1 bajo corregidos; lint de sus archivos), reviewer (APROBADO verificado personalmente).
+- Verificación final del orquestador de la 006: pnpm test 1376 verdes + 7 fallas esperadas de la 002 (1383; 80 archivos); pnpm lint y pnpm typecheck con código 0 (ejecutados por el orquestador); pnpm test:coverage código 0 verificado por el reviewer sobre el mismo árbol (global 98,35 %; shared 99,04 %; services/products 95,89 %); pnpm test:e2e 16 verdes y 4 no aplicables (reviewer, mismo árbol). OpenAPI 0.6.0 validado con Redocly. Nada de la 006 tocó polleria_dev ni apps/web.
 
 
 - 2026-10-07: el entorno tiene Windows 11, Node 24.1.0 (LTS), pnpm 10.12.1, Git 2.49 y PostgreSQL 17.5 en localhost:5432. También hay un PostgreSQL 18 en el puerto 5433, que el proyecto no usa.
@@ -141,6 +145,15 @@ Ataques de la 002 sin fallas (regresión en verde): ningún punto de código Uni
 - ADV-005-22 nota: updateProduct no valida productId por su cuenta (NaN/Infinity dan error crudo fuera del controller). Hay un test que aserta este comportamiento; no cambiar sin decisión.
 - Duplicados visuales: 'Papa  frita' (doble espacio) u homoglifos Unicode pasan el índice lower(name). Decidir si se colapsan espacios internos o se detectan confusables.
 - CHECKs de la tabla products más laxos que la validación de dominio: solo alcanzable por SQL directo (seeds o consola). Endurecer si se agregan esas vías.
+
+### Observaciones documentadas de la 006 (adversarial-tester y reviewer; deuda para decidir después)
+
+- ADV-006-07: un getter hostil en el cuerpo propaga excepción genérica, no ZodError (no alcanzable por HTTP: JSON.parse nunca crea getters). Test verde documentado.
+- ADV-006-08: PORTIONS/CUTS/PORTION_EIGHTHS son `as const` solo en tipos — mutables en runtime; una mutación accidental corrompería chickenConsumption. Evaluar Object.freeze si se desea endurecer.
+- ADV-006-26: el servicio de presentaciones no valida productId por su cuenta (NaN/Infinity → error crudo fuera del controller). Misma clase que ADV-005-22 de la 005; hay test que lo aserta.
+- Reviewer: la reversión post-UPDATE de updateProduct no está en transacción — ventana de microsegundos con estado inconsistente entre el UPDATE a no-'chicken' y la reversión (recuperable con PUT portions: []). Evaluar transacción si se quiere endurecer.
+- Reviewer: components.responses.ProductHasPortions de openapi.yaml quedó definido pero el 409 del PATCH usa respuesta inline (Redocly lo marca "never used"); el contrato documenta ambos códigos correctamente.
+- Convención sugerida por el tester: username único por archivo de tests que cree usuarios (la colisión USERNAME_TAKEN entre archivos se resolvió así en la 006); revisar si los subprocesos de tests que escriben en polleria_test quedan cubiertos por la serialización.
 
 ### Otras deudas bajas abiertas
 

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.5.0
+  version: 0.6.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -57,6 +57,29 @@ info:
       /products/{productId}). Un producto nunca se borra: se desactiva con isActive false.
       El nombre es único sin distinguir mayúsculas (409 PRODUCT_NAME_TAKEN).
     - Todas las respuestas de /products/* llevan Cache-Control: no-store, también las de error.
+
+    Presentaciones del pollo en octavos (spec 006):
+    - Solo los productos de categoría 'chicken' tienen presentaciones: filas que dicen
+      "este producto se vende en esta presentación (y parte, si aplica) a este precio".
+      Las presentaciones son fijas: eighth (1/8), quarter (1/4), half (1/2) y whole
+      (entero). Las partes son breast (pecho) y leg (pierna): obligatorias en eighth y
+      quarter, y siempre null en half y whole, que llevan ambas partes.
+    - GET /products/{productId}/portions la puede leer cualquier rol con sesión y devuelve
+      las filas ordenadas por presentación (orden de Portion), luego por parte (breast,
+      leg) y por id. PUT /products/{productId}/portions es solo admin y reemplaza el
+      conjunto completo de una vez, de forma atómica: las filas ausentes se borran y
+      portions vacío deja el producto sin presentaciones. El id de cada fila no es
+      estable entre PUTs.
+    - El consumo en octavos no se guarda en la carta: se deriva con la función
+      chickenConsumption de @polleria/shared (eighth/quarter consumen sus octavos de una
+      sola parte; half consume 2 de pecho + 2 de pierna y whole 4+4, por defecto). En la
+      Fase 2 el ítem del pedido copiará presentación, parte, precio y octavos.
+    - Reglas cruzadas: PUT sobre un producto que no es 'chicken' responde 409
+      PORTIONS_NOT_ALLOWED, y PATCH /products/{productId} que cambia la categoría a algo
+      distinto de 'chicken' con presentaciones cargadas responde 409
+      PRODUCT_HAS_PORTIONS (hay que quitar las presentaciones primero). Un producto
+      'chicken' sin presentaciones se vende como ítem simple a su priceCents; con
+      presentaciones, el precio de venta es el de la fila correspondiente.
 servers:
   - url: http://localhost:3000/api
     description: A través de la web, en el mismo origen. Es lo que usan los navegadores (PC de caja y celulares).
@@ -70,7 +93,7 @@ tags:
   - name: users
     description: Gestión de usuarios por el administrador (spec 004).
   - name: products
-    description: Carta de productos y precios (spec 005).
+    description: Carta de productos y precios (spec 005) y presentaciones del pollo en octavos (spec 006).
 paths:
   /health:
     get:
@@ -579,7 +602,10 @@ paths:
         un producto nunca se borra. Renombrar a un nombre que ya existe (sin distinguir
         mayúsculas, activo o inactivo) responde 409 PRODUCT_NAME_TAKEN. Editar el precio no
         altera pedidos ya registrados: en la Fase 2 cada ítem copia el precio vigente al
-        agregarse. Cabecera Cache-Control: no-store.
+        agregarse. Desde la spec 006: cambiar la categoría a algo distinto de 'chicken' en
+        un producto que tiene presentaciones cargadas responde 409 PRODUCT_HAS_PORTIONS
+        (primero se quitan las presentaciones con PUT .../portions y portions vacío).
+        Cabecera Cache-Control: no-store.
       security:
         - sessionCookie: []
       parameters:
@@ -624,7 +650,157 @@ paths:
         '404':
           $ref: '#/components/responses/ProductNotFound'
         '409':
-          $ref: '#/components/responses/ProductNameTaken'
+          description: >-
+            Conflicto al guardar: ya existe un producto con ese nombre
+            (PRODUCT_NAME_TAKEN, spec 005) o el producto tiene presentaciones cargadas y
+            se intentó cambiar su categoría fuera de 'chicken' (PRODUCT_HAS_PORTIONS,
+            spec 006).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                nombre-repetido:
+                  value:
+                    error:
+                      code: PRODUCT_NAME_TAKEN
+                      message: Ya existe un producto con ese nombre.
+                      details: null
+                con-presentaciones:
+                  value:
+                    error:
+                      code: PRODUCT_HAS_PORTIONS
+                      message: Este producto tiene presentaciones de pollo; quítalas antes de cambiar su categoría.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /products/{productId}/portions:
+    get:
+      operationId: listProductPortions
+      tags:
+        - products
+      summary: Lista las presentaciones de un producto
+      description: >-
+        Roles permitidos: cualquier rol con sesión (waiter, kitchen, cashier, admin).
+        Devuelve las presentaciones del producto indicado por productId, ordenadas por
+        portion en el orden del enum (eighth, quarter, half, whole), luego por cut en el
+        orden del enum (breast, leg) y empates por id. Un producto sin presentaciones
+        —incluido uno de otra categoría— responde con la lista vacía. El consumo en
+        octavos no viene en la respuesta: se deriva con chickenConsumption de
+        @polleria/shared. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Presentaciones del producto (puede estar vacía)
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPortionsResponse'
+              examples:
+                respuesta:
+                  value:
+                    portions:
+                      - id: 1
+                        productId: 5
+                        portion: eighth
+                        cut: breast
+                        priceCents: 700
+                      - id: 3
+                        productId: 5
+                        portion: quarter
+                        cut: leg
+                        priceCents: 1700
+                      - id: 5
+                        productId: 5
+                        portion: half
+                        cut: null
+                        priceCents: 3200
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      operationId: replaceProductPortions
+      tags:
+        - products
+      summary: Reemplaza las presentaciones de un producto de pollo
+      description: >-
+        Roles permitidos: admin. Recibe el conjunto completo de presentaciones del
+        producto y lo deja exactamente así, en una sola operación atómica: las filas que
+        no vienen en la lista se borran y portions vacío deja el producto sin
+        presentaciones. Todo o nada: si el cuerpo es inválido no cambia nada. Solo
+        productos de categoría 'chicken' (409 PORTIONS_NOT_ALLOWED en otra). Cada fila
+        lleva portion (eighth, quarter, half o whole), cut (obligatorio breast/leg en
+        eighth y quarter; ausente o null en half y whole) y priceCents entero entre 0 y
+        99999. Máximo 6 filas, sin repetir (portion, cut). El id de cada fila no es
+        estable entre PUTs; los pedidos copiarán los valores (Fase 2). Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceProductPortionsRequest'
+            examples:
+              carta-del-pollo:
+                value:
+                  portions:
+                    - portion: eighth
+                      cut: breast
+                      priceCents: 700
+                    - portion: eighth
+                      cut: leg
+                      priceCents: 650
+                    - portion: quarter
+                      cut: breast
+                      priceCents: 1850
+                    - portion: quarter
+                      cut: leg
+                      priceCents: 1700
+                    - portion: half
+                      priceCents: 3200
+                    - portion: whole
+                      priceCents: 6000
+              quitar-todas:
+                value:
+                  portions: []
+      responses:
+        '200':
+          description: Conjunto de presentaciones resultante
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPortionsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/ProductNotFound'
+        '409':
+          $ref: '#/components/responses/PortionsNotAllowed'
         '500':
           $ref: '#/components/responses/InternalError'
 components:
@@ -917,6 +1093,87 @@ components:
         isActive:
           type: boolean
           description: false = desactivar (sale de la carta); true = reactivar.
+    Portion:
+      type: string
+      enum: [eighth, quarter, half, whole]
+      description: |
+        Presentación del pollo (spec 006), fija: eighth = 1/8, quarter = 1/4, half = 1/2,
+        whole = entero. El orden del enum es también el orden en que se muestran.
+        Regla de dominio 1: consumen 1, 2, 4 y 8 octavos respectivamente.
+      examples: [quarter]
+    Cut:
+      type: string
+      enum: [breast, leg]
+      description: |
+        Parte del pollo (spec 006): breast = pecho, leg = pierna. Obligatoria en las
+        presentaciones de una sola parte (eighth y quarter) y siempre null en half y
+        whole, que llevan ambas partes.
+      examples: [breast]
+    ProductPortionInput:
+      type: object
+      additionalProperties: false
+      required: [portion, priceCents]
+      description: |
+        Una fila del conjunto de presentaciones (PUT /products/{productId}/portions).
+        cut es obligatorio (breast o leg) para eighth y quarter, y ausente o null para
+        half y whole; otra combinación es 400 VALIDATION_ERROR.
+      properties:
+        portion:
+          $ref: '#/components/schemas/Portion'
+        cut:
+          oneOf:
+            - $ref: '#/components/schemas/Cut'
+            - type: 'null'
+          description: Obligatorio (breast o leg) en eighth y quarter; ausente o null en half y whole.
+        priceCents:
+          $ref: '#/components/schemas/PriceCents'
+    ReplaceProductPortionsRequest:
+      type: object
+      additionalProperties: false
+      required: [portions]
+      description: |
+        Conjunto completo de presentaciones de un producto 'chicken' (spec 006): de 0 a
+        6 filas, sin repetir (portion, cut) — 400 con 'Hay presentaciones repetidas en
+        la lista.'. La lista vacía deja el producto sin presentaciones.
+      properties:
+        portions:
+          type: array
+          maxItems: 6
+          items:
+            $ref: '#/components/schemas/ProductPortionInput'
+    ProductPortion:
+      type: object
+      additionalProperties: false
+      required: [id, productId, portion, cut, priceCents]
+      description: |
+        Una presentación ofrecida por un producto 'chicken' (spec 006). cut es null en
+        half y whole. Nunca incluye createdAt ni updatedAt. El id no es estable entre
+        PUTs (el conjunto se reemplaza borrando e insertando).
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        productId:
+          type: integer
+          minimum: 1
+        portion:
+          $ref: '#/components/schemas/Portion'
+        cut:
+          oneOf:
+            - $ref: '#/components/schemas/Cut'
+            - type: 'null'
+          description: breast o leg en eighth y quarter; null en half y whole.
+        priceCents:
+          $ref: '#/components/schemas/PriceCents'
+    ProductPortionsResponse:
+      type: object
+      additionalProperties: false
+      required: [portions]
+      properties:
+        portions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductPortion'
     ErrorCode:
       type: string
       pattern: '^[A-Z][A-Z0-9_]*$'
@@ -941,6 +1198,10 @@ components:
         - PRODUCT_NOT_FOUND (404, spec 005): el productId de la ruta no corresponde a ningún producto.
         - PRODUCT_NAME_TAKEN (409, spec 005): ya existe un producto con ese nombre, sin distinguir
           mayúsculas, activo o inactivo. Lo usan POST /products y PATCH /products/{productId}.
+        - PORTIONS_NOT_ALLOWED (409, spec 006): solo los productos de la categoría Pollo pueden
+          tener presentaciones. Lo usa PUT /products/{productId}/portions.
+        - PRODUCT_HAS_PORTIONS (409, spec 006): el producto tiene presentaciones cargadas y se
+          intentó cambiar su categoría fuera de 'chicken'. Lo usa PATCH /products/{productId}.
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
       examples: [NOT_FOUND]
     ValidationIssue:
@@ -1152,7 +1413,7 @@ components:
       description: |
         La sesión es válida pero ninguno de los roles del usuario tiene permiso para esta operación
         (requireRole). La usan las rutas /users (solo admin) y las escrituras de /products
-        (POST y PATCH, solo admin).
+        (POST y PATCH, y PUT de presentaciones, solo admin).
       content:
         application/json:
           schema:
@@ -1265,4 +1526,39 @@ components:
             error:
               code: PRODUCT_NAME_TAKEN
               message: Ya existe un producto con ese nombre.
+              details: null
+    PortionsNotAllowed:
+      description: |
+        Solo los productos de la categoría Pollo (chicken) pueden tener presentaciones
+        (spec 006). Lo responde PUT /products/{productId}/portions sobre un producto de
+        otra categoría. Nada quedó creado ni modificado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: PORTIONS_NOT_ALLOWED
+              message: Solo los productos de la categoría Pollo pueden tener presentaciones.
+              details: null
+    ProductHasPortions:
+      description: |
+        El producto tiene presentaciones cargadas y se intentó cambiar su categoría a algo
+        distinto de 'chicken' (spec 006). Lo responde PATCH /products/{productId}. Primero
+        hay que quitar las presentaciones (PUT .../portions con lista vacía). El producto
+        queda sin cambios.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: PRODUCT_HAS_PORTIONS
+              message: Este producto tiene presentaciones de pollo; quítalas antes de cambiar su categoría.
               details: null

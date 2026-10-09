@@ -4,6 +4,7 @@ import { createHealthController } from '../controllers/health.controller.ts';
 import type { AuthController } from '../controllers/auth.controller.ts';
 import type { UsersController } from '../controllers/users.controller.ts';
 import type { ProductsController } from '../controllers/products.controller.ts';
+import type { ProductPortionsController } from '../controllers/product-portions.controller.ts';
 import type { HealthService } from '../services/health.service.ts';
 import { createHealthRoutes } from './health.routes.ts';
 import { createAuthRoutes } from './auth.routes.ts';
@@ -15,6 +16,7 @@ export interface ApiRouterDependencies {
   authController: AuthController;
   usersController: UsersController;
   productsController: ProductsController;
+  productPortionsController: ProductPortionsController;
   requireAuth: RequestHandler;
 }
 
@@ -24,6 +26,7 @@ export function createApiRouter({
   authController,
   usersController,
   productsController,
+  productPortionsController,
   requireAuth,
 }: ApiRouterDependencies): Router {
   const router = Router();
@@ -31,7 +34,10 @@ export function createApiRouter({
   router.use(createHealthRoutes(createHealthController({ healthService })));
   router.use('/auth', createAuthRoutes(authController, requireAuth));
   router.use('/users', createUserRoutes(usersController, requireAuth));
-  router.use('/products', createProductRoutes(productsController, requireAuth));
+  router.use(
+    '/products',
+    createProductRoutes(productsController, productPortionsController, requireAuth),
+  );
 
   return router;
 }

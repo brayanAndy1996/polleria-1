@@ -7,6 +7,7 @@ import {
 import type { Product } from '@polleria/shared';
 import { AppError } from '../../errors/app-error.ts';
 import type { Models } from '../../models/index.ts';
+import { createProductHasPortionsError } from './product-portion.service.ts';
 
 export interface ProductService {
   listProducts(): Promise<Product[]>;
@@ -85,12 +86,29 @@ export function createProductService({ models }: { models: Models }): ProductSer
       const changes = updateProductRequestSchema.parse(input);
       const product = await models.Product.findByPk(productId);
       if (product === null) throw createProductNotFoundError();
+      // Guardia de la 006 (RN-006-03): la categoría no se puede retirar de 'chicken'
+      // mientras el producto tenga presentaciones cargadas — primero se vacían con
+      // PUT .../portions (portions: []) y después se cambia la categoría. Pasar a
+      // 'chicken' o editar name/priceCents/isActive se permite con o sin presentaciones.
+      const leavingChicken = changes.category !== undefined && changes.category !== 'chicken';
+      if (leavingChicken) {
+        const portionsCount = await models.ProductPortion.count({ where: { productId } });
+        if (portionsCount > 0) throw createProductHasPortionsError();
+      }
       // Solo los campos recibidos: lo que no vino queda como está.
       const updates: Partial<Pick<Product, 'name' | 'category' | 'priceCents' | 'isActive'>> = {};
       if (changes.name !== undefined) updates.name = changes.name;
       if (changes.category !== undefined) updates.category = changes.category;
       if (changes.priceCents !== undefined) updates.priceCents = changes.priceCents;
       if (changes.isActive !== undefined) updates.isActive = changes.isActive;
+      // Valores originales para revertir si un PUT de presentaciones se confirma en
+      // el hueco entre el conteo y el UPDATE (la guardia de RN-006-03 ya pasó).
+      const original = {
+        name: product.name,
+        category: product.category,
+        priceCents: product.priceCents,
+        isActive: product.isActive,
+      };
       try {
         await product.update(updates);
       } catch (error) {
@@ -106,6 +124,22 @@ export function createProductService({ models }: { models: Models }): ProductSer
       // sin filas.
       if ((await models.Product.findByPk(productId, { attributes: ['id'] })) === null)
         throw createProductNotFoundError();
+      // La guardia previa tiene un hueco: un PUT .../portions que confirme entre el
+      // conteo y el UPDATE dejaría un no-chicken con presentaciones (RN-006-03).
+      // El PUT serializado bloquea esta misma fila (FOR NO KEY UPDATE) antes de
+      // confirmar, así que el re-count posterior ve el estado definitivo: si
+      // aparecieron filas, el PATCH pierde — se revierte la fila a sus valores
+      // originales y se responde 409, nunca un no-chicken con presentaciones ni un
+      // 200 con cambio a medias.
+      if (leavingChicken) {
+        const portionsCount = await models.ProductPortion.count({
+          where: { productId },
+        });
+        if (portionsCount > 0) {
+          await product.update(original);
+          throw createProductHasPortionsError();
+        }
+      }
       return toProduct(product);
     },
   };
