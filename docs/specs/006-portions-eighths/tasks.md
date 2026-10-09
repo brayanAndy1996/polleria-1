@@ -1,6 +1,6 @@
 # Tareas — Spec 006: presentaciones y partes del pollo con consumo en octavos
 
-- Spec: docs/specs/006-portions-eighths/spec.md (Borrador — propuesta pendiente de aprobación del usuario)
+- Spec: docs/specs/006-portions-eighths/spec.md (Aprobada, 2026-10-09)
 - Rama: feat/006-portions-eighths
 - Contrato: docs/api/openapi.yaml (versión 0.6.0: /products/{productId}/portions GET y PUT; Portion, Cut, ProductPortion, ReplaceProductPortionsRequest, ProductPortionsResponse; códigos PORTIONS_NOT_ALLOWED y PRODUCT_HAS_PORTIONS)
 - ADR: ninguno nuevo (reutiliza lo ya decidido: umzug, Sequelize, Zod, requireAuth/requireRole, formato de errores; D-006-12)
@@ -14,7 +14,7 @@
 3. **Implementación (backend-dev)**: primero T-05 (esquemas, función y códigos de shared, los necesita todo lo demás), luego T-06 (migración y modelo ProductPortion), T-07 (servicio de presentaciones y guardia en product.service) y T-08 (controller, rutas y app).
 4. **Cierre (T-09)**: definición de terminado y requisitos R-006-01 a R-006-07.
 
-Aprobación: pendiente. Las preguntas abiertas 1 a 6 de la spec (sección 17) incluyen las tres consultas del dueño (¿vende 1/8?, ¿cómo arma el 1/2?, ¿pecho y pierna a distinto precio?) y tres confirmaciones técnicas con recomendación.
+Aprobación: el usuario aprobó la spec el 2026-10-09 con las respuestas recomendadas a las preguntas 1 a 6 (supuestos S-006-01 a S-006-09 confirmados). Las tres consultas del dueño (¿vende 1/8?, ¿cómo arma el 1/2?, ¿pecho y pierna a distinto precio?) quedaron resueltas: el 1/8 se permite por producto sin obligar, el medio consume 2+2 por defecto con distribución real en el pedido de la Fase 2, y el precio es por presentación y parte.
 
 ## Pruebas en rojo (test-writer)
 

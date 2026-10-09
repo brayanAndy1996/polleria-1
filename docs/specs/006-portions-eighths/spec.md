@@ -1,6 +1,6 @@
 # Spec 006 — Presentaciones y partes del pollo con consumo en octavos
 
-- Estado: Borrador (propuesta; la escribe el spec-writer y la aprueba el usuario antes de tests e implementación)
+- Estado: Aprobada (2026-10-09, por el usuario, con las respuestas recomendadas a las preguntas 1 a 6)
 - Fase: 1 (Usuarios y carta)
 - Rama: feat/006-portions-eighths
 - Fecha: 2026-10-09
@@ -24,7 +24,7 @@ La 005 creó la carta: productos con nombre, categoría y un solo precio. Pero e
 
 ## 3. Decisiones técnicas
 
-Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Preguntas abiertas (sección 17).
+Todas fueron confirmadas por el usuario el 2026-10-09 con la respuesta recomendada (sección 17); las que partieron como supuesto conservan la marca SUPUESTO con su ID S-006-xx como registro.
 
 **D-006-01. Alcance: solo dominio + API, sin pantallas (SUPUESTO S-006-07).**
 - Igual que la 005: esta spec deja listo el modelo, los esquemas compartidos, la función de consumo, el servicio y las rutas. Las pantallas de administración son la spec 008 y la carta del mozo la Fase 2. No hay tareas de frontend-dev ni pruebas E2E.
@@ -455,6 +455,8 @@ Ninguna dependencia nueva ni de soporte: se reutilizan Sequelize (modelos, UNIQU
 
 ## 16. Supuestos
 
+Confirmados por el usuario el 2026-10-09: S-006-01 a S-006-09, todos con la respuesta recomendada. Ya no son supuestos: son decisiones; se conservan abajo como registro.
+
 | ID | Supuesto |
 | --- | --- |
 | S-006-01 | Las presentaciones son solo las cuatro fijas: eighth, quarter, half y whole; el dueño no crea otras. |
@@ -469,12 +471,14 @@ Ninguna dependencia nueva ni de soporte: se reutilizan Sequelize (modelos, UNIQU
 
 ## 17. Preguntas abiertas para el usuario
 
-1. (dueño) ¿Vendes 1/8 de pollo? — Recomendación: el sistema lo permite por producto; si no lo vendes, simplemente no cargas esa presentación y listo (S-006-01 lo permite sin obligar). No bloquea la spec.
-2. (dueño) ¿El cuarto y el octavo de pecho cuestan distinto que los de pierna? — Recomendación: el modelo guarda precio por presentación y parte, así que pueden ser iguales o distintos; con confirmarlo basta (el modelo ya lo cubre).
-3. (dueño) ¿Cómo armas el 1/2? ¿Siempre 2 pecho + 2 pierna, o el cliente puede pedir otra distribución (por ejemplo solo pierna)? ¿Una distribución especial cuesta distinto? — Recomendación: por defecto 2+2 (regla 1); si el cliente elige, el pedido registrará la distribución real con el precio normal del medio (Fase 2); si "medio solo pierna" tuviera otro precio en tu carta, se cargaría como otro producto de pollo. Confírmame cuál aplica.
-4. (técnica) Confirmar que solo los productos de la categoría Pollo llevan presentaciones (los platos y combos que usan pollo se resuelven en la 007 y la Fase 5) — recomendado, S-006-03. ¿Está bien?
-5. (técnica) Confirmar el reemplazo de una vez con PUT (el admin guarda la grilla completa del producto en una operación atómica; lo que no esté en la lista se borra) — recomendado, S-006-05, en vez de crear/editar fila por fila. ¿Está bien?
-6. (técnica) Confirmar que un producto de pollo con presentaciones conserva su `price_cents` de la 005 pero el sistema cobra siempre el precio de la presentación elegida — recomendado, S-006-04; la alternativa (precio opcional) rompería el contrato ya aprobado. ¿Está bien?
+Respondidas el 2026-10-09, todas con la respuesta recomendada: 1 (el 1/8 queda disponible por producto; si no se vende, simplemente no se carga esa presentación), 2 (el modelo guarda precio por presentación y parte: pecho y pierna pueden tener precios iguales o distintos), 3 (el medio consume por defecto 2 de pecho + 2 de pierna; si el cliente pide otra distribución, el ítem del pedido registrará la real en la Fase 2 con el precio del medio, y una variante con precio propio se cargaría como otro producto de pollo), 4 (solo los productos de categoría 'chicken' llevan presentaciones), 5 (las presentaciones se guardan de una vez con un PUT atómico que reemplaza el conjunto) y 6 (un producto de pollo con presentaciones conserva su price_cents, pero el cobro usa el precio de la presentación elegida). Se conservan abajo como registro, cada una marcada como resuelta.
+
+1. (dueño) ¿Vendes 1/8 de pollo? — Recomendación: el sistema lo permite por producto; si no lo vendes, simplemente no cargas esa presentación y listo (S-006-01 lo permite sin obligar). No bloquea la spec. **Resuelta el 2026-10-09: recomendación aceptada.**
+2. (dueño) ¿El cuarto y el octavo de pecho cuestan distinto que los de pierna? — Recomendación: el modelo guarda precio por presentación y parte, así que pueden ser iguales o distintos; con confirmarlo basta (el modelo ya lo cubre). **Resuelta el 2026-10-09: recomendación aceptada.**
+3. (dueño) ¿Cómo armas el 1/2? ¿Siempre 2 pecho + 2 pierna, o el cliente puede pedir otra distribución (por ejemplo solo pierna)? ¿Una distribución especial cuesta distinto? — Recomendación: por defecto 2+2 (regla 1); si el cliente elige, el pedido registrará la distribución real con el precio normal del medio (Fase 2); si "medio solo pierna" tuviera otro precio en tu carta, se cargaría como otro producto de pollo. Confírmame cuál aplica. **Resuelta el 2026-10-09: recomendación aceptada.**
+4. (técnica) Confirmar que solo los productos de la categoría Pollo llevan presentaciones (los platos y combos que usan pollo se resuelven en la 007 y la Fase 5) — recomendado, S-006-03. ¿Está bien? **Resuelta el 2026-10-09: recomendación aceptada.**
+5. (técnica) Confirmar el reemplazo de una vez con PUT (el admin guarda la grilla completa del producto en una operación atómica; lo que no esté en la lista se borra) — recomendado, S-006-05, en vez de crear/editar fila por fila. ¿Está bien? **Resuelta el 2026-10-09: recomendación aceptada.**
+6. (técnica) Confirmar que un producto de pollo con presentaciones conserva su `price_cents` de la 005 pero el sistema cobra siempre el precio de la presentación elegida — recomendado, S-006-04; la alternativa (precio opcional) rompería el contrato ya aprobado. ¿Está bien? **Resuelta el 2026-10-09: recomendación aceptada.**
 
 ## 18. Acción del usuario y verificación manual
 
