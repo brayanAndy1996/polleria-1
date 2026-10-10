@@ -50,6 +50,18 @@ const NO_STORE_PATH_PREFIXES = [
   '/api/orders',
 ] as const;
 
+/**
+ * Rutas del salón que no leen cuerpo (spec 009, §9): abrir la cuenta, separar la
+ * mesa y las tres señales del pedido. Si llega un cuerpo se ignora de verdad — el
+ * lector global ni siquiera corre sobre ellas, así un JSON roto, un cuerpo mayor
+ * de 100 KB o una codificación desconocida no pueden bloquear la operación
+ * (ADV-009-14). El segmento del id admite cualquier valor: un id inválido debe
+ * responder su 400 de validación, no un error del lector del cuerpo. El resto de
+ * la API sigue pasando por el lector estricto.
+ */
+const BODILESS_PATH_PATTERN =
+  /^\/api\/(?:tables\/[^/]+\/(?:orders|leave)|orders\/[^/]+\/(?:request-bill|ready|served))\/?$/i;
+
 /** Arma la aplicación Express sin ponerla a escuchar (eso lo hace server.ts). */
 export function createApp({
   sequelize,
@@ -112,7 +124,17 @@ export function createApp({
   // con un lector laxo que corre antes del estricto global —una vez leído, el global lo
   // deja pasar— y la forma de objeto la verifica requireJsonObject en su router.
   app.use('/api/products/:productId/items', createBodyReader({ strict: false }));
-  app.use(createBodyReader());
+  const strictBodyReader = createBodyReader();
+  app.use((req, res, next) => {
+    // Las rutas sin cuerpo de la spec 009 saltan al router directamente: cualquier
+    // cuerpo que llegue se ignora sin leerse (§9). El resto conserva el lector
+    // JSON estricto con sus límites y su 415/413/400 habituales.
+    if (BODILESS_PATH_PATTERN.test(req.path)) {
+      next();
+      return;
+    }
+    strictBodyReader(req, res, next);
+  });
   app.use(
     '/api',
     createApiRouter({

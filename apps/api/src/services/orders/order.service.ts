@@ -171,12 +171,14 @@ export function createOrderService({ models }: { models: Models }): OrderService
     },
 
     async getOrder(orderId) {
-      const row = await models.Order.findByPk(orderId);
-      if (row === null) throw createOrderNotFoundError();
-      const views = await loadOrderViews(models, [row]);
-      const view = views.get(orderId);
-      if (view === undefined) throw new Error(`No se pudo armar la vista del pedido ${orderId}.`);
-      return view;
+      // El mismo desgarre que el tablero (ADV-009-22): leer el pedido y luego sus
+      // mesas sin transacción podía observar un merge/cancel/movimiento a mitad —
+      // status 'open' con mesas ya movidas o 'merged' aún con mesas. REPEATABLE
+      // READ fija una sola instantánea para el pedido, sus mesas y sus usuarios.
+      return sequelize.transaction(
+        { isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ },
+        (transaction) => viewOf(orderId, transaction),
+      );
     },
 
     async moveOrder(orderId, tableId, actor) {

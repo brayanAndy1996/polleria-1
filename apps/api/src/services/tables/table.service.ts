@@ -108,29 +108,45 @@ export function createTableService({ models }: { models: Models }): TableService
 
   return {
     async listTables() {
-      const rows = await models.Table.findAll({
-        attributes: ['id', 'name', 'isActive', 'currentOrderId'],
-      });
-      const orderIds = [
-        ...new Set(
-          rows
-            .map((row) => row.currentOrderId)
-            .filter((orderId): orderId is number => orderId !== null),
-        ),
-      ];
-      const orders =
-        orderIds.length === 0
-          ? []
-          : await models.Order.findAll({ where: { id: { [Op.in]: orderIds } } });
-      const views = await loadOrderViews(models, orders);
-      return rows
-        .map((row) =>
-          toTable(
-            row,
-            row.currentOrderId === null ? null : (views.get(row.currentOrderId) ?? null),
-          ),
-        )
-        .sort((first, second) => collator.compare(first.name, second.name) || first.id - second.id);
+      // Las tres lecturas (mesas, pedidos y vistas) van bajo UNA sola instantánea
+      // REPEATABLE READ (ADV-009-22): sin ella, un merge o un cancel confirmado
+      // entre consultas dejaba respuestas imposibles — una mesa apuntando a un
+      // pedido ya 'merged' o un pedido con mesas que ya no lo apuntan. Con la
+      // instantánea el tablero ve siempre el estado antes O después, nunca a mitad.
+      return sequelize.transaction(
+        { isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ },
+        async (transaction) => {
+          const rows = await models.Table.findAll({
+            attributes: ['id', 'name', 'isActive', 'currentOrderId'],
+            transaction,
+          });
+          const orderIds = [
+            ...new Set(
+              rows
+                .map((row) => row.currentOrderId)
+                .filter((orderId): orderId is number => orderId !== null),
+            ),
+          ];
+          const orders =
+            orderIds.length === 0
+              ? []
+              : await models.Order.findAll({
+                  where: { id: { [Op.in]: orderIds } },
+                  transaction,
+                });
+          const views = await loadOrderViews(models, orders, { transaction });
+          return rows
+            .map((row) =>
+              toTable(
+                row,
+                row.currentOrderId === null ? null : (views.get(row.currentOrderId) ?? null),
+              ),
+            )
+            .sort(
+              (first, second) => collator.compare(first.name, second.name) || first.id - second.id,
+            );
+        },
+      );
     },
     async createTable(input) {
       const { name } = createTableRequestSchema.parse(input);
