@@ -182,9 +182,12 @@ export function createOrderService({ models }: { models: Models }): OrderService
       return view;
     },
 
-    async moveOrder(orderId, tableId, _actor) {
+    async moveOrder(orderId, tableId, actor) {
+      // El movimiento no registra actor (D-009-07); la firma es uniforme con las
+      // demás operaciones del pedido (spec 009, §11).
+      void actor;
       return sequelize.transaction(async (transaction) => {
-        const order = await openOrderRow(orderId, transaction);
+        await openOrderRow(orderId, transaction);
         // El conjunto cubridor queda congelado por el bloqueo del pedido.
         const covered = await coveringTableIds(orderId, transaction);
         const targetIds = [...new Set([...covered, tableId])];
@@ -308,7 +311,9 @@ export function createOrderService({ models }: { models: Models }): OrderService
       throw new PremiseChangedError();
     },
 
-    async leaveTable(tableId, _actor) {
+    async leaveTable(tableId, actor) {
+      // Separar no registra actor (D-009-09); firma uniforme con las demás (§11).
+      void actor;
       for (let attempt = 0; attempt <= PREMISE_RETRIES; attempt += 1) {
         const table = await models.Table.findByPk(tableId, {
           attributes: ['id', 'currentOrderId'],
@@ -375,7 +380,9 @@ export function createOrderService({ models }: { models: Models }): OrderService
       });
     },
 
-    async markServed(orderId, _actor) {
+    async markServed(orderId, actor) {
+      // Servir limpia la marca sin registrar quién la quita (D-009-10); firma uniforme.
+      void actor;
       return sequelize.transaction(async (transaction) => {
         const order = await openOrderRow(orderId, transaction);
         // Se sirvió: solo se limpia el par de listo; la cuenta pedida se conserva

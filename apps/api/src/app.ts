@@ -23,6 +23,10 @@ import { createProductPortionService } from './services/products/product-portion
 import { createProductPortionsController } from './controllers/product-portions.controller.ts';
 import { createComboItemService } from './services/combo-items/combo-item.service.ts';
 import { createComboItemsController } from './controllers/combo-items.controller.ts';
+import { createTableService } from './services/tables/table.service.ts';
+import { createOrderService } from './services/orders/order.service.ts';
+import { createTablesController } from './controllers/tables.controller.ts';
+import { createOrdersController } from './controllers/orders.controller.ts';
 
 export interface AppDependencies {
   sequelize: Sequelize;
@@ -38,7 +42,13 @@ export interface AppDependencies {
  * solicitud (INVALID_JSON, PAYLOAD_TOO_LARGE...) la respuesta de error también la lleva.
  * Los routers la vuelven a fijar, lo cual es idempotente.
  */
-const NO_STORE_PATH_PREFIXES = ['/api/auth', '/api/users', '/api/products'] as const;
+const NO_STORE_PATH_PREFIXES = [
+  '/api/auth',
+  '/api/users',
+  '/api/products',
+  '/api/tables',
+  '/api/orders',
+] as const;
 
 /** Arma la aplicación Express sin ponerla a escuchar (eso lo hace server.ts). */
 export function createApp({
@@ -78,6 +88,12 @@ export function createApp({
   });
   const comboItemService = createComboItemService({ models });
   const comboItemsController = createComboItemsController({ comboItemService });
+  // Salón y ciclo del pedido (spec 009): el servicio de mesas deriva su estado del
+  // pedido abierto; el de pedidos comparte modelos y devuelve la vista completa.
+  const tableService = createTableService({ models });
+  const orderService = createOrderService({ models });
+  const tablesController = createTablesController({ tableService, orderService });
+  const ordersController = createOrdersController({ orderService });
   const requireAuth = createRequireAuth({ sessionService });
 
   const app = express();
@@ -106,6 +122,8 @@ export function createApp({
       productsController,
       productPortionsController,
       comboItemsController,
+      tablesController,
+      ordersController,
       requireAuth,
     }),
   );
