@@ -6,9 +6,9 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: 008-menu-admin (spec aprobada; siguiente: tests en rojo).
-- Paso: propuesta 008 redactada por el spec-writer y aprobada por el usuario el 2026-10-09 con las 10 respuestas recomendadas (21 AC; OpenAPI sin cambios, sigue en 0.7.0 — la 008 solo consume el contrato; incluye 4 E2E). La 007 quedó integrada a main el 2026-10-09 (merge 892914a).
-- Siguiente acción: test-writer escribe los AC-01 a AC-21 en rojo (T-01 a T-06); luego backend-dev (T-07, solo money.ts en shared), frontend-dev (T-08 a T-14), adversarial-tester y reviewer. Conservar los pendientes manuales documentados (pnpm db:migrate en polleria_dev; pruebas manuales).
+- Funcionalidad: 008-menu-admin cerrada técnicamente; pendiente la autorización del usuario para integrar a main.
+- Paso: ciclo completo de la 008 — spec aprobada el 2026-10-09 con las 10 respuestas recomendadas (21 AC; OpenAPI sin cambios, sigue en 0.7.0 — la 008 solo consume el contrato; 4 E2E nuevos). Test-writer en rojo, backend-dev (money.ts) y frontend-dev (pantallas) en verde, adversarial-tester (8 hallazgos originales + 1 de revalidación, todos corregidos y revalidados), reviewer APROBADO, verificación del orquestador ejecutada. La 007 quedó integrada a main el 2026-10-09 (merge 892914a).
+- Siguiente acción: autorización del usuario para integrar feat/008-menu-admin a main (merge --no-ff). Después: punto de control de cierre de la Fase 1 (pendientes manuales: pnpm db:migrate en polleria_dev, pruebas manuales por API con cookies, datos reales de combos/precios/presentaciones) y propuesta de la siguiente fase.
 - Rama: feat/008-menu-admin (creada desde main tras integrar la 007).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
@@ -23,7 +23,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 005 | menu-products (productos y precios: categorías fijas, precio en céntimos 0-99999, nombre único sin mayúsculas, desactivar en vez de borrar; GET/POST/PATCH /api/products) | 1 | Cerrada (APROBADO; 15 AC; 33 adversariales verdes; integrada a main en el merge 2af8023; pendientes manuales registrados) | feat/005-menu-products | 2026-10-08 |
 | 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada (APROBADO; 14 AC; 28 adversariales verdes; integrada a main en el merge 4afbc66; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
 | 007 | combos (producto de categoría 'combo' + tabla combo_items; precio fijo; consumo en octavos derivado; GET + PUT /api/products/{id}/items; sin pantallas) | 1 | Cerrada (APROBADO; 15 AC; 30 adversariales con 0 hallazgos; integrada a main en el merge 892914a; pendientes manuales registrados) | feat/007-combos | 2026-10-09 |
-| 008 | menu-admin (pantallas /admin/carta: lista por categorías, alta/edición de productos, grilla de presentaciones del pollo, editor de componentes del combo con comparación de precios) | 1 | En curso (spec aprobada 2026-10-09; 21 AC) | feat/008-menu-admin | — |
+| 008 | menu-admin (pantallas /admin/carta: lista por categorías, alta/edición de productos, grilla de presentaciones del pollo, editor de componentes del combo con comparación de precios) | 1 | Cerrada (APROBADO; 21 AC; 157 tests adversariales verdes; 9 hallazgos corregidos; pendiente integración a main) | feat/008-menu-admin | 2026-10-09 |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec.
 
@@ -70,6 +70,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-09 | Adversarial-tester de la 007: 30 casos propios, 0 hallazgos (la serialización FOR NO KEY UPDATE aplicada desde el diseño resistió los vectores que reventaron la 006); 10 observaciones documentadas como deuda. Reviewer: APROBADO. |
 | 2026-10-09 | Autoriza integrar la 007 a main (merge --no-ff 892914a). |
 | 2026-10-09 | Spec 008 aprobada con las 10 respuestas recomendadas: solo admin gestiona la carta; pantallas con secciones apiladas (no pestañas); 4 E2E (3 desktop + 1 móvil a 360 px); lista completa sin paginar; precio en soles con vista previa; tras el alta de pollo/combo va a su edición; comparación de combo por precio de presentación vendida suelta con respaldo priceCents; desactivar pide confirmación; componente de pollo preselecciona cuarto+pierna; funciones de dinero en shared. |
+| 2026-10-09 | Autoriza corregir los 8 hallazgos adversariales de la 008 (1 alto ADV-008-04: cantidad que desborda a Infinity tumbaba la página; medios 05/06: dinero exponencial en pantalla y filas incompletas que sumaban; bajos 02/03/07/08) y después el residual bajo ADV-008-42 (claves React duplicadas por mensajes repetidos). Todos revalidados en verde con aserciones intactas. |
 
 ## Notas técnicas del orquestador
 
@@ -104,6 +105,8 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 - Ciclo 007 ejecutado íntegramente con subagentes separados: spec-writer (propuesta + registro de aprobación), test-writer (rojo: ~150 pruebas nuevas en 4 archivos; arbitraje corregido: aserción de filas del AC-06 6→5 porque el dúo ya estaba cubierto), backend-dev (T-05 a T-09: CHECK portion_cut con CASE por agujero NULL de la forma literal; lector laxo solo en /items para distinguir INVALID_BODY de INVALID_JSON), adversarial-tester (30 casos, 0 hallazgos), reviewer (APROBADO verificado con números reales).
 - Verificación final del orquestador de la 007: pnpm test 1549 verdes + 7 fallas esperadas de la 002 (1556; 86 archivos); pnpm lint y pnpm typecheck con código 0 (ejecutados por el orquestador); pnpm test:e2e 16 verdes y 4 no aplicables (ejecutado por el orquestador); pnpm test:coverage código 0 verificado por el reviewer sobre el mismo árbol (global 98,47 %; shared 99,29 % con combos.ts al 100 %; services/combo-items 98,41 %). OpenAPI 0.7.0 validado con Redocly. Nada de la 007 tocó polleria_dev ni apps/web.
 - La 007 se integró a main el 2026-10-09 (merge 892914a). El árbol quedó limpio; no hay commits ni merges pendientes.
+- Ciclo 008 ejecutado íntegramente con subagentes separados: spec-writer (propuesta + registro de aprobación), test-writer (rojo: tests de money, etiquetas, cliente PUT, API de la carta, componentes con MSW y 4 E2E; arbitraje: 4 defectos de pruebas corregidos en 021ded8 — orden de handlers MSW donde gana el primero, spy sobre otro QueryClient, mock faltante de GET /portions y aritmética 8300), backend-dev (T-07 money.ts; fix adversarial de parseSolesToCents/formatSoles con BigInt), frontend-dev (T-08 a T-14 pantallas + fixes ADV-008-04..08 y ADV-008-42; corrigió el regex \d colapsado en issues.ts), adversarial-tester (134 casos originales + 22 de revalidación; 9 hallazgos corregidos en total), reviewer (APROBADO verificado con números reales).
+- Verificación final del orquestador de la 008: el reviewer obtuvo pnpm test 1866 verdes + 7 fallas esperadas (1873; 97 archivos) sobre el mismo árbol; la corrida del orquestador dio 1863 verdes + 3 timeouts de findByRole (AC-12, AC-14, ADV-008-04) bajo la carga de ~97 workers que pasaron aislados 126/126 — flake de carga documentado, no defecto; pnpm lint y pnpm typecheck código 0 (orquestador); pnpm test:coverage código 0 verificado por el reviewer sobre el mismo árbol (global 98,5 %; shared 99,35 % con money.ts 100 %; services: auth 98,48, combo-items 98,41, printer 100, products 96,7, users 96,61; módulos web de la 008 ≥95,7 %); pnpm test:e2e 20 verdes y 8 no aplicables por proyecto (reviewer, mismo árbol; los 4 E2E nuevos en verde). OpenAPI 0.7.0 intacto (diff vacío contra main; Redocly válido). Nada de la 008 tocó polleria_dev ni apps/api.
 
 
 - 2026-10-07: el entorno tiene Windows 11, Node 24.1.0 (LTS), pnpm 10.12.1, Git 2.49 y PostgreSQL 17.5 en localhost:5432. También hay un PostgreSQL 18 en el puerto 5433, que el proyecto no usa.
@@ -173,6 +176,17 @@ Ataques de la 002 sin fallas (regresión en verde): ningún punto de código Uni
 - La guardia PRODUCT_HAS_ITEMS se define como "categoría distinta de 'combo'": un dish con combo_items inyectadas por SQL recibe 409 aunque no cambie de categoría (solo alcanzable por SQL directo, igual que el residual de la 006).
 - productId NaN/±∞ en el servicio llega crudo al SQL (paridad ADV-005-22/ADV-006-26; la ruta lo impide).
 - OpenAPI: components.responses.ProductHasItems/ProductIsComponent definidos pero el PATCH usa respuesta inline (2 warnings nuevos de no-unused-components; cosmético) y el GET dice "es-PE" mientras el collator es 'es' (mismo patrón que 005/006; corregir si se toca el contrato).
+
+### Observaciones documentadas de la 008 (adversarial-tester y reviewer; deuda para decidir después)
+
+- ADV-008-40: el mensaje de éxito ("Componentes guardados." y equivalentes) persiste junto a un error local nuevo en las tres superficies de mutación. Comportamiento observado en test; deuda baja.
+- ADV-008-27: Number() laxo residual al armar ítems del editor de componentes; mitigado porque el cuerpo completo se valida con replaceComboItemsRequestSchema antes del PUT y sumableQuantity acota la comparación.
+- sectionMessages es utilidad exportada con consumidor de test (ADV-008-15); los componentes de sección usan variables locales homónimas — candidata a unificación.
+- usePrimaryInstance SSR warning: patrón heredado de la 004, visible en el log E2E.
+- Resuelto: la duda inicial sobre onUnhandledFrame en tests/setup.ts quedó cerrada — es la opción real de MSW 3.0.2 (ADV-008-26 la verifica).
+- Refactor no previsto en spec §11: parseResponse extraída a client.ts y reutilizada por users.ts (aditivo DRY; los tests de la 004 pasan).
+- Desviación de ejemplo en E2E: AC-19 usa precios 18/17/65 (la spec ejemplifica 19.90/18.90/72.00) y AC-20 elige Pecho con suma 36.00 (la spec ejemplifica Pierna con 35.00); el comportamiento verificado es el mismo.
+- Flake: timeouts de findByRole en tests web bajo ~97 workers simultáneos (AC-12, AC-14, ADV-008-04 fallaron una vez en la corrida completa del orquestador; pasan aislados y pasaron en la corrida del reviewer sobre el mismo árbol). Vigilar si se vuelve frecuente.
 
 ### Otras deudas bajas abiertas
 
