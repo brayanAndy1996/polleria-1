@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 2 de 6, mesas y pedidos (RF-02 a RF-07). La Fase 1 quedó completa en código con la integración de la 008 el 2026-10-09 (pendientes manuales documentados: pnpm db:migrate en polleria_dev, pruebas por API y recorrido de /admin/carta).
-- Funcionalidad: 009-tables cerrada técnicamente; pendiente la autorización del usuario para integrar a main.
-- Paso: ciclo completo de la 009 — spec aprobada el 2026-10-10 con las 13 respuestas recomendadas (21 AC; OpenAPI 0.7.0 → 0.8.0 aditivo; dominio + API, sin pantallas ni Socket.IO). Test-writer en rojo (156 pruebas + 3 defectos corregidos), backend-dev en verde, adversarial-tester (24 casos; 1 alto + 1 medio corregidos y revalidados), reviewer APROBADO, verificación del orquestador ejecutada.
-- Siguiente acción: autorización del usuario para integrar feat/009-tables a main (merge --no-ff). Después: spec-writer prepara la propuesta 010 (ítems del pedido con presentación/parte/cremas/observaciones, envío idempotente, comandas y anulación — RF-04 a RF-07).
-- Rama: feat/009-tables.
+- Funcionalidad: la 009-tables se integró a main el 2026-10-10 (merge 389e86f).
+- Paso: integración autorizada y hecha; la 009 cerró su ciclo completo (spec aprobada con las 13 respuestas recomendadas, 21 AC, TDD, 24 adversariales con 2 hallazgos corregidos, reviewer APROBADO, verificación del orquestador ejecutada).
+- Siguiente acción: spec-writer prepara la propuesta 010 (ítems del pedido con presentación/parte/cremas/observaciones, envío idempotente con Idempotency-Key, comandas como registro y anulación con admin — RF-04 a RF-07) en una rama feat/010-*.
+- Rama: main.
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -24,7 +24,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada (APROBADO; 14 AC; 28 adversariales verdes; integrada a main en el merge 4afbc66; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
 | 007 | combos (producto de categoría 'combo' + tabla combo_items; precio fijo; consumo en octavos derivado; GET + PUT /api/products/{id}/items; sin pantallas) | 1 | Cerrada (APROBADO; 15 AC; 30 adversariales con 0 hallazgos; integrada a main en el merge 892914a; pendientes manuales registrados) | feat/007-combos | 2026-10-09 |
 | 008 | menu-admin (pantallas /admin/carta: lista por categorías, alta/edición de productos, grilla de presentaciones del pollo, editor de componentes del combo con comparación de precios) | 1 | Cerrada (APROBADO; 21 AC; 157 tests adversariales verdes; 9 hallazgos corregidos; integrada a main en el merge 01d23bb; pendientes manuales registrados) | feat/008-menu-admin | 2026-10-09 |
-| 009 | tables (mesas del salón + ciclo del pedido sin ítems: estados derivados, abrir, mover, unir, separar, listo/servido, pedir cuenta, cancelar) | 2 | Cerrada (APROBADO; 21 AC; 24 adversariales verdes; 2 hallazgos corregidos; pendiente integración a main) | feat/009-tables | 2026-10-10 |
+| 009 | tables (mesas del salón + ciclo del pedido sin ítems: estados derivados, abrir, mover, unir, separar, listo/servido, pedir cuenta, cancelar) | 2 | Cerrada (APROBADO; 21 AC; 24 adversariales verdes; 2 hallazgos corregidos; integrada a main en el merge 389e86f; pendientes manuales registrados) | feat/009-tables | 2026-10-10 |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec. La de la Fase 2 (009 a 012) la propuso el spec-writer de la 009.
 
@@ -75,6 +75,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-09 | Autoriza integrar la 008 a main (merge --no-ff 01d23bb). |
 | 2026-10-10 | Spec 009 aprobada con las 13 respuestas recomendadas: mesas fijas configuradas por admin; estados derivados (nunca guardados) con precedencia 'pedido listo' sobre 'pidió la cuenta'; unir = fusionar cuentas con auditoría (pedido origen merged); separar deja la mesa libre; cancelar sin ítems lo hace mozo/admin con motivo (con ítems solo admin, RF-07); 'pedido listo' lo marca mozo/kitchen/admin; cualquier mozo mueve/separa; sin Socket.IO (polling en la 011), sin plano visual, sin estado 'limpiando', sin número de personas; para llevar queda para su fase; modelo con puntero invertido tables.current_order_id; división de la Fase 2 en 009/010/011/012. |
 | 2026-10-10 | Autoriza corregir los 2 hallazgos adversariales de la 009 (alto ADV-009-22: GET /api/tables con lectura rasgada durante merges → REPEATABLE READ en listTables y getOrder; medio ADV-009-14: rutas sin cuerpo rechazaban cuerpos ilegibles → bypass BODILESS_PATH_PATTERN). Revalidados en verde, 24/24. |
+| 2026-10-10 | Autoriza integrar la 009 a main (merge --no-ff 389e86f). |
 
 ## Notas técnicas del orquestador
 
