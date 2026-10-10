@@ -5,11 +5,11 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 
 ## Estado actual
 
-- Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: la 008-menu-admin se integró a main el 2026-10-09 (merge 01d23bb). La Fase 1 queda con sus seis funcionalidades integradas (003 a 008).
-- Paso: integración autorizada y hecha; la 008 cerró su ciclo completo (spec aprobada con las 10 respuestas recomendadas, 21 AC, TDD, 157 tests adversariales con 9 hallazgos corregidos, reviewer APROBADO, verificación del orquestador ejecutada).
-- Siguiente acción: punto de control de cierre de la Fase 1 con el usuario — pendientes manuales (pnpm db:migrate en polleria_dev para las migraciones de 005/006/007, pruebas manuales por API y recorrido de /admin/carta, datos reales de la carta) — y después la propuesta de la primera funcionalidad de la Fase 2 (pedidos/mesas).
-- Rama: main.
+- Fase: 2 de 6, mesas y pedidos (RF-02 a RF-07). La Fase 1 quedó completa en código con la integración de la 008 el 2026-10-09 (pendientes manuales documentados: pnpm db:migrate en polleria_dev, pruebas por API y recorrido de /admin/carta).
+- Funcionalidad: 009-tables (spec aprobada; siguiente: tests en rojo).
+- Paso: propuesta 009 redactada por el spec-writer y aprobada por el usuario el 2026-10-10 con las 13 respuestas recomendadas (21 AC; OpenAPI propuesto 0.7.0 → 0.8.0 solo aditivo; dominio + API, sin pantallas ni Socket.IO). La división de la Fase 2 quedó: 009 mesas + ciclo del pedido sin ítems, 010 ítems/idempotencia/anulación, 011 pantallas del mozo, 012 administración de mesas (o dentro de 011).
+- Siguiente acción: test-writer escribe los AC-01 a AC-21 en rojo (T-01 a T-05); luego backend-dev (T-06 a T-10), adversarial-tester y reviewer.
+- Rama: feat/009-tables (creada desde main tras integrar la 008).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -24,8 +24,9 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada (APROBADO; 14 AC; 28 adversariales verdes; integrada a main en el merge 4afbc66; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
 | 007 | combos (producto de categoría 'combo' + tabla combo_items; precio fijo; consumo en octavos derivado; GET + PUT /api/products/{id}/items; sin pantallas) | 1 | Cerrada (APROBADO; 15 AC; 30 adversariales con 0 hallazgos; integrada a main en el merge 892914a; pendientes manuales registrados) | feat/007-combos | 2026-10-09 |
 | 008 | menu-admin (pantallas /admin/carta: lista por categorías, alta/edición de productos, grilla de presentaciones del pollo, editor de componentes del combo con comparación de precios) | 1 | Cerrada (APROBADO; 21 AC; 157 tests adversariales verdes; 9 hallazgos corregidos; integrada a main en el merge 01d23bb; pendientes manuales registrados) | feat/008-menu-admin | 2026-10-09 |
+| 009 | tables (mesas del salón + ciclo del pedido sin ítems: estados derivados, abrir, mover, unir, separar, listo/servido, pedir cuenta, cancelar) | 2 | En curso (spec aprobada 2026-10-10; 21 AC) | feat/009-tables | — |
 
-La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec.
+La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec. La de la Fase 2 (009 a 012) la propuso el spec-writer de la 009.
 
 ## Decisiones del usuario
 
@@ -72,6 +73,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-09 | Spec 008 aprobada con las 10 respuestas recomendadas: solo admin gestiona la carta; pantallas con secciones apiladas (no pestañas); 4 E2E (3 desktop + 1 móvil a 360 px); lista completa sin paginar; precio en soles con vista previa; tras el alta de pollo/combo va a su edición; comparación de combo por precio de presentación vendida suelta con respaldo priceCents; desactivar pide confirmación; componente de pollo preselecciona cuarto+pierna; funciones de dinero en shared. |
 | 2026-10-09 | Autoriza corregir los 8 hallazgos adversariales de la 008 (1 alto ADV-008-04: cantidad que desborda a Infinity tumbaba la página; medios 05/06: dinero exponencial en pantalla y filas incompletas que sumaban; bajos 02/03/07/08) y después el residual bajo ADV-008-42 (claves React duplicadas por mensajes repetidos). Todos revalidados en verde con aserciones intactas. |
 | 2026-10-09 | Autoriza integrar la 008 a main (merge --no-ff 01d23bb). |
+| 2026-10-10 | Spec 009 aprobada con las 13 respuestas recomendadas: mesas fijas configuradas por admin; estados derivados (nunca guardados) con precedencia 'pedido listo' sobre 'pidió la cuenta'; unir = fusionar cuentas con auditoría (pedido origen merged); separar deja la mesa libre; cancelar sin ítems lo hace mozo/admin con motivo (con ítems solo admin, RF-07); 'pedido listo' lo marca mozo/kitchen/admin; cualquier mozo mueve/separa; sin Socket.IO (polling en la 011), sin plano visual, sin estado 'limpiando', sin número de personas; para llevar queda para su fase; modelo con puntero invertido tables.current_order_id; división de la Fase 2 en 009/010/011/012. |
 
 ## Notas técnicas del orquestador
 
