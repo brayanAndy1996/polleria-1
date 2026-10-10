@@ -1,5 +1,5 @@
 import { Op, Transaction } from 'sequelize';
-import { cancelReasonSchema, ERROR_CODES } from '@polleria/shared';
+import { cancelReasonSchema, ERROR_CODES, hasAnyRole } from '@polleria/shared';
 import type { Order } from '@polleria/shared';
 import { AppError } from '../../errors/app-error.ts';
 import type { Models, OrderModel, TableModel } from '../../models/index.ts';
@@ -47,6 +47,20 @@ export function createOrderNeedsTableError(): AppError {
     code: 'ORDER_NEEDS_TABLE',
     message: 'El pedido necesita al menos una mesa; cancélalo o ciérralo.',
     httpStatus: 409,
+  });
+}
+export function createOrderHasActiveItemsError(): AppError {
+  return new AppError({
+    code: 'ORDER_HAS_ACTIVE_ITEMS',
+    message: 'El pedido tiene ítems sin anular; un administrador debe anularlos primero.',
+    httpStatus: 409,
+  });
+}
+export function createForbiddenError(): AppError {
+  return new AppError({
+    code: 'FORBIDDEN',
+    message: 'No tienes permiso para realizar esta acción.',
+    httpStatus: 403,
   });
 }
 
@@ -292,6 +306,17 @@ export function createOrderService({ models }: { models: Models }): OrderService
                 },
                 { transaction },
               );
+              // Los ítems y las comandas del pedido fusionado pasan al pedido que
+              // sobrevive (D-010-11): su ordered_at_table_id conserva la mesa de
+              // origen de cada ítem.
+              await models.OrderItem.update(
+                { orderId: targetOrderId },
+                { where: { orderId: originOrderId }, transaction },
+              );
+              await models.KitchenTicket.update(
+                { orderId: targetOrderId },
+                { where: { orderId: originOrderId }, transaction },
+              );
               return viewOf(targetOrderId, transaction);
             }
             // Puntero a un pedido ya no abierto: la mesa origen cuenta como libre.
@@ -391,6 +416,23 @@ export function createOrderService({ models }: { models: Models }): OrderService
       const cancelReason = cancelReasonSchema.parse(reason);
       return sequelize.transaction(async (transaction) => {
         const order = await openOrderRow(orderId, transaction);
+        // Guardias de la spec 010 (D-010-11): un ítem 'sent' o 'void_requested'
+        // bloquea el cierre para cualquier rol — primero hay que anularlo (o
+        // rechazar la solicitud). Si el pedido ya solo tiene anulados (o los
+        // tuvo alguna vez), cancelarlo es exclusivo del administrador.
+        const activeItems = await models.OrderItem.count({
+          where: { orderId, status: { [Op.in]: ['sent', 'void_requested'] } },
+          transaction,
+        });
+        if (activeItems > 0) throw createOrderHasActiveItemsError();
+        const totalItems = await models.OrderItem.count({ where: { orderId }, transaction });
+        if (totalItems > 0) {
+          const user = await models.User.findByPk(actor.userId, {
+            attributes: ['id', 'roles'],
+            transaction,
+          });
+          if (user === null || !hasAnyRole(user.roles, ['admin'])) throw createForbiddenError();
+        }
         // Con el pedido bloqueado su conjunto de mesas está congelado: se bloquean
         // por id y se liberan todas en la misma transacción (RN-009-04/RN-009-08).
         const covered = await coveringTableIds(orderId, transaction);
