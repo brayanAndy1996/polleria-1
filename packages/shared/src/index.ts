@@ -99,6 +99,45 @@ export type {
   ProductPortionsResponse,
 } from './portions.ts';
 export {
+  TABLE_NAME_MAX,
+  TABLE_NAME_PATTERN,
+  tableNameSchema,
+  createTableRequestSchema,
+  updateTableRequestSchema,
+  TABLE_STATES,
+  tableStateSchema,
+  tableSchema,
+  tablesResponseSchema,
+} from './tables.ts';
+export type {
+  CreateTableRequest,
+  UpdateTableRequest,
+  Table,
+  TableState,
+  TablesResponse,
+} from './tables.ts';
+export {
+  ORDER_STATUSES,
+  orderStatusSchema,
+  userRefSchema,
+  tableRefSchema,
+  orderSchema,
+  moveOrderRequestSchema,
+  joinTableRequestSchema,
+  CANCEL_REASON_MAX,
+  cancelReasonSchema,
+  cancelOrderRequestSchema,
+} from './orders.ts';
+export type {
+  Order,
+  OrderStatus,
+  UserRef,
+  TableRef,
+  MoveOrderRequest,
+  JoinTableRequest,
+  CancelOrderRequest,
+} from './orders.ts';
+export {
   COMBO_ITEMS_MAX,
   COMBO_ITEM_QUANTITY_MAX,
   comboItemInputSchema,

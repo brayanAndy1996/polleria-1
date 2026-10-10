@@ -23,6 +23,10 @@ import { createProductPortionService } from './services/products/product-portion
 import { createProductPortionsController } from './controllers/product-portions.controller.ts';
 import { createComboItemService } from './services/combo-items/combo-item.service.ts';
 import { createComboItemsController } from './controllers/combo-items.controller.ts';
+import { createTableService } from './services/tables/table.service.ts';
+import { createOrderService } from './services/orders/order.service.ts';
+import { createTablesController } from './controllers/tables.controller.ts';
+import { createOrdersController } from './controllers/orders.controller.ts';
 
 export interface AppDependencies {
   sequelize: Sequelize;
@@ -38,7 +42,25 @@ export interface AppDependencies {
  * solicitud (INVALID_JSON, PAYLOAD_TOO_LARGE...) la respuesta de error también la lleva.
  * Los routers la vuelven a fijar, lo cual es idempotente.
  */
-const NO_STORE_PATH_PREFIXES = ['/api/auth', '/api/users', '/api/products'] as const;
+const NO_STORE_PATH_PREFIXES = [
+  '/api/auth',
+  '/api/users',
+  '/api/products',
+  '/api/tables',
+  '/api/orders',
+] as const;
+
+/**
+ * Rutas del salón que no leen cuerpo (spec 009, §9): abrir la cuenta, separar la
+ * mesa y las tres señales del pedido. Si llega un cuerpo se ignora de verdad — el
+ * lector global ni siquiera corre sobre ellas, así un JSON roto, un cuerpo mayor
+ * de 100 KB o una codificación desconocida no pueden bloquear la operación
+ * (ADV-009-14). El segmento del id admite cualquier valor: un id inválido debe
+ * responder su 400 de validación, no un error del lector del cuerpo. El resto de
+ * la API sigue pasando por el lector estricto.
+ */
+const BODILESS_PATH_PATTERN =
+  /^\/api\/(?:tables\/[^/]+\/(?:orders|leave)|orders\/[^/]+\/(?:request-bill|ready|served))\/?$/i;
 
 /** Arma la aplicación Express sin ponerla a escuchar (eso lo hace server.ts). */
 export function createApp({
@@ -78,6 +100,12 @@ export function createApp({
   });
   const comboItemService = createComboItemService({ models });
   const comboItemsController = createComboItemsController({ comboItemService });
+  // Salón y ciclo del pedido (spec 009): el servicio de mesas deriva su estado del
+  // pedido abierto; el de pedidos comparte modelos y devuelve la vista completa.
+  const tableService = createTableService({ models });
+  const orderService = createOrderService({ models });
+  const tablesController = createTablesController({ tableService, orderService });
+  const ordersController = createOrdersController({ orderService });
   const requireAuth = createRequireAuth({ sessionService });
 
   const app = express();
@@ -96,7 +124,17 @@ export function createApp({
   // con un lector laxo que corre antes del estricto global —una vez leído, el global lo
   // deja pasar— y la forma de objeto la verifica requireJsonObject en su router.
   app.use('/api/products/:productId/items', createBodyReader({ strict: false }));
-  app.use(createBodyReader());
+  const strictBodyReader = createBodyReader();
+  app.use((req, res, next) => {
+    // Las rutas sin cuerpo de la spec 009 saltan al router directamente: cualquier
+    // cuerpo que llegue se ignora sin leerse (§9). El resto conserva el lector
+    // JSON estricto con sus límites y su 415/413/400 habituales.
+    if (BODILESS_PATH_PATTERN.test(req.path)) {
+      next();
+      return;
+    }
+    strictBodyReader(req, res, next);
+  });
   app.use(
     '/api',
     createApiRouter({
@@ -106,6 +144,8 @@ export function createApp({
       productsController,
       productPortionsController,
       comboItemsController,
+      tablesController,
+      ordersController,
       requireAuth,
     }),
   );

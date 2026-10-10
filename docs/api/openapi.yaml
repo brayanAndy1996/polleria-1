@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.7.0
+  version: 0.8.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -108,6 +108,24 @@ info:
       PRODUCT_HAS_ITEMS (primero se vacía con items: []), y PATCH que cambia la
       categoría de un producto referenciado como componente responde 409
       PRODUCT_IS_COMPONENT (primero se quita del combo).
+    Mesas y ciclo del pedido (spec 009):
+    - /tables es el salón: mesas con nombre único sin distinguir mayúsculas (también
+      entre inactivas) y un estado derivado del pedido que las cubre — nunca se
+      guarda: free, occupied, ready o bill_requested. GET /tables devuelve todas las
+      mesas, activas e inactivas, ordenadas por nombre con colación natural en
+      español, y embebe el pedido completo en order cuando la mesa está cubierta.
+      Configurar mesas (POST y PATCH) es solo del rol admin; una mesa nunca se borra:
+      se desactiva con isActive false y puede reactivarse.
+    - Un pedido es la cuenta de una o más mesas (orders). Se abre desde una mesa,
+      se mueve entero a otra, suma mesas libres con join (o fusiona dos cuentas cuando
+      ambas mesas están ocupadas), suelta mesas con leave y se marca con ready
+      (listo), request-bill (pidió la cuenta) y served (limpia la marca de listo).
+      Se cancela con motivo obligatorio; nunca se borra: queda open, closed (el
+      cobro llega en la Fase 4), cancelled o merged, y su historial se sigue leyendo.
+    - El estado ready gana a bill_requested cuando hay ambas marcas; las dos llegan
+      en el pedido (readyAt y billRequestedAt) para que la pantalla muestre las dos.
+    - Todas las respuestas de /tables/* y /orders/* llevan Cache-Control: no-store,
+      también las de error.
 servers:
   - url: http://localhost:3000/api
     description: A través de la web, en el mismo origen. Es lo que usan los navegadores (PC de caja y celulares).
@@ -122,6 +140,10 @@ tags:
     description: Gestión de usuarios por el administrador (spec 004).
   - name: products
     description: Carta de productos y precios (spec 005), presentaciones del pollo en octavos (spec 006) y componentes de combos (spec 007).
+  - name: tables
+    description: Mesas del salón, su estado derivado y las operaciones de mesa sobre pedidos (spec 009).
+  - name: orders
+    description: Ciclo del pedido — la cuenta de una o más mesas — y sus señales (spec 009).
 paths:
   /health:
     get:
@@ -991,6 +1013,710 @@ paths:
           $ref: '#/components/responses/ComboItemsNotAllowed'
         '500':
           $ref: '#/components/responses/InternalError'
+  /tables:
+    get:
+      operationId: listTables
+      tags:
+        - tables
+      summary: Tablero del salón con el estado derivado de cada mesa
+      description: >-
+        Roles permitidos: cualquier rol con sesión (waiter, kitchen, cashier, admin).
+        Devuelve todas las mesas —activas e inactivas, igual que la carta devuelve
+        todos los productos— ordenadas por nombre con colación natural en español
+        ("Mesa 2" antes que "Mesa 10"); quien dibuja el tablero filtra por isActive.
+        Cada mesa lleva su estado derivado (state: free, occupied, ready o
+        bill_requested) y, cuando está cubierta, el pedido completo embebido en order
+        — el mismo pedido aparece en cada mesa que cubre. Cabecera Cache-Control:
+        no-store.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Mesas del salón (puede ser una lista vacía).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TablesResponse'
+              example:
+                tables:
+                  - id: 1
+                    name: Mesa 1
+                    isActive: true
+                    state: free
+                    order: null
+                  - id: 3
+                    name: Mesa 3
+                    isActive: true
+                    state: bill_requested
+                    order:
+                      id: 12
+                      status: open
+                      tables:
+                        - id: 3
+                          name: Mesa 3
+                        - id: 4
+                          name: Mesa 4
+                      openedBy:
+                        id: 2
+                        displayName: Juan
+                      openedAt: '2026-10-10T18:30:00.000Z'
+                      readyAt: null
+                      billRequestedAt: '2026-10-10T19:15:00.000Z'
+                      closedAt: null
+                      closedBy: null
+                      cancelReason: null
+                      mergedIntoOrderId: null
+                  - id: 4
+                    name: Mesa 4
+                    isActive: true
+                    state: bill_requested
+                    order:
+                      id: 12
+                      status: open
+                      tables:
+                        - id: 3
+                          name: Mesa 3
+                        - id: 4
+                          name: Mesa 4
+                      openedBy:
+                        id: 2
+                        displayName: Juan
+                      openedAt: '2026-10-10T18:30:00.000Z'
+                      readyAt: null
+                      billRequestedAt: '2026-10-10T19:15:00.000Z'
+                      closedAt: null
+                      closedBy: null
+                      cancelReason: null
+                      mergedIntoOrderId: null
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createTable
+      tags:
+        - tables
+      summary: Crea una mesa del salón
+      description: >-
+        Roles permitidos: admin. Crea una mesa con el nombre indicado; siempre nace
+        activa y libre. El nombre es único sin distinguir mayúsculas, también entre
+        mesas inactivas: repetirlo responde 409 TABLE_NAME_TAKEN. Una mesa nunca se
+        borra. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTableRequest'
+            example:
+              name: Mesa 5
+      responses:
+        '201':
+          description: Mesa creada, activa y libre.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Table'
+              example:
+                id: 5
+                name: Mesa 5
+                isActive: true
+                state: free
+                order: null
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/TableNameTaken'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /tables/{tableId}:
+    patch:
+      operationId: updateTable
+      tags:
+        - tables
+      summary: Renombra, desactiva o reactiva una mesa
+      description: >-
+        Roles permitidos: admin. Cambia el nombre (name) o el estado (isActive) de la
+        mesa indicada por tableId, con al menos una propiedad en el cuerpo. Renombrar
+        a un nombre ya usado por otra mesa (sin distinguir mayúsculas, activa o
+        inactiva) responde 409 TABLE_NAME_TAKEN. Desactivar una mesa con pedido
+        abierto responde 409 TABLE_HAS_OPEN_ORDER: primero hay que moverlo o
+        cerrarlo. Una mesa nunca se borra: se desactiva con isActive false. Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TableId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTableRequest'
+            examples:
+              renombrar:
+                value:
+                  name: Barra 2
+              desactivar:
+                value:
+                  isActive: false
+      responses:
+        '200':
+          description: Mesa actualizada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Table'
+              example:
+                id: 5
+                name: Barra 2
+                isActive: false
+                state: free
+                order: null
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/TableNotFound'
+        '409':
+          description: >-
+            Conflicto al guardar: ya existe otra mesa con ese nombre
+            (TABLE_NAME_TAKEN) o la mesa tiene un pedido abierto y se intentó
+            desactivarla (TABLE_HAS_OPEN_ORDER). La mesa queda sin cambios.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                nombre-repetido:
+                  value:
+                    error:
+                      code: TABLE_NAME_TAKEN
+                      message: Ya existe una mesa con ese nombre.
+                      details: null
+                con-pedido-abierto:
+                  value:
+                    error:
+                      code: TABLE_HAS_OPEN_ORDER
+                      message: La mesa tiene un pedido abierto; ciérralo o muévelo antes de desactivarla.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /tables/{tableId}/orders:
+    post:
+      operationId: openTableOrder
+      tags:
+        - tables
+      summary: Abre la cuenta de una mesa libre
+      description: >-
+        Roles permitidos: waiter, admin. Sin cuerpo. Crea un pedido abierto a nombre
+        del usuario de la sesión y ocupa la mesa en la misma transacción. La mesa
+        debe existir (404 TABLE_NOT_FOUND), estar activa (409 TABLE_INACTIVE) y
+        libre: si ya tiene pedido — aunque sea la misma cuenta que cubre otras
+        mesas — responde 409 TABLE_OCCUPIED. Dos aperturas a la vez sobre la misma
+        mesa producen un solo 201 y un 409. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TableId'
+      responses:
+        '201':
+          description: Pedido creado; la mesa quedó cubierta por él.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              example:
+                id: 12
+                status: open
+                tables:
+                  - id: 3
+                    name: Mesa 3
+                openedBy:
+                  id: 2
+                  displayName: Juan
+                openedAt: '2026-10-10T18:30:00.000Z'
+                readyAt: null
+                billRequestedAt: null
+                closedAt: null
+                closedBy: null
+                cancelReason: null
+                mergedIntoOrderId: null
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/TableNotFound'
+        '409':
+          description: >-
+            La mesa está ocupada (TABLE_OCCUPIED) o desactivada (TABLE_INACTIVE).
+            Nada quedó creado.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                ocupada:
+                  value:
+                    error:
+                      code: TABLE_OCCUPIED
+                      message: La mesa ya tiene un pedido abierto.
+                      details: null
+                inactiva:
+                  value:
+                    error:
+                      code: TABLE_INACTIVE
+                      message: La mesa está desactivada.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /tables/{tableId}/join:
+    post:
+      operationId: joinTable
+      tags:
+        - tables
+      summary: Suma la mesa a la cuenta de otra mesa
+      description: >-
+        Roles permitidos: waiter, admin. La mesa de la ruta se suma a la cuenta
+        abierta de la mesa destino (intoTableId en el cuerpo). Si la mesa de la ruta
+        está libre, simplemente queda cubierta por esa cuenta; si tiene su propia
+        cuenta abierta, las dos cuentas se fusionan: el pedido de la mesa de la ruta
+        queda 'merged' con su auditoría (quién y cuándo) y todas sus mesas pasan a la
+        cuenta destino, que conserva sus marcas de listo y de cuenta. Unir es sumarse
+        a una cuenta existente: la mesa destino debe existir y estar activa (sus
+        problemas de dato van como issues en intoTableId; los de estado responden 409
+        TABLE_INACTIVE o TABLE_HAS_NO_ORDER) y tener un pedido abierto — para crear
+        una cuenta nueva está POST /tables/{tableId}/orders. La mesa de la ruta debe
+        existir (404 TABLE_NOT_FOUND) y estar activa (409 TABLE_INACTIVE). Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TableId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinTableRequest'
+            example:
+              intoTableId: 3
+      responses:
+        '200':
+          description: >-
+            El pedido destino, ya cubriendo también a la mesa de la ruta (y a todas
+            las de la cuenta fusionada, si la hubo).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/TableNotFound'
+        '409':
+          description: >-
+            La mesa de la ruta o la destino está desactivada (TABLE_INACTIVE), o la
+            mesa destino no tiene un pedido abierto al que sumarse
+            (TABLE_HAS_NO_ORDER). Nada quedó cambiado.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                inactiva:
+                  value:
+                    error:
+                      code: TABLE_INACTIVE
+                      message: La mesa está desactivada.
+                      details: null
+                sin-cuenta:
+                  value:
+                    error:
+                      code: TABLE_HAS_NO_ORDER
+                      message: La mesa no tiene un pedido abierto.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /tables/{tableId}/leave:
+    post:
+      operationId: leaveTable
+      tags:
+        - tables
+      summary: Separa la mesa de su cuenta y la deja libre
+      description: >-
+        Roles permitidos: waiter, admin. Sin cuerpo. La mesa de la ruta deja de
+        apuntar a su pedido y queda libre; el pedido sigue abierto con sus otras
+        mesas. Si la mesa no tiene pedido responde 409 TABLE_HAS_NO_ORDER, y si es la
+        última que cubre la cuenta responde 409 ORDER_NEEDS_TABLE — un pedido no
+        puede quedar sin mesas: hay que cancelarlo o moverlo. Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TableId'
+      responses:
+        '200':
+          description: El pedido que quedó, sin la mesa separada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/TableNotFound'
+        '409':
+          description: >-
+            La mesa no tiene pedido abierto (TABLE_HAS_NO_ORDER) o es la última que
+            cubre la cuenta (ORDER_NEEDS_TABLE). Nada quedó cambiado.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                sin-cuenta:
+                  value:
+                    error:
+                      code: TABLE_HAS_NO_ORDER
+                      message: La mesa no tiene un pedido abierto.
+                      details: null
+                ultima-mesa:
+                  value:
+                    error:
+                      code: ORDER_NEEDS_TABLE
+                      message: El pedido necesita al menos una mesa; cancélalo o ciérralo.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      tags:
+        - orders
+      summary: Un pedido con sus mesas, marcas y cierre
+      description: >-
+        Roles permitidos: cualquier rol con sesión. Devuelve el pedido completo:
+        las mesas que lo cubren (tables sale vacía cuando ya terminó, porque ninguna
+        lo apunta), quién lo abrió, las dos marcas de señal (readyAt y
+        billRequestedAt, cada una con su hora o null) y cómo terminó (closedBy,
+        cancelReason, mergedIntoOrderId). Un pedido nunca se borra: los cerrados,
+        cancelados y fusionados se siguen leyendo con su status. Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: El pedido indicado.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/move:
+    post:
+      operationId: moveOrder
+      tags:
+        - orders
+      summary: Mueve el pedido completo a otra mesa
+      description: >-
+        Roles permitidos: waiter, admin. El pedido entero pasa a la mesa destino
+        (tableId en el cuerpo): todas las mesas que cubría quedan libres y la
+        destino queda cubierta. La mesa destino debe existir (su inexistencia va
+        como issue en tableId), estar activa (409 TABLE_INACTIVE) y libre (409
+        TABLE_OCCUPIED). Si la mesa destino ya es la única que cubre el pedido, la
+        operación no hace nada y responde 200. El pedido debe existir (404
+        ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN). Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveOrderRequest'
+            example:
+              tableId: 5
+      responses:
+        '200':
+          description: El pedido, ya cubriendo solo a la mesa destino.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          description: >-
+            El pedido ya está cerrado (ORDER_NOT_OPEN) o la mesa destino está
+            ocupada (TABLE_OCCUPIED) o desactivada (TABLE_INACTIVE). Nada quedó
+            cambiado.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                cerrado:
+                  value:
+                    error:
+                      code: ORDER_NOT_OPEN
+                      message: El pedido ya está cerrado.
+                      details: null
+                ocupada:
+                  value:
+                    error:
+                      code: TABLE_OCCUPIED
+                      message: La mesa ya tiene un pedido abierto.
+                      details: null
+                inactiva:
+                  value:
+                    error:
+                      code: TABLE_INACTIVE
+                      message: La mesa está desactivada.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/request-bill:
+    post:
+      operationId: requestOrderBill
+      tags:
+        - orders
+      summary: Marca que la mesa pidió la cuenta
+      description: >-
+        Roles permitidos: waiter, admin. Sin cuerpo. Pone billRequestedAt (y quién la
+        pidió) si no estaban; repetir es un no-op 200 que conserva la primera marca.
+        La marca se limpia sola al cerrar, cancelar o fusionar el pedido — la spec
+        010 la limpiará también al agregarse ítems nuevos. El pedido debe existir
+        (404 ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN). Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: El pedido con su marca de cuenta.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          $ref: '#/components/responses/OrderNotOpen'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/ready:
+    post:
+      operationId: markOrderReady
+      tags:
+        - orders
+      summary: Marca el pedido como listo para servir
+      description: >-
+        Roles permitidos: waiter, kitchen, admin. Sin cuerpo. Pone readyAt (y quién
+        avisó) si no estaban; repetir es un no-op 200 que conserva la primera marca —
+        es la hora real en que cocina avisó. La señal puede convivir con la de la
+        cuenta: cuando ambas están, el estado derivado de la mesa es ready. El pedido
+        debe existir (404 ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN).
+        Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: El pedido con su marca de listo.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          $ref: '#/components/responses/OrderNotOpen'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/served:
+    post:
+      operationId: markOrderServed
+      tags:
+        - orders
+      summary: Limpia la marca de listo al servir la mesa
+      description: >-
+        Roles permitidos: waiter, admin. Sin cuerpo. Quita readyAt (y quién avisó):
+        la mesa se sirvió. Si el pedido no estaba listo, la operación es un no-op
+        200 — sirve también para corregir un "listo" marcado por error. Un ready
+        nuevo después vuelve a marcar (otra tanda lista). El pedido debe existir
+        (404 ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN). Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: El pedido sin la marca de listo.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          $ref: '#/components/responses/OrderNotOpen'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/cancel:
+    post:
+      operationId: cancelOrder
+      tags:
+        - orders
+      summary: Anula el pedido con motivo y libera sus mesas
+      description: >-
+        Roles permitidos: waiter, admin. Pasa el pedido a 'cancelled' con el motivo
+        recortado (reason, de 1 a 200 caracteres, siempre obligatorio), quién lo
+        anuló y cuándo, y libera todas las mesas que cubría en la misma transacción.
+        El pedido nunca se borra: sigue leyéndose con su status y su auditoría. El
+        pedido debe existir (404 ORDER_NOT_FOUND) y estar abierto (409
+        ORDER_NOT_OPEN). Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelOrderRequest'
+            example:
+              reason: El cliente se fue sin pedir.
+      responses:
+        '200':
+          description: El pedido anulado; sus mesas ya están libres (tables vacía).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          $ref: '#/components/responses/OrderNotOpen'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   securitySchemes:
     sessionCookie:
@@ -1452,6 +2178,230 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ComboItem'
+    TableName:
+      type: string
+      minLength: 1
+      maxLength: 40
+      pattern: '^[\p{L}\p{M}\p{N} ._-]+$'
+      description: |
+        Nombre de la mesa ya normalizado: de 1 a 40 caracteres con letras (con
+        tilde), marcas, números, espacios, punto, guion o guion bajo ("Mesa 1",
+        "Barra", "T-2"). La API recorta los bordes, reduce los espacios seguidos a
+        uno y normaliza Unicode antes de validar. Único sin distinguir mayúsculas,
+        también entre mesas inactivas.
+      examples: ['Mesa 3']
+    TableState:
+      type: string
+      enum: [free, occupied, ready, bill_requested]
+      description: |
+        Estado de la mesa en el tablero, derivado del pedido que la cubre — nunca se
+        guarda: free = libre, occupied = ocupada, ready = pedido listo,
+        bill_requested = pidió la cuenta. Cuando el pedido tiene las dos marcas,
+        ready gana (la interfaz puede destacar ambas leyendo el pedido embebido).
+      examples: [occupied]
+    OrderStatus:
+      type: string
+      enum: [open, closed, cancelled, merged]
+      description: |
+        Ciclo del pedido: open = cuenta abierta; closed = cobrada (el cobro llega en
+        la Fase 4); cancelled = anulada con motivo; merged = fusionada en otra cuenta
+        al unir mesas. Un pedido nunca se borra.
+      examples: [open]
+    UserRef:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      description: Referencia a un usuario dentro del pedido (su id y su nombre visible).
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 40
+          examples: [Juan]
+    TableRef:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      description: Referencia a una mesa dentro del pedido (su id y su nombre).
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          examples: ['Mesa 3']
+    Order:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - status
+        - tables
+        - openedBy
+        - openedAt
+        - readyAt
+        - billRequestedAt
+        - closedAt
+        - closedBy
+        - cancelReason
+        - mergedIntoOrderId
+      description: |
+        Un pedido del salón (spec 009): exactamente estas once claves. tables son
+        las mesas que lo cubren ahora — las que lo apuntan con current_order_id — y
+        sale vacía cuando el pedido terminó. readyAt y billRequestedAt son las dos
+        marcas de señal, en ISO o null; closedBy, cancelReason y mergedIntoOrderId
+        cuentan cómo terminó (null mientras está abierto).
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/TableRef'
+          description: Mesas que cubre el pedido, por id.
+        openedBy:
+          $ref: '#/components/schemas/UserRef'
+        openedAt:
+          type: string
+          format: date-time
+          description: Cuándo se abrió la cuenta, en ISO 8601 UTC.
+        readyAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          description: Marca de "pedido listo"; null si no está marcado.
+        billRequestedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          description: Marca de "pidió la cuenta"; null si no está marcada.
+        closedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          description: Cuándo terminó la cuenta (cobro, anulación o fusión); null si sigue abierta.
+        closedBy:
+          oneOf:
+            - $ref: '#/components/schemas/UserRef'
+            - type: 'null'
+          description: Quién la cerró; null si sigue abierta.
+        cancelReason:
+          oneOf:
+            - type: string
+              maxLength: 200
+            - type: 'null'
+          description: Motivo recortado de la anulación; null si no fue anulada.
+        mergedIntoOrderId:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+          description: Id de la cuenta que la absorbió al fusionarse; null si no fue fusionada.
+    Table:
+      type: object
+      additionalProperties: false
+      required: [id, name, isActive, state, order]
+      description: |
+        Una mesa del salón tal como la devuelve la API: exactamente estas cinco
+        claves. order embebe el pedido completo que la cubre, o null si está libre.
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          $ref: '#/components/schemas/TableName'
+        isActive:
+          type: boolean
+          description: false = desactivada; sigue en la lista y puede reactivarse, pero no admite operaciones.
+        state:
+          $ref: '#/components/schemas/TableState'
+        order:
+          oneOf:
+            - $ref: '#/components/schemas/Order'
+            - type: 'null'
+          description: El pedido abierto que cubre la mesa; null si está libre.
+    TablesResponse:
+      type: object
+      additionalProperties: false
+      required: [tables]
+      properties:
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/Table'
+    CreateTableRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      description: Alta de una mesa del salón (spec 009). Siempre nace activa.
+      properties:
+        name:
+          $ref: '#/components/schemas/TableName'
+    UpdateTableRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: |
+        Edición de una mesa (spec 009): al menos una propiedad. isActive false la
+        desactiva (exige que no tenga pedido abierto) y true la reactiva; una mesa
+        nunca se borra.
+      properties:
+        name:
+          $ref: '#/components/schemas/TableName'
+        isActive:
+          type: boolean
+          description: false = desactivar; true = reactivar.
+    MoveOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [tableId]
+      description: |
+        Cuerpo de POST /orders/{orderId}/move: la mesa destino del pedido, una sola
+        clave — cualquier otra forma (extra, arreglo o no objeto) sale como issue en
+        tableId con 'El identificador de la mesa no es válido.', y una mesa
+        inexistente sale como issue con 'Esa mesa no existe.'.
+      properties:
+        tableId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    JoinTableRequest:
+      type: object
+      additionalProperties: false
+      required: [intoTableId]
+      description: |
+        Cuerpo de POST /tables/{tableId}/join: la mesa a cuya cuenta se suma la de
+        la ruta, una sola clave. Mismas reglas que MoveOrderRequest, con issues en
+        intoTableId; un destino igual a la mesa de la ruta sale como issue con
+        'La mesa de destino debe ser otra.'.
+      properties:
+        intoTableId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+    CancelOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      description: |
+        Cuerpo de POST /orders/{orderId}/cancel: solo el motivo, una sola clave —
+        cualquier otra forma sale como issue en reason con 'Escribe el motivo de la
+        anulación (hasta 200 caracteres).'.
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Motivo de la anulación; la API lo recorta antes de medirlo.
     ErrorCode:
       type: string
       pattern: '^[A-Z][A-Z0-9_]*$'
@@ -1486,6 +2436,22 @@ components:
           intentó cambiar su categoría fuera de 'combo'. Lo usa PATCH /products/{productId}.
         - PRODUCT_IS_COMPONENT (409, spec 007): el producto es componente de algún combo y se
           intentó cambiar su categoría. Lo usa PATCH /products/{productId}.
+        - TABLE_NOT_FOUND (404, spec 009): el tableId de la ruta no corresponde a ninguna mesa.
+        - TABLE_NAME_TAKEN (409, spec 009): ya existe una mesa con ese nombre, sin
+          distinguir mayúsculas, activa o inactiva. Lo usan POST /tables y PATCH /tables/{tableId}.
+        - TABLE_OCCUPIED (409, spec 009): la mesa ya tiene un pedido abierto; al abrir
+          cuenta sobre una cubierta o al mover un pedido a una mesa ocupada por otra cuenta.
+        - TABLE_INACTIVE (409, spec 009): la mesa está desactivada y no admite abrir
+          cuenta, mover a ella ni participar en una unión.
+        - TABLE_HAS_OPEN_ORDER (409, spec 009): la mesa tiene un pedido abierto y se
+          intentó desactivarla. Lo usa PATCH /tables/{tableId}.
+        - TABLE_HAS_NO_ORDER (409, spec 009): la mesa no tiene un pedido abierto; al
+          separar una libre o cuando el destino de una unión no tiene cuenta.
+        - ORDER_NOT_FOUND (404, spec 009): el orderId de la ruta no corresponde a ningún pedido.
+        - ORDER_NOT_OPEN (409, spec 009): el pedido ya está cerrado (cobrado, anulado o
+          fusionado) y la operación solo corre sobre pedidos abiertos.
+        - ORDER_NEEDS_TABLE (409, spec 009): la operación dejaría el pedido sin ninguna
+          mesa; al separar la última que lo cubre.
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
       examples: [NOT_FOUND]
     ValidationIssue:
@@ -1588,6 +2554,34 @@ components:
         minimum: 1
         maximum: 2147483647
       example: 5
+    TableId:
+      name: tableId
+      in: path
+      required: true
+      description: |
+        Identificador de la mesa: solo dígitos, entero entre 1 y 2147483647 (entero
+        de la base). Si no cumple, la ruta responde 400 VALIDATION_ERROR con un
+        issue en 'tableId' (mensaje 'El identificador de la mesa no es válido.').
+        Un percent-encoding malformado en la dirección responde el mismo error.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      example: 3
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      description: |
+        Identificador del pedido: solo dígitos, entero entre 1 y 2147483647 (entero
+        de la base). Si no cumple, la ruta responde 400 VALIDATION_ERROR con un
+        issue en 'orderId' (mensaje 'El identificador del pedido no es válido.').
+        Un percent-encoding malformado en la dirección responde el mismo error.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      example: 12
   responses:
     InvalidJson:
       description: El cuerpo de la solicitud no es un JSON válido. Aplica a cualquier ruta que reciba cuerpo.
@@ -1897,4 +2891,153 @@ components:
             error:
               code: PRODUCT_IS_COMPONENT
               message: Este producto es componente de un combo; quítalo del combo antes de cambiar su categoría.
+              details: null
+    TableNotFound:
+      description: El tableId de la ruta no corresponde a ninguna mesa (spec 009).
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TABLE_NOT_FOUND
+              message: Esa mesa no existe.
+              details: null
+    OrderNotFound:
+      description: El orderId de la ruta no corresponde a ningún pedido (spec 009).
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ORDER_NOT_FOUND
+              message: Ese pedido no existe.
+              details: null
+    TableNameTaken:
+      description: |
+        Ya existe una mesa con ese nombre, sin distinguir mayúsculas, activa o
+        inactiva (spec 009). Lo usan POST /tables y PATCH /tables/{tableId}. Nada
+        quedó creado ni modificado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TABLE_NAME_TAKEN
+              message: Ya existe una mesa con ese nombre.
+              details: null
+    TableOccupied:
+      description: |
+        La mesa ya tiene un pedido abierto (spec 009): al abrir una cuenta sobre una
+        mesa cubierta (POST /tables/{tableId}/orders) o al mover un pedido a una
+        mesa ocupada por otra cuenta (POST /orders/{orderId}/move). Nada quedó
+        cambiado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TABLE_OCCUPIED
+              message: La mesa ya tiene un pedido abierto.
+              details: null
+    TableInactive:
+      description: |
+        La mesa está desactivada (spec 009): no admite abrir cuenta, ser destino de
+        un movimiento ni participar en una unión, esté en la ruta o en el cuerpo.
+        Primero hay que reactivarla. Nada quedó cambiado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TABLE_INACTIVE
+              message: La mesa está desactivada.
+              details: null
+    TableHasOpenOrder:
+      description: |
+        La mesa tiene un pedido abierto y se intentó desactivarla con PATCH
+        /tables/{tableId} (spec 009): primero hay que moverlo o cerrarlo. La mesa
+        queda sin cambios.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TABLE_HAS_OPEN_ORDER
+              message: La mesa tiene un pedido abierto; ciérralo o muévelo antes de desactivarla.
+              details: null
+    TableHasNoOrder:
+      description: |
+        La mesa no tiene un pedido abierto (spec 009): al separar una mesa libre
+        (POST /tables/{tableId}/leave) o cuando la mesa destino de una unión no
+        tiene cuenta a la que sumarse (POST /tables/{tableId}/join). Nada quedó
+        cambiado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: TABLE_HAS_NO_ORDER
+              message: La mesa no tiene un pedido abierto.
+              details: null
+    OrderNotOpen:
+      description: |
+        El pedido ya está cerrado — cobrado, anulado o fusionado — y la operación
+        solo corre sobre pedidos abiertos (spec 009): mover, unir por fusión,
+        separar, señales y cancelar. Nada quedó cambiado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ORDER_NOT_OPEN
+              message: El pedido ya está cerrado.
+              details: null
+    OrderNeedsTable:
+      description: |
+        La operación dejaría el pedido sin ninguna mesa (spec 009): separar la
+        última mesa que lo cubre (POST /tables/{tableId}/leave). Un pedido no puede
+        quedar sin mesas por esta vía: hay que cancelarlo o moverlo entero.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ORDER_NEEDS_TABLE
+              message: El pedido necesita al menos una mesa; cancélalo o ciérralo.
               details: null

@@ -1,13 +1,12 @@
 import {
-  ERROR_CODES,
   createUserRequestSchema,
   resetPinRequestSchema,
   updateUserRequestSchema,
 } from '@polleria/shared';
 import type { RequestHandler } from 'express';
-import { AppError } from '../errors/app-error.ts';
 import type { UserService } from '../services/users/user.service.ts';
 import type { UserAdminService } from '../services/users/user-admin.service.ts';
+import { parseIdParam } from './id-param.ts';
 
 export interface UsersController {
   list: RequestHandler;
@@ -17,24 +16,13 @@ export interface UsersController {
 }
 
 const USER_ID_MESSAGE = 'El identificador del usuario no es válido.';
-/** Máximo del tipo INTEGER de PostgreSQL (spec 004, D-004-06). */
-const USER_ID_MAX = 2147483647;
 
 /**
- * Convierte el parámetro `userId` de la ruta en un entero positivo: ^[0-9]+$ y entre 1 y
- * 2147483647. Cualquier otra cosa ('abc', '0', '1.5', '-3', números enormes o un parámetro
- * repetido) es un VALIDATION_ERROR con el issue en `userId` (D-004-06).
+ * Convierte el parámetro `userId` de la ruta en un entero positivo (D-004-06):
+ * la regla compartida de parseIdParam con el mensaje propio del parámetro.
  */
 function parseUserIdParam(raw: string | string[] | undefined): number {
-  const userId = typeof raw === 'string' && /^[0-9]+$/.test(raw) ? Number(raw) : Number.NaN;
-  if (!Number.isSafeInteger(userId) || userId < 1 || userId > USER_ID_MAX)
-    throw new AppError({
-      code: ERROR_CODES.VALIDATION_ERROR,
-      message: 'Los datos enviados no son válidos.',
-      httpStatus: 400,
-      details: { issues: [{ path: 'userId', message: USER_ID_MESSAGE }] },
-    });
-  return userId;
+  return parseIdParam(raw, 'userId', USER_ID_MESSAGE);
 }
 
 export function createUsersController({

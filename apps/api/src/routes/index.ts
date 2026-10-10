@@ -6,12 +6,16 @@ import type { UsersController } from '../controllers/users.controller.ts';
 import type { ProductsController } from '../controllers/products.controller.ts';
 import type { ProductPortionsController } from '../controllers/product-portions.controller.ts';
 import type { ComboItemsController } from '../controllers/combo-items.controller.ts';
+import type { TablesController } from '../controllers/tables.controller.ts';
+import type { OrdersController } from '../controllers/orders.controller.ts';
 import type { HealthService } from '../services/health.service.ts';
 import { createHealthRoutes } from './health.routes.ts';
 import { createAuthRoutes } from './auth.routes.ts';
 import { createUserRoutes } from './users.routes.ts';
 import { createProductRoutes } from './products.routes.ts';
 import { createComboItemsRoutes } from './combo-items/combo-items.routes.ts';
+import { createTablesRoutes } from './tables/tables.routes.ts';
+import { createOrdersRoutes } from './orders/orders.routes.ts';
 
 export interface ApiRouterDependencies {
   healthService: HealthService;
@@ -20,6 +24,8 @@ export interface ApiRouterDependencies {
   productsController: ProductsController;
   productPortionsController: ProductPortionsController;
   comboItemsController: ComboItemsController;
+  tablesController: TablesController;
+  ordersController: OrdersController;
   requireAuth: RequestHandler;
 }
 
@@ -31,6 +37,8 @@ export function createApiRouter({
   productsController,
   productPortionsController,
   comboItemsController,
+  tablesController,
+  ordersController,
   requireAuth,
 }: ApiRouterDependencies): Router {
   const router = Router();
@@ -46,6 +54,11 @@ export function createApiRouter({
   // en '/products' que la carta, antes del 404 para que los métodos no declarados de
   // /items sigan respondiendo 404.
   router.use('/products', createComboItemsRoutes(comboItemsController, requireAuth));
+  // Salón y ciclo del pedido (spec 009): /api/tables cubre tablero, configuración
+  // y apertura/unión/separación desde la mesa; /api/orders cubre detalle, movimiento
+  // y las señales del pedido.
+  router.use('/tables', createTablesRoutes(tablesController, requireAuth));
+  router.use('/orders', createOrdersRoutes(ordersController, requireAuth));
 
   return router;
 }
