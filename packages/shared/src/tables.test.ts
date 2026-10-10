@@ -15,6 +15,7 @@ import {
 } from '@polleria/shared';
 import type {
   CreateTableRequest,
+  Order,
   Table,
   TableState,
   TablesResponse,
@@ -50,7 +51,7 @@ const EMBEDDED_ORDER = {
   closedBy: null,
   cancelReason: null,
   mergedIntoOrderId: null,
-};
+} satisfies Order;
 
 /** Una mesa libre válida: las cinco claves exactas de D-009-14. */
 const FREE_TABLE = {

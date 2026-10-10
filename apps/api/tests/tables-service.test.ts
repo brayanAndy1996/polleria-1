@@ -7,7 +7,6 @@ import type { Sequelize } from 'sequelize';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 import { tablesResponseSchema } from '@polleria/shared';
-import type { Table } from '@polleria/shared';
 import { defineModels } from '../src/models/index.ts';
 import type { Models } from '../src/models/index.ts';
 import { createBcryptPinHasher } from '../src/services/auth/pin-hasher.ts';
@@ -177,7 +176,7 @@ describe('009: servicio de mesas sobre polleria_test', () => {
     });
     const orderB = await orderCovering(juan.id, [mesa10], { billAt: T1, billBy: juan.id });
 
-    const tables = (await service.listTables()) as Table[];
+    const tables = await service.listTables();
     // Las cuatro mesas, inactiva incluida, ordenadas por nombre con colación natural
     // (Mesa 2 antes que Mesa 10); cada una con exactamente las cinco claves de D-009-14.
     expect(tables.map((table) => table.name)).toEqual([
@@ -258,7 +257,7 @@ describe('009: servicio de mesas sobre polleria_test', () => {
       billAt: T1,
       billBy: juan.id,
     });
-    const tables = (await service.listTables()) as Table[];
+    const tables = await service.listTables();
     expect(tables.find((table) => table.id === mesa1)).toMatchObject({
       state: 'occupied',
       order: { readyAt: null, billRequestedAt: null },
@@ -271,7 +270,7 @@ describe('009: servicio de mesas sobre polleria_test', () => {
   });
 
   it('AC-07: createTable devuelve la mesa libre y normaliza el nombre', async () => {
-    const created = (await service.createTable({ name: '  Mesa   1  ' })) as Table;
+    const created = await service.createTable({ name: '  Mesa   1  ' });
     expect(created).toEqual({
       id: 1,
       name: 'Mesa 1',
@@ -292,7 +291,7 @@ describe('009: servicio de mesas sobre polleria_test', () => {
       TABLE_NAME_TAKEN,
     );
     // Una mesa inactiva también reserva su nombre (RN-009-09).
-    const deposito = (await service.createTable({ name: 'Dep\u00F3sito' })) as Table;
+    const deposito = await service.createTable({ name: 'Dep\u00F3sito' });
     await service.updateTable(deposito.id, { isActive: false });
     await expect(service.createTable({ name: 'dep\u00F3sito' })).rejects.toMatchObject(
       TABLE_NAME_TAKEN,
@@ -306,7 +305,7 @@ describe('009: servicio de mesas sobre polleria_test', () => {
     for (const input of [{}, { name: '' }, { name: 'Mesa/1' }, { name: 'x'.repeat(41) }])
       await expect(service.createTable(input)).rejects.toBeInstanceOf(ZodError);
     expect(await tableCount()).toHaveLength(0);
-    const mesa = (await service.createTable({ name: 'Mesa 1' })) as Table;
+    const mesa = await service.createTable({ name: 'Mesa 1' });
     for (const input of [{}, { name: 'Mesa/2' }])
       await expect(service.updateTable(mesa.id, input)).rejects.toBeInstanceOf(ZodError);
     expect(await tableRow(mesa.id)).toEqual([
@@ -315,9 +314,9 @@ describe('009: servicio de mesas sobre polleria_test', () => {
   });
 
   it('AC-07: updateTable renombra y cambia el estado, y la mesa nunca se borra', async () => {
-    const mesa = (await service.createTable({ name: 'Mesa 1' })) as Table;
+    const mesa = await service.createTable({ name: 'Mesa 1' });
     // Renombrar normaliza y actualiza el nombre.
-    const renamed = (await service.updateTable(mesa.id, { name: '  Barra  ' })) as Table;
+    const renamed = await service.updateTable(mesa.id, { name: '  Barra  ' });
     expect(renamed).toMatchObject({ name: 'Barra', isActive: true, state: 'free', order: null });
     // Desactivar y reactivar una mesa libre: la fila sigue existiendo (RN-009-09).
     await expect(service.updateTable(mesa.id, { isActive: false })).resolves.toMatchObject({
@@ -326,9 +325,7 @@ describe('009: servicio de mesas sobre polleria_test', () => {
     expect(await tableRow(mesa.id)).toEqual([
       { name: 'Barra', is_active: false, current_order_id: null },
     ]);
-    expect(
-      ((await service.listTables()) as Table[]).find((table) => table.id === mesa.id),
-    ).toMatchObject({
+    expect((await service.listTables()).find((table) => table.id === mesa.id)).toMatchObject({
       name: 'Barra',
       isActive: false,
       state: 'free',
@@ -349,8 +346,8 @@ describe('009: servicio de mesas sobre polleria_test', () => {
   });
 
   it('AC-07: updateTable a nombre ya usado lanza TABLE_NAME_TAKEN y nada cambia', async () => {
-    const barra = (await service.createTable({ name: 'Barra' })) as Table;
-    const mesa = (await service.createTable({ name: 'Mesa 1' })) as Table;
+    const barra = await service.createTable({ name: 'Barra' });
+    const mesa = await service.createTable({ name: 'Mesa 1' });
     await expect(service.updateTable(mesa.id, { name: 'BARRA' })).rejects.toMatchObject(
       TABLE_NAME_TAKEN,
     );
@@ -365,7 +362,7 @@ describe('009: servicio de mesas sobre polleria_test', () => {
 
   it('AC-07: desactivar una mesa cubierta lanza TABLE_HAS_OPEN_ORDER sin cambiar nada', async () => {
     const juan = await createUser('tablero.juan', 'Juan');
-    const mesa = (await service.createTable({ name: 'Mesa 1' })) as Table;
+    const mesa = await service.createTable({ name: 'Mesa 1' });
     const orderId = await orderCovering(juan.id, [mesa.id]);
     await expect(service.updateTable(mesa.id, { isActive: false })).rejects.toMatchObject(
       TABLE_HAS_OPEN_ORDER,
@@ -374,7 +371,7 @@ describe('009: servicio de mesas sobre polleria_test', () => {
     expect(await tableRow(mesa.id)).toEqual([
       { name: 'Mesa 1', is_active: true, current_order_id: orderId },
     ]);
-    expect(((await service.listTables()) as Table[])[0]).toMatchObject({
+    expect((await service.listTables())[0]).toMatchObject({
       state: 'occupied',
       isActive: true,
       order: { id: orderId },

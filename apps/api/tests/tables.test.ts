@@ -5,7 +5,7 @@ import { QueryTypes } from 'sequelize';
 import type { Sequelize } from 'sequelize';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { orderSchema, tablesResponseSchema } from '@polleria/shared';
-import type { Order, Table, UserRole } from '@polleria/shared';
+import type { Table, UserRole } from '@polleria/shared';
 import { createOrderService } from '../src/services/orders/order.service.ts';
 import { createTableService } from '../src/services/tables/table.service.ts';
 import {
@@ -166,13 +166,12 @@ describe('009: API de mesas y pedidos contra polleria_test', () => {
   }
   /** Crea una mesa (y la desactiva si se pide) por el servicio, como fixture. */
   const createTable = async (name: string, isActive = true): Promise<Table> => {
-    const table = (await tableService.createTable({ name })) as Table;
-    if (!isActive) return (await tableService.updateTable(table.id, { isActive: false })) as Table;
+    const table = await tableService.createTable({ name });
+    if (!isActive) return await tableService.updateTable(table.id, { isActive: false });
     return table;
   };
   /** Abre un pedido por el servicio (fixture) y devuelve su Order. */
-  const openAt = (tableId: number, userId: number) =>
-    orderService.openOrder(tableId, { userId }) as Promise<Order>;
+  const openAt = (tableId: number, userId: number) => orderService.openOrder(tableId, { userId });
 
   const getTables = (cookie?: string) => {
     const call = request(auth.app).get('/api/tables');

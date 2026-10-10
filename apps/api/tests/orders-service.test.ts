@@ -7,7 +7,7 @@ import type { Sequelize } from 'sequelize';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 import { orderSchema } from '@polleria/shared';
-import type { Order, UserRole } from '@polleria/shared';
+import type { UserRole } from '@polleria/shared';
 import { defineModels } from '../src/models/index.ts';
 import type { Models } from '../src/models/index.ts';
 import { createBcryptPinHasher } from '../src/services/auth/pin-hasher.ts';
@@ -121,7 +121,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
   /** Crea una mesa activa y le abre un pedido como `userId`. */
   const tableWithOrder = async (name: string, userId: number) => {
     const tableId = await insertTable(name);
-    const order = (await service.openOrder(tableId, { userId })) as Order;
+    const order = await service.openOrder(tableId, { userId });
     return { tableId, order };
   };
 
@@ -142,7 +142,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
   it('AC-08: openOrder crea el pedido, lo devuelve en forma D-009-14 y ocupa la mesa', async () => {
     const juan = await createUser('salon.juan', 'Juan');
     const mesa3 = await insertTable('Mesa 3');
-    const order = (await service.openOrder(mesa3, { userId: juan.id })) as Order;
+    const order = await service.openOrder(mesa3, { userId: juan.id });
     expect(orderSchema.safeParse(order).success).toBe(true);
     expect(order).toMatchObject({
       status: 'open',
@@ -228,7 +228,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const mesa5 = await insertTable('Mesa 5');
     await service.joinTable(mesa5, mesa3, { userId: juan.id });
     await service.requestBill(order.id, { userId: juan.id });
-    const detail = (await service.getOrder(order.id)) as Order;
+    const detail = await service.getOrder(order.id);
     expect(orderSchema.safeParse(detail).success).toBe(true);
     expect(detail).toMatchObject({
       id: order.id,
@@ -254,7 +254,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const { tableId: mesa4, order: q } = await tableWithOrder('Mesa 4', juan.id);
     await service.joinTable(mesa4, mesa3, { userId: juan.id });
     // El pedido absorbido (Q, el de Mesa 4) sigue consultable con su forma de cierre.
-    const absorbed = (await service.getOrder(q.id)) as Order;
+    const absorbed = await service.getOrder(q.id);
     expect(orderSchema.safeParse(absorbed).success).toBe(true);
     expect(absorbed).toMatchObject({
       status: 'merged',
@@ -275,7 +275,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     await service.markReady(p.id, { userId: juan.id });
     const mesa7 = await insertTable('Mesa 7');
 
-    const moved = (await service.moveOrder(p.id, mesa7, { userId: juan.id })) as Order;
+    const moved = await service.moveOrder(p.id, mesa7, { userId: juan.id });
     expect(moved).toMatchObject({
       id: p.id,
       status: 'open',
@@ -338,7 +338,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
   it('AC-10: mover a la mesa que ya cubre sola el pedido es un no-op sin cambios', async () => {
     const juan = await createUser('salon.juan', 'Juan');
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
-    const again = (await service.moveOrder(p.id, mesa3, { userId: juan.id })) as Order;
+    const again = await service.moveOrder(p.id, mesa3, { userId: juan.id });
     expect(again).toMatchObject({ id: p.id, tables: [{ id: mesa3, name: 'Mesa 3' }] });
     expect(await tableRow(mesa3)).toEqual([
       { name: 'Mesa 3', is_active: true, current_order_id: p.id },
@@ -349,7 +349,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const juan = await createUser('salon.juan', 'Juan');
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
     const mesa5 = await insertTable('Mesa 5');
-    const joined = (await service.joinTable(mesa5, mesa3, { userId: juan.id })) as Order;
+    const joined = await service.joinTable(mesa5, mesa3, { userId: juan.id });
     // La respuesta es el pedido destino P cubriendo las dos mesas.
     expect(joined).toMatchObject({
       id: p.id,
@@ -376,7 +376,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     // P pide la cuenta: sus marcas se conservan pese al merge (RN-009-05).
     await service.requestBill(p.id, { userId: juan.id });
 
-    const merged = (await service.joinTable(mesa4, mesa3, { userId: juan.id })) as Order;
+    const merged = await service.joinTable(mesa4, mesa3, { userId: juan.id });
     expect(merged).toMatchObject({
       id: p.id,
       status: 'open',
@@ -415,7 +415,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const mesa4 = await insertTable('Mesa 4');
     await service.joinTable(mesa4, mesa3, { userId: juan.id });
     // Mesa 3 y Mesa 4 ya comparten el pedido P: unirlas entre sí no cambia nada.
-    const noop = (await service.joinTable(mesa3, mesa4, { userId: juan.id })) as Order;
+    const noop = await service.joinTable(mesa3, mesa4, { userId: juan.id });
     expect(noop).toMatchObject({ id: p.id });
     expect((await tableRow(mesa3))[0]?.current_order_id).toBe(p.id);
     // Destino libre y destino inactivo.
@@ -463,7 +463,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
     const mesa5 = await insertTable('Mesa 5');
     await service.joinTable(mesa5, mesa3, { userId: juan.id });
-    const remaining = (await service.leaveTable(mesa5, { userId: juan.id })) as Order;
+    const remaining = await service.leaveTable(mesa5, { userId: juan.id });
     // La respuesta es el pedido P cubriendo solo Mesa 3; Mesa 5 quedó libre.
     expect(remaining).toMatchObject({
       id: p.id,
@@ -504,7 +504,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const beto = await createUser('salon.beto', 'Beto');
     const { order: p } = await tableWithOrder('Mesa 3', juan.id);
 
-    const billed = (await service.requestBill(p.id, { userId: juan.id })) as Order;
+    const billed = await service.requestBill(p.id, { userId: juan.id });
     expect(billed).toMatchObject({
       id: p.id,
       status: 'open',
@@ -512,13 +512,13 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
       readyAt: null,
     });
     // Repetir con otro usuario conserva la primera marca (no-op idempotente).
-    const billedAgain = (await service.requestBill(p.id, { userId: beto.id })) as Order;
+    const billedAgain = await service.requestBill(p.id, { userId: beto.id });
     expect(billedAgain.billRequestedAt).toBe(billed.billRequestedAt);
     expect((await orderRow(p.id))[0]).toMatchObject({
       bill_requested_by_user_id: juan.id,
     });
 
-    const ready = (await service.markReady(p.id, { userId: beto.id })) as Order;
+    const ready = await service.markReady(p.id, { userId: beto.id });
     expect(ready).toMatchObject({
       id: p.id,
       status: 'open',
@@ -526,7 +526,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     });
     // Ambas marcas viajan en el pedido; el estado derivado lo decide la mesa (AC-06).
     expect(ready.billRequestedAt).toBe(billed.billRequestedAt);
-    const readyAgain = (await service.markReady(p.id, { userId: juan.id })) as Order;
+    const readyAgain = await service.markReady(p.id, { userId: juan.id });
     expect(readyAgain.readyAt).toBe(ready.readyAt);
     expect((await orderRow(p.id))[0]).toMatchObject({ ready_by_user_id: beto.id });
   });
@@ -538,7 +538,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     await service.requestBill(p.id, { userId: juan.id });
     await service.markReady(p.id, { userId: beto.id });
 
-    const served = (await service.markServed(p.id, { userId: juan.id })) as Order;
+    const served = await service.markServed(p.id, { userId: juan.id });
     // Se sirvió: la marca de listo se limpia y la de la cuenta sigue puesta.
     expect(served).toMatchObject({ id: p.id, readyAt: null });
     expect(served.billRequestedAt).not.toBeNull();
@@ -548,9 +548,9 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
       bill_requested_at: expect.any(Date) as unknown,
     });
     // Repetir sin marca no cambia nada; un markReady posterior vuelve a ponerla.
-    const servedAgain = (await service.markServed(p.id, { userId: juan.id })) as Order;
+    const servedAgain = await service.markServed(p.id, { userId: juan.id });
     expect(servedAgain).toMatchObject({ readyAt: null });
-    const readyOnceMore = (await service.markReady(p.id, { userId: juan.id })) as Order;
+    const readyOnceMore = await service.markReady(p.id, { userId: juan.id });
     expect(readyOnceMore.readyAt).not.toBeNull();
     expect((await orderRow(p.id))[0]).toMatchObject({ ready_by_user_id: juan.id });
   });
@@ -573,12 +573,13 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
         ORDER_NOT_OPEN,
       );
     }
+    // Thunks: cada promesa se crea dentro del await para no dejar rechazos sin enganchar.
     for (const operation of [
-      service.requestBill(999999, { userId: juan.id }),
-      service.markReady(999999, { userId: juan.id }),
-      service.markServed(999999, { userId: juan.id }),
+      () => service.requestBill(999999, { userId: juan.id }),
+      () => service.markReady(999999, { userId: juan.id }),
+      () => service.markServed(999999, { userId: juan.id }),
     ])
-      await expect(operation).rejects.toMatchObject(ORDER_NOT_FOUND);
+      await expect(operation()).rejects.toMatchObject(ORDER_NOT_FOUND);
   });
 
   it('AC-14: cancelOrder cierra con motivo, autor y libera todas las mesas en una transacción', async () => {
@@ -589,9 +590,9 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     await service.joinTable(mesa5, mesa3, { userId: juan.id });
     await service.requestBill(p.id, { userId: juan.id });
 
-    const cancelled = (await service.cancelOrder(p.id, '  Se sentaron por error  ', {
+    const cancelled = await service.cancelOrder(p.id, '  Se sentaron por error  ', {
       userId: dueno.id,
-    })) as Order;
+    });
     expect(orderSchema.safeParse(cancelled).success).toBe(true);
     expect(cancelled).toMatchObject({
       id: p.id,
@@ -614,7 +615,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
       closed_at: expect.any(Date) as unknown,
     });
     // GET posterior muestra el pedido cancelado con su motivo y quién lo hizo.
-    const detail = (await service.getOrder(p.id)) as Order;
+    const detail = await service.getOrder(p.id);
     expect(detail).toMatchObject({
       status: 'cancelled',
       tables: [],
