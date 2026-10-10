@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 2 de 6, mesas y pedidos (RF-02 a RF-07). La Fase 1 quedó completa en código con la integración de la 008 el 2026-10-09 (pendientes manuales documentados: pnpm db:migrate en polleria_dev, pruebas por API y recorrido de /admin/carta).
-- Funcionalidad: 009-tables (spec aprobada; siguiente: tests en rojo).
-- Paso: propuesta 009 redactada por el spec-writer y aprobada por el usuario el 2026-10-10 con las 13 respuestas recomendadas (21 AC; OpenAPI propuesto 0.7.0 → 0.8.0 solo aditivo; dominio + API, sin pantallas ni Socket.IO). La división de la Fase 2 quedó: 009 mesas + ciclo del pedido sin ítems, 010 ítems/idempotencia/anulación, 011 pantallas del mozo, 012 administración de mesas (o dentro de 011).
-- Siguiente acción: test-writer escribe los AC-01 a AC-21 en rojo (T-01 a T-05); luego backend-dev (T-06 a T-10), adversarial-tester y reviewer.
-- Rama: feat/009-tables (creada desde main tras integrar la 008).
+- Funcionalidad: 009-tables cerrada técnicamente; pendiente la autorización del usuario para integrar a main.
+- Paso: ciclo completo de la 009 — spec aprobada el 2026-10-10 con las 13 respuestas recomendadas (21 AC; OpenAPI 0.7.0 → 0.8.0 aditivo; dominio + API, sin pantallas ni Socket.IO). Test-writer en rojo (156 pruebas + 3 defectos corregidos), backend-dev en verde, adversarial-tester (24 casos; 1 alto + 1 medio corregidos y revalidados), reviewer APROBADO, verificación del orquestador ejecutada.
+- Siguiente acción: autorización del usuario para integrar feat/009-tables a main (merge --no-ff). Después: spec-writer prepara la propuesta 010 (ítems del pedido con presentación/parte/cremas/observaciones, envío idempotente, comandas y anulación — RF-04 a RF-07).
+- Rama: feat/009-tables.
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -24,7 +24,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada (APROBADO; 14 AC; 28 adversariales verdes; integrada a main en el merge 4afbc66; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
 | 007 | combos (producto de categoría 'combo' + tabla combo_items; precio fijo; consumo en octavos derivado; GET + PUT /api/products/{id}/items; sin pantallas) | 1 | Cerrada (APROBADO; 15 AC; 30 adversariales con 0 hallazgos; integrada a main en el merge 892914a; pendientes manuales registrados) | feat/007-combos | 2026-10-09 |
 | 008 | menu-admin (pantallas /admin/carta: lista por categorías, alta/edición de productos, grilla de presentaciones del pollo, editor de componentes del combo con comparación de precios) | 1 | Cerrada (APROBADO; 21 AC; 157 tests adversariales verdes; 9 hallazgos corregidos; integrada a main en el merge 01d23bb; pendientes manuales registrados) | feat/008-menu-admin | 2026-10-09 |
-| 009 | tables (mesas del salón + ciclo del pedido sin ítems: estados derivados, abrir, mover, unir, separar, listo/servido, pedir cuenta, cancelar) | 2 | En curso (spec aprobada 2026-10-10; 21 AC) | feat/009-tables | — |
+| 009 | tables (mesas del salón + ciclo del pedido sin ítems: estados derivados, abrir, mover, unir, separar, listo/servido, pedir cuenta, cancelar) | 2 | Cerrada (APROBADO; 21 AC; 24 adversariales verdes; 2 hallazgos corregidos; pendiente integración a main) | feat/009-tables | 2026-10-10 |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec. La de la Fase 2 (009 a 012) la propuso el spec-writer de la 009.
 
@@ -74,6 +74,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-09 | Autoriza corregir los 8 hallazgos adversariales de la 008 (1 alto ADV-008-04: cantidad que desborda a Infinity tumbaba la página; medios 05/06: dinero exponencial en pantalla y filas incompletas que sumaban; bajos 02/03/07/08) y después el residual bajo ADV-008-42 (claves React duplicadas por mensajes repetidos). Todos revalidados en verde con aserciones intactas. |
 | 2026-10-09 | Autoriza integrar la 008 a main (merge --no-ff 01d23bb). |
 | 2026-10-10 | Spec 009 aprobada con las 13 respuestas recomendadas: mesas fijas configuradas por admin; estados derivados (nunca guardados) con precedencia 'pedido listo' sobre 'pidió la cuenta'; unir = fusionar cuentas con auditoría (pedido origen merged); separar deja la mesa libre; cancelar sin ítems lo hace mozo/admin con motivo (con ítems solo admin, RF-07); 'pedido listo' lo marca mozo/kitchen/admin; cualquier mozo mueve/separa; sin Socket.IO (polling en la 011), sin plano visual, sin estado 'limpiando', sin número de personas; para llevar queda para su fase; modelo con puntero invertido tables.current_order_id; división de la Fase 2 en 009/010/011/012. |
+| 2026-10-10 | Autoriza corregir los 2 hallazgos adversariales de la 009 (alto ADV-009-22: GET /api/tables con lectura rasgada durante merges → REPEATABLE READ en listTables y getOrder; medio ADV-009-14: rutas sin cuerpo rechazaban cuerpos ilegibles → bypass BODILESS_PATH_PATTERN). Revalidados en verde, 24/24. |
 
 ## Notas técnicas del orquestador
 
@@ -110,6 +111,9 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 - La 007 se integró a main el 2026-10-09 (merge 892914a). El árbol quedó limpio; no hay commits ni merges pendientes.
 - Ciclo 008 ejecutado íntegramente con subagentes separados: spec-writer (propuesta + registro de aprobación), test-writer (rojo: tests de money, etiquetas, cliente PUT, API de la carta, componentes con MSW y 4 E2E; arbitraje: 4 defectos de pruebas corregidos en 021ded8 — orden de handlers MSW donde gana el primero, spy sobre otro QueryClient, mock faltante de GET /portions y aritmética 8300), backend-dev (T-07 money.ts; fix adversarial de parseSolesToCents/formatSoles con BigInt), frontend-dev (T-08 a T-14 pantallas + fixes ADV-008-04..08 y ADV-008-42; corrigió el regex \d colapsado en issues.ts), adversarial-tester (134 casos originales + 22 de revalidación; 9 hallazgos corregidos en total), reviewer (APROBADO verificado con números reales).
 - Verificación final del orquestador de la 008: el reviewer obtuvo pnpm test 1866 verdes + 7 fallas esperadas (1873; 97 archivos) sobre el mismo árbol; la corrida del orquestador dio 1863 verdes + 3 timeouts de findByRole (AC-12, AC-14, ADV-008-04) bajo la carga de ~97 workers que pasaron aislados 126/126 — flake de carga documentado, no defecto; pnpm lint y pnpm typecheck código 0 (orquestador); pnpm test:coverage código 0 verificado por el reviewer sobre el mismo árbol (global 98,5 %; shared 99,35 % con money.ts 100 %; services: auth 98,48, combo-items 98,41, printer 100, products 96,7, users 96,61; módulos web de la 008 ≥95,7 %); pnpm test:e2e 20 verdes y 8 no aplicables por proyecto (reviewer, mismo árbol; los 4 E2E nuevos en verde). OpenAPI 0.7.0 intacto (diff vacío contra main; Redocly válido). Nada de la 008 tocó polleria_dev ni apps/api.
+- La 008 se integró a main el 2026-10-09 (merge 01d23bb). El árbol quedó limpio; no hay commits ni merges pendientes.
+- Ciclo 009 ejecutado íntegramente con subagentes separados: spec-writer (propuesta + registro de aprobación; corrigió una referencia cruzada D-009-13→D-009-11), test-writer (rojo: 156 pruebas en 6 archivos + helpers; arbitraje: 3 defectos corregidos en 6cdff09 — fixture sin tipo, promesas ansiosas con rechazo no manejado, 34 aserciones redundantes), backend-dev (T-06 a T-10 en 4 commits + prettier + fix adversarial: REPEATABLE READ en listTables/getOrder y BODILESS_PATH_PATTERN para las rutas sin cuerpo), adversarial-tester (24 casos; 1 alto + 1 medio corregidos; revalidación 24/24), reviewer (APROBADO verificado con números reales).
+- Verificación final del orquestador de la 009: pnpm test 2091 verdes + 7 fallas esperadas (2098; 105 archivos; sin flakes en esta corrida); pnpm lint y pnpm typecheck código 0 (orquestador); pnpm test:coverage código 0 verificado por el reviewer sobre el mismo árbol (global 98,33 %; shared 98,57 % con tables.ts/orders.ts 100 %; services ≥90 %: table.service 95,08 %, order.service 90,16 %); pnpm test:e2e 20 verdes y 8 no aplicables por proyecto (reviewer, mismo árbol). OpenAPI 0.8.0 validado con Redocly. Nada de la 009 tocó polleria_dev ni apps/web.
 
 
 - 2026-10-07: el entorno tiene Windows 11, Node 24.1.0 (LTS), pnpm 10.12.1, Git 2.49 y PostgreSQL 17.5 en localhost:5432. También hay un PostgreSQL 18 en el puerto 5433, que el proyecto no usa.
@@ -190,6 +194,14 @@ Ataques de la 002 sin fallas (regresión en verde): ningún punto de código Uni
 - Refactor no previsto en spec §11: parseResponse extraída a client.ts y reutilizada por users.ts (aditivo DRY; los tests de la 004 pasan).
 - Desviación de ejemplo en E2E: AC-19 usa precios 18/17/65 (la spec ejemplifica 19.90/18.90/72.00) y AC-20 elige Pecho con suma 36.00 (la spec ejemplifica Pierna con 35.00); el comportamiento verificado es el mismo.
 - Flake: timeouts de findByRole en tests web bajo ~97 workers simultáneos (AC-12, AC-14, ADV-008-04 fallaron una vez en la corrida completa del orquestador; pasan aislados y pasaron en la corrida del reviewer sobre el mismo árbol). Vigilar si se vuelve frecuente.
+
+### Observaciones documentadas de la 009 (adversarial-tester y reviewer; deuda para decidir después)
+
+- ADV-009-09: /api/tables% y hermanas desconocidas responden 404 sin Cache-Control: no-store (el prefijo global exige coincidencia exacta). Paridad con /api/products%; documentado con test.
+- ADV-009-23(j): la base permite current_order_id apuntando a un pedido no-open — el invariante lo mantiene el servicio por diseño (D-009-15); solo quebrantable por SQL directo. Considerar CHECK/trigger si en el futuro se escribe SQL manual.
+- Reviewer: order.service.ts quedó en 90,16 % de líneas (sobre el umbral pero con margen fino; ramas 81,13 %). Reforzar cobertura de ramas en la 010, que toca el mismo servicio.
+- Reviewer: 13 componentes de respuesta huérfanos en openapi.yaml (InvalidJson, TableOccupied, OrderNeedsTable, etc. — las rutas inlinean los errores). Cosmético; eliminarlos o referenciarlos en una próxima edición del contrato.
+- ADV-004-20 (timeout en proceso real bajo carga) suma un segundo flake documentado de la misma clase que los timeouts web: pasa aislado (17/17) y falla solo bajo ~97 workers.
 
 ### Otras deudas bajas abiertas
 
