@@ -8,6 +8,8 @@ import type { ProductPortionsController } from '../controllers/product-portions.
 import type { ComboItemsController } from '../controllers/combo-items.controller.ts';
 import type { TablesController } from '../controllers/tables.controller.ts';
 import type { OrdersController } from '../controllers/orders.controller.ts';
+import type { OrderItemsController } from '../controllers/order-items.controller.ts';
+import type { MenuController } from '../controllers/menu.controller.ts';
 import type { HealthService } from '../services/health.service.ts';
 import { createHealthRoutes } from './health.routes.ts';
 import { createAuthRoutes } from './auth.routes.ts';
@@ -16,6 +18,8 @@ import { createProductRoutes } from './products.routes.ts';
 import { createComboItemsRoutes } from './combo-items/combo-items.routes.ts';
 import { createTablesRoutes } from './tables/tables.routes.ts';
 import { createOrdersRoutes } from './orders/orders.routes.ts';
+import { createOrderItemsRoutes } from './orders/order-items.routes.ts';
+import { createMenuRoutes } from './menu.routes.ts';
 
 export interface ApiRouterDependencies {
   healthService: HealthService;
@@ -26,6 +30,8 @@ export interface ApiRouterDependencies {
   comboItemsController: ComboItemsController;
   tablesController: TablesController;
   ordersController: OrdersController;
+  orderItemsController: OrderItemsController;
+  menuController: MenuController;
   requireAuth: RequestHandler;
 }
 
@@ -39,6 +45,8 @@ export function createApiRouter({
   comboItemsController,
   tablesController,
   ordersController,
+  orderItemsController,
+  menuController,
   requireAuth,
 }: ApiRouterDependencies): Router {
   const router = Router();
@@ -58,7 +66,11 @@ export function createApiRouter({
   // y apertura/unión/separación desde la mesa; /api/orders cubre detalle, movimiento
   // y las señales del pedido.
   router.use('/tables', createTablesRoutes(tablesController, requireAuth));
-  router.use('/orders', createOrdersRoutes(ordersController, requireAuth));
+  router.use('/orders', createOrdersRoutes(ordersController, orderItemsController, requireAuth));
+  // Ítems del pedido (spec 010): sub-rutas de /orders para envío y anulación, y
+  // /menu para la carta completa.
+  router.use('/orders', createOrderItemsRoutes(orderItemsController, requireAuth));
+  router.use('/menu', createMenuRoutes(menuController, requireAuth));
 
   return router;
 }
