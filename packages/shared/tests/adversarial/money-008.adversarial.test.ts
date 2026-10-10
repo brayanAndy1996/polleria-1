@@ -131,4 +131,17 @@ describe('008-adversarial: dinero en la interfaz (money.ts)', () => {
   it('ADV-008-03: formatSoles(1850n) también lanza (no cuela otro entero)', () => {
     expect(() => formatSoles(BigInt(1850) as never)).toThrow();
   });
+
+  it('ADV-008-41: el desborde de parseSolesToCents corta al cruzar el máximo double', () => {
+    // La frontera depende del valor, no solo del largo: 307 dígitos en '1' aún
+    // cabe (≈1.1e308 céntimos < 1.79e308, entero no seguro pero finito); en '2'
+    // el mismo largo ya desborda a Infinity y devuelve null. Con 308 dígitos
+    // cualquier valor excede el máximo double.
+    const just = parseSolesToCents('1'.repeat(307));
+    expect(Number.isInteger(just)).toBe(true);
+    expect(Number.isSafeInteger(just)).toBe(false);
+    expect(parseSolesToCents('2'.repeat(307))).toBeNull();
+    expect(parseSolesToCents('9'.repeat(307))).toBeNull();
+    expect(parseSolesToCents('1'.repeat(308))).toBeNull();
+  });
 });

@@ -34,7 +34,13 @@ const POLLO = { id: 1, name: 'E2E Pollo', category: 'chicken', priceCents: 6500,
 const COMBO = { id: 2, name: 'Mostrito', category: 'combo', priceCents: 3000, isActive: true };
 const CHAUFA = { id: 3, name: 'E2E Chaufa', category: 'dish', priceCents: 1400, isActive: true };
 const GASEOSA = { id: 4, name: 'E2E Gaseosa', category: 'drink', priceCents: 400, isActive: true };
-const POSTRE = { id: 6, name: 'Tres Leches', category: 'dessert', priceCents: 500, isActive: false };
+const POSTRE = {
+  id: 6,
+  name: 'Tres Leches',
+  category: 'dessert',
+  priceCents: 500,
+  isActive: false,
+};
 const PRODUCTS = [POLLO, COMBO, CHAUFA, GASEOSA, POSTRE];
 const POLLO_PORTIONS = {
   portions: [
@@ -51,7 +57,11 @@ const ITEMS_LOADED = {
   ],
 };
 const UNAUTHENTICATED = {
-  error: { code: 'UNAUTHENTICATED', message: 'Debes iniciar sesión para continuar.', details: null },
+  error: {
+    code: 'UNAUTHENTICATED',
+    message: 'Debes iniciar sesión para continuar.',
+    details: null,
+  },
 };
 
 function mockBase() {
@@ -127,9 +137,7 @@ describe('ADV-008-04 a 06: comparación del combo con cantidades hostiles', () =
     fireEvent.change(within(row).getByRole('combobox', { name: 'Producto' }), {
       target: { value: '3' },
     });
-    expect(
-      await screen.findByText('Los componentes por separado suman S/ 49.00.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Los componentes por separado suman S/ 49.00.')).toBeVisible();
     // '1e306' es un entero válido para Number(): 1400 × 1e306 desborda a
     // Infinity y formatSoles lanza; no hay error boundary en estas pantallas.
     expect(() => {
@@ -145,9 +153,7 @@ describe('ADV-008-04 a 06: comparación del combo con cantidades hostiles', () =
     fireEvent.change(within(row).getByRole('combobox', { name: 'Producto' }), {
       target: { value: '3' },
     });
-    expect(
-      await screen.findByText('Los componentes por separado suman S/ 49.00.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Los componentes por separado suman S/ 49.00.')).toBeVisible();
     // 1400 × 1e21 = 1.4e24 céntimos: String() cambia a '1.4e+22' → 'S/ 1.4e+22.04'.
     fireEvent.change(within(row).getByLabelText('Cantidad'), { target: { value: '1e21' } });
     const suma = await screen.findByText(/Los componentes por separado suman/);
@@ -156,30 +162,22 @@ describe('ADV-008-04 a 06: comparación del combo con cantidades hostiles', () =
   it('ADV-008-06: una fila de pollo sin presentación no debería sumar (D-008-09)', async () => {
     await renderCombo();
     // 1700 (¼ pierna) + 1400 + 400 = 3500 → 'S/ 35.00'.
-    expect(
-      await screen.findByText('Los componentes por separado suman S/ 35.00.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Los componentes por separado suman S/ 35.00.')).toBeVisible();
     const row = componentRow(1);
     fireEvent.change(within(row).getByRole('combobox', { name: 'Presentación' }), {
       target: { value: '' },
     });
     // La fila incompleta no debería contar: la suma correcta sería 1400 + 400.
-    expect(
-      await screen.findByText('Los componentes por separado suman S/ 18.00.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Los componentes por separado suman S/ 18.00.')).toBeVisible();
   });
   it('ADV-008-06: una cantidad que el PUT rechazaría (>99) no debería sumar', async () => {
     await renderCombo();
-    expect(
-      await screen.findByText('Los componentes por separado suman S/ 35.00.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Los componentes por separado suman S/ 35.00.')).toBeVisible();
     fireEvent.change(within(componentRow(1)).getByLabelText('Cantidad'), {
       target: { value: '150' },
     });
     // La fila no se puede guardar (schema max 99) pero igual suma ×150.
-    expect(
-      await screen.findByText('Los componentes por separado suman S/ 18.00.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Los componentes por separado suman S/ 18.00.')).toBeVisible();
   });
 });
 
@@ -335,9 +333,7 @@ describe('ADV-008-12 a 14/16/26: red hostil — sesión, cuerpos e índices', ()
     // PUT items.
     vi.clearAllMocks();
     server.use(
-      http.put('*/api/products/2/items', () =>
-        HttpResponse.json(UNAUTHENTICATED, { status: 401 }),
-      ),
+      http.put('*/api/products/2/items', () => HttpResponse.json(UNAUTHENTICATED, { status: 401 })),
     );
     view = await renderCombo();
     fireEvent.click(screen.getByRole('button', { name: 'Guardar componentes' }));
@@ -409,7 +405,9 @@ describe('ADV-008-12 a 14/16/26: red hostil — sesión, cuerpos e índices', ()
     ).toBeVisible();
     view.unmount();
     // POST → 201 con cuerpo que no es Product: los campos conservan lo escrito.
-    server.use(http.post('*/api/products', () => HttpResponse.json({ id: 'abc' }, { status: 201 })));
+    server.use(
+      http.post('*/api/products', () => HttpResponse.json({ id: 'abc' }, { status: 201 })),
+    );
     view = show(<NuevoPage />);
     expect(
       await screen.findByRole('heading', { name: 'Agregar producto', level: 1 }),
@@ -534,11 +532,9 @@ describe('ADV-008-15: mapeo de issues (lib/api/issues.ts)', () => {
   it('issuesFromApiError ignora errores no VALIDATION_ERROR y filtra issues malformados', () => {
     expect(issuesFromApiError(new Error('x'))).toEqual([]);
     expect(issuesFromApiError(new ApiError(409, 'PRODUCT_NAME_TAKEN', 'm', null))).toEqual([]);
-    expect(
-      issuesFromApiError(
-        new ApiError(400, 'VALIDATION_ERROR', 'm', { issues: 'x' }),
-      ),
-    ).toEqual([]);
+    expect(issuesFromApiError(new ApiError(400, 'VALIDATION_ERROR', 'm', { issues: 'x' }))).toEqual(
+      [],
+    );
     expect(
       issuesFromApiError(
         new ApiError(400, 'VALIDATION_ERROR', 'm', {
@@ -556,8 +552,10 @@ describe('ADV-008-15: mapeo de issues (lib/api/issues.ts)', () => {
     // Ojo: sectionMessages está exportada pero ningún componente la usa (las
     // secciones replican su lógica en línea) — se documenta igual el contrato.
     expect(
-      sectionMessages(new ApiError(404, 'PRODUCT_NOT_FOUND', 'Ese producto no existe.', null), 'items')
-        .root,
+      sectionMessages(
+        new ApiError(404, 'PRODUCT_NOT_FOUND', 'Ese producto no existe.', null),
+        'items',
+      ).root,
     ).toEqual(['Ese producto no existe.']);
     expect(
       sectionMessages(
@@ -718,7 +716,9 @@ describe('ADV-008-20/21/23/24/25: estado local y grilla de porciones', () => {
         listCalls += 1;
         return HttpResponse.json({ products: listCalls === 1 ? PRODUCTS : latest });
       }),
-      http.patch('*/api/products/3', () => HttpResponse.json({ ...CHAUFA, name: 'Chaufa Editada' })),
+      http.patch('*/api/products/3', () =>
+        HttpResponse.json({ ...CHAUFA, name: 'Chaufa Editada' }),
+      ),
     );
     const view = show(<EditPage />);
     expect(await screen.findByLabelText('Nombre del producto')).toHaveValue('E2E Chaufa');
@@ -762,9 +762,7 @@ describe('ADV-008-20/21/23/24/25: estado local y grilla de porciones', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Guardar presentaciones' }));
     // 'portions.1' del envío corresponde a 'Medio pollo', no a 'Octavo — pierna'.
-    expect(
-      await within(portionRow('Medio pollo')).findByText('Precio del envío 2.'),
-    ).toBeVisible();
+    expect(await within(portionRow('Medio pollo')).findByText('Precio del envío 2.')).toBeVisible();
     expect(within(portionRow('Octavo — pierna')).queryByText('Precio del envío 2.')).toBeNull();
   });
   it('ADV-008-23: la grilla acepta los bordes 0 y 999.99 y envía sus céntimos exactos', async () => {
@@ -772,7 +770,9 @@ describe('ADV-008-20/21/23/24/25: estado local y grilla de porciones', () => {
     const calls: Array<{ portions: Array<{ portion: string; priceCents: number }> }> = [];
     server.use(
       http.put('*/api/products/1/portions', async ({ request }) => {
-        const body = (await request.json()) as { portions: Array<{ portion: string; cut: string | null; priceCents: number }> };
+        const body = (await request.json()) as {
+          portions: Array<{ portion: string; cut: string | null; priceCents: number }>;
+        };
         calls.push(body);
         // El PUT devuelve lo enviado: la fila sigue marcada para el segundo intento.
         return HttpResponse.json({
@@ -782,7 +782,9 @@ describe('ADV-008-20/21/23/24/25: estado local y grilla de porciones', () => {
     );
     const row = portionRow('Medio pollo');
     fireEvent.click(within(row).getByRole('checkbox', { name: 'Medio pollo' }));
-    fireEvent.change(within(row).getByLabelText('Precio de Medio pollo'), { target: { value: '0' } });
+    fireEvent.change(within(row).getByLabelText('Precio de Medio pollo'), {
+      target: { value: '0' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar presentaciones' }));
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]?.portions[0]).toEqual({ portion: 'half', cut: null, priceCents: 0 });
@@ -824,9 +826,7 @@ describe('ADV-008-20/21/23/24/25: estado local y grilla de porciones', () => {
     // Documenta la degradación: con el ¼ pierna inaccesible suma el fallback
     // priceCents 6500 → 6500+1400+400 = 8300, sin ningún indicio de que el dato
     // de porciones no pudo consultarse (spec silenciosa sobre este caso).
-    expect(
-      await screen.findByText('Los componentes por separado suman S/ 83.00.'),
-    ).toBeVisible();
+    expect(await screen.findByText('Los componentes por separado suman S/ 83.00.')).toBeVisible();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });
@@ -939,5 +939,267 @@ describe('ADV-008-27 a 30: entradas numéricas alternativas y controles', () => 
     ).toBeVisible();
     expect(within(row).getByRole('button', { name: 'Desactivar' })).toBeInTheDocument();
     view.unmount();
+  });
+});
+
+describe('ADV-008-34 a 40: revalidación del editor tras 1def497', () => {
+  beforeEach(() => {
+    mocks.params.id = '2';
+    mockBase();
+  });
+  it('ADV-008-34: editar una cantidad válida sigue actualizando la comparación', async () => {
+    await renderCombo();
+    expect(await screen.findByText('Los componentes por separado suman S/ 35.00.')).toBeVisible();
+    // chaufa ×2: 1700 + 2800 + 400 = 4900 → la fila válida sí entra a la suma.
+    fireEvent.change(within(componentRow(2)).getByLabelText('Cantidad'), {
+      target: { value: '2' },
+    });
+    expect(await screen.findByText('Los componentes por separado suman S/ 49.00.')).toBeVisible();
+    // El tope del PUT (99) también suma: 1700 + 99×1400 + 400 = 140700.
+    fireEvent.change(within(componentRow(2)).getByLabelText('Cantidad'), {
+      target: { value: '99' },
+    });
+    expect(await screen.findByText('Los componentes por separado suman S/ 1407.00.')).toBeVisible();
+  });
+  it.each([['0'], ['-1'], ['100'], ['1.5'], ['abc'], ['Infinity'], ['1e21'], ['1e306'], ['']])(
+    'ADV-008-35: la cantidad %j no entra a la suma (fuera del rango 1..99 o no entera)',
+    async (text) => {
+      server.use(http.get('*/api/products/2/items', () => HttpResponse.json({ items: [] })));
+      await renderCombo();
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar componente' }));
+      const row = componentRow(1);
+      fireEvent.change(within(row).getByRole('combobox', { name: 'Producto' }), {
+        target: { value: '3' },
+      });
+      // Una sola fila válida ya muestra la comparación (1400 × 1).
+      expect(await screen.findByText('Los componentes por separado suman S/ 14.00.')).toBeVisible();
+      fireEvent.change(within(row).getByLabelText('Cantidad'), { target: { value: text } });
+      // Sin filas válidas la comparación se omite en vez de sumar basura.
+      expect(screen.queryByText(/por separado suman/)).toBeNull();
+    },
+  );
+  it.each([
+    ['0x10', 'S/ 224.00'], // 16 × 1400: Number() acepta hex; el PUT envía 16 igual (ADV-008-27).
+    [' 3 ', 'S/ 42.00'],
+    ['1e1', 'S/ 140.00'], // 10 × 1400: notación corta también coincide con el envío.
+    ['99', 'S/ 1386.00'],
+  ])(
+    'ADV-008-35: la cantidad %j suma %s, igual al entero que el PUT enviaría',
+    async (text, suma) => {
+      server.use(http.get('*/api/products/2/items', () => HttpResponse.json({ items: [] })));
+      await renderCombo();
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar componente' }));
+      const row = componentRow(1);
+      fireEvent.change(within(row).getByRole('combobox', { name: 'Producto' }), {
+        target: { value: '3' },
+      });
+      fireEvent.change(within(row).getByLabelText('Cantidad'), { target: { value: text } });
+      // La suma usa el mismo Number() que el cuerpo del PUT: ambas caras
+      // interpretan igual, nunca una cosa para mostrar y otra para enviar.
+      expect(await screen.findByText(`Los componentes por separado suman ${suma}.`)).toBeVisible();
+    },
+  );
+  it('ADV-008-36: una suma grande pero segura no se oculta (guardia isSafeInteger)', async () => {
+    // 10 filas × 99 × 99999 céntimos = 98 999 010: entero seguro que debe verse.
+    const expensive = Array.from({ length: 10 }, (_, index) => ({
+      id: 30 + index,
+      name: `P${index}`,
+      category: 'dish',
+      priceCents: 99999,
+      isActive: true,
+    }));
+    server.use(
+      http.get('*/api/products', () =>
+        HttpResponse.json({ products: [...PRODUCTS, ...expensive] }),
+      ),
+      http.get('*/api/products/2/items', () =>
+        HttpResponse.json({
+          items: expensive.map((product, index) => ({
+            id: 60 + index,
+            comboId: 2,
+            product,
+            quantity: 99,
+            portion: null,
+            cut: null,
+          })),
+        }),
+      ),
+    );
+    await renderCombo();
+    expect(
+      await screen.findByText('Los componentes por separado suman S/ 989990.10.'),
+    ).toBeVisible();
+  });
+  it('ADV-008-37: el "dúo" (mismo pollo, cuarto pierna + cuarto pecho) sí sale al PUT', async () => {
+    server.use(http.get('*/api/products/2/items', () => HttpResponse.json({ items: [] })));
+    const calls: Array<{
+      items: { productId: number; quantity: number; portion: string | null; cut: string | null }[];
+    }> = [];
+    server.use(
+      http.put('*/api/products/2/items', async ({ request }) => {
+        const body = (await request.json()) as (typeof calls)[number];
+        calls.push(body);
+        return HttpResponse.json({
+          items: body.items.map((item, index) => ({
+            id: 50 + index,
+            comboId: 2,
+            product: PRODUCTS.find((product) => product.id === item.productId) ?? POLLO,
+            quantity: item.quantity,
+            portion: item.portion,
+            cut: item.cut,
+          })),
+        });
+      }),
+    );
+    await renderCombo();
+    for (const index of [1, 2]) {
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar componente' }));
+      fireEvent.change(within(componentRow(index)).getByRole('combobox', { name: 'Producto' }), {
+        target: { value: '1' },
+      });
+    }
+    // Mismo producto pero parte distinta: no es duplicado (D-007-06, AC-03).
+    fireEvent.change(within(componentRow(2)).getByRole('combobox', { name: 'Parte' }), {
+      target: { value: 'breast' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar componentes' }));
+    await screen.findByText('Componentes guardados.');
+    expect(calls).toHaveLength(1);
+    // rowKeys es metadato del envío local: nunca se filtra al cuerpo del PUT.
+    expect(Object.keys(calls[0] ?? {})).toEqual(['items']);
+    expect(calls[0]?.items).toEqual([
+      { productId: 1, quantity: 1, portion: 'quarter', cut: 'leg' },
+      { productId: 1, quantity: 1, portion: 'quarter', cut: 'breast' },
+    ]);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+  it('ADV-008-37: el mismo pollo con distinta presentación tampoco es duplicado', async () => {
+    server.use(http.get('*/api/products/2/items', () => HttpResponse.json({ items: [] })));
+    const calls: unknown[] = [];
+    server.use(
+      http.put('*/api/products/2/items', async ({ request }) => {
+        calls.push(await request.json());
+        return HttpResponse.json({ items: [] });
+      }),
+    );
+    await renderCombo();
+    for (const index of [1, 2]) {
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar componente' }));
+      fireEvent.change(within(componentRow(index)).getByRole('combobox', { name: 'Producto' }), {
+        target: { value: '1' },
+      });
+    }
+    // 'Medio pollo' no lleva parte: la llave (1|half|null) difiere de (1|quarter|leg).
+    fireEvent.change(within(componentRow(2)).getByRole('combobox', { name: 'Presentación' }), {
+      target: { value: 'half' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar componentes' }));
+    await screen.findByText('Componentes guardados.');
+    expect(calls).toHaveLength(1);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+  it('ADV-008-37: dejar el combo sin componentes también es un envío válido (D-007-12)', async () => {
+    // El esquema admite items: [] — la validación local nueva no debe exigir mínimo.
+    const calls: Array<{ items: unknown[] }> = [];
+    server.use(
+      http.put('*/api/products/2/items', async ({ request }) => {
+        calls.push((await request.json()) as { items: unknown[] });
+        return HttpResponse.json({ items: [] });
+      }),
+    );
+    await renderCombo();
+    for (const index of [1, 1, 1]) {
+      fireEvent.click(within(componentRow(index)).getByRole('button', { name: 'Quitar' }));
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar componentes' }));
+    await screen.findByText('Componentes guardados.');
+    expect(calls[0]?.items).toEqual([]);
+  });
+  it('ADV-008-38: el error sigue a su fila al quitar una fila POSTERIOR o agregar otra', async () => {
+    server.use(
+      http.put('*/api/products/2/items', () =>
+        HttpResponse.json(
+          {
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Los datos enviados no son válidos.',
+              details: {
+                issues: [{ path: 'items.1.productId', message: 'Ese producto no existe.' }],
+              },
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    await renderCombo();
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar componentes' }));
+    await within(componentRow(2)).findByText('Ese producto no existe.');
+    // Quitar la fila de DESPUÉS (la gaseosa, índice 2): el error sigue en el
+    // chaufa, que conserva su posición.
+    fireEvent.click(within(componentRow(3)).getByRole('button', { name: 'Quitar' }));
+    expect(within(componentRow(2)).getByText('Ese producto no existe.')).toBeVisible();
+    // Agregar una fila nueva tampoco roba el mensaje: la clave estable lo ata
+    // al chaufa y la fila nueva nace limpia.
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar componente' }));
+    expect(within(componentRow(2)).getByText('Ese producto no existe.')).toBeVisible();
+    expect(within(componentRow(3)).queryByText('Ese producto no existe.')).toBeNull();
+  });
+  it('ADV-008-39: el error local también se ata a su fila y desaparece con ella', async () => {
+    await renderCombo();
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar componente' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar componentes' }));
+    await within(componentRow(4)).findByText('Elige el producto.');
+    // Quitar la fila 1 desplaza a la fila nueva a 'Componente 3': el mensaje
+    // local va por clave y la acompaña.
+    fireEvent.click(within(componentRow(1)).getByRole('button', { name: 'Quitar' }));
+    expect(within(componentRow(3)).getByText('Elige el producto.')).toBeVisible();
+    // Y si se quita la propia fila con error, el mensaje se retira con ella.
+    fireEvent.click(within(componentRow(3)).getByRole('button', { name: 'Quitar' }));
+    expect(screen.queryByText('Elige el producto.')).toBeNull();
+  });
+  it('ADV-008-40: "Componentes guardados." persiste junto a un error local nuevo (observado)', async () => {
+    // Documenta el comportamiento actual: save.isSuccess solo se reinicia con
+    // otra mutación; un error LOCAL (que no llega a mutate) deja conviviendo el
+    // 'status' de éxito con la 'alert' del error. Las tres superficies de
+    // mutación de la carta comparten el patrón.
+    server.use(http.put('*/api/products/2/items', () => HttpResponse.json(ITEMS_LOADED)));
+    await renderCombo();
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar componentes' }));
+    await screen.findByText('Componentes guardados.');
+    // POSTRE no está entre los ítems cargados: dos filas de postre producen un
+    // único issue de duplicados (la gaseosa ya cargada triplicaría el mensaje,
+    // véase ADV-008-42).
+    for (const index of [4, 5]) {
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar componente' }));
+      fireEvent.change(within(componentRow(index)).getByRole('combobox', { name: 'Producto' }), {
+        target: { value: '6' },
+      });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar componentes' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Hay componentes repetidos en la lista.',
+    );
+    expect(screen.getByText('Componentes guardados.')).toBeVisible();
+  });
+  it('ADV-008-42: N componentes repetidos no deberían duplicar la alerta de sección', async () => {
+    // ROJO: con tres filas iguales (la gaseosa cargada + dos nuevas) el refino
+    // emite un issue por repetición ('items.3' e 'items.4'); ambos caen a la
+    // sección con el mismo texto y se renderizan como dos alertas idénticas
+    // con key duplicada (warning de React en la consola del test). El mensaje
+    // correcto debería verse una sola vez. Mismo patrón 'key={message}' en
+    // portions-section y en los rowErrors de ambas secciones.
+    server.use(http.put('*/api/products/2/items', () => HttpResponse.json({ items: [] })));
+    await renderCombo();
+    for (const index of [4, 5]) {
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar componente' }));
+      fireEvent.change(within(componentRow(index)).getByRole('combobox', { name: 'Producto' }), {
+        target: { value: '4' },
+      });
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar componentes' }));
+    const alerts = await screen.findAllByRole('alert');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent('Hay componentes repetidos en la lista.');
   });
 });
