@@ -6,7 +6,7 @@ import { PRICE_INPUT_MESSAGE } from '@polleria/shared';
 import type { Cut, Portion, ProductPortion } from '@polleria/shared';
 import { useRef, useState } from 'react';
 import { apiErrorMessage } from '../../lib/api/error-message.ts';
-import { issuesFromApiError, splitIssues } from '../../lib/api/issues.ts';
+import { issuesFromApiError, splitIssues, uniqueMessages } from '../../lib/api/issues.ts';
 import { getProductPortions, replaceProductPortions } from '../../lib/api/products.ts';
 import { priceFieldCents, solesFieldValue } from '../../lib/menu-form.ts';
 import { formatPortionCutLabel } from '../../lib/menu-labels.ts';
@@ -149,7 +149,8 @@ function PortionsGrid({ productId, portions }: { productId: number; portions: Pr
                   editPrice(index, event.target.value);
                 }}
               />
-              {(rowErrors.get(index) ?? []).map((message) => (
+              {/* Una fila tampoco repite el mismo mensaje dos veces (ADV-008-42). */}
+              {uniqueMessages(rowErrors.get(index) ?? []).map((message) => (
                 <p key={message} className="text-sm text-danger">
                   {message}
                 </p>
@@ -158,7 +159,8 @@ function PortionsGrid({ productId, portions }: { productId: number; portions: Pr
           );
         })}
       </div>
-      {sectionErrors.map((message) => (
+      {/* Dos issues con el mismo texto se ven una sola vez (ADV-008-42). */}
+      {uniqueMessages(sectionErrors).map((message) => (
         <p key={message} role="alert" className="text-danger">
           {message}
         </p>

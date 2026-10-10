@@ -44,6 +44,16 @@ export interface SplitIssues {
 }
 
 /**
+ * Quita mensajes repetidos preservando el orden de aparición (ADV-008-42): dos
+ * issues con el mismo texto —p. ej., un issue de duplicados por cada componente
+ * repetido, o el mismo mensaje de esquema dos veces en una fila— no deben
+ * mostrarse como alertas idénticas ni repetir la key del render.
+ */
+export function uniqueMessages(messages: readonly string[]): string[] {
+  return [...new Set(messages)];
+}
+
+/**
  * Reparte los issues de un PUT de conjunto ('items' o 'portions') entre fila y sección
  * (D-008-12, S-008-12): 'items.2.productId' va a la fila 2 del envío; 'items', 'items.5'
  * (repetidas, sin campo) o cualquier otro path va como mensaje de la sección.

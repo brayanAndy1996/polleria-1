@@ -15,7 +15,12 @@ import {
 import type { ComboItem, Product, ProductCategory } from '@polleria/shared';
 import { useMemo, useRef, useState } from 'react';
 import { apiErrorMessage } from '../../lib/api/error-message.ts';
-import { issuesFromApiError, issuesFromZod, splitIssues } from '../../lib/api/issues.ts';
+import {
+  issuesFromApiError,
+  issuesFromZod,
+  splitIssues,
+  uniqueMessages,
+} from '../../lib/api/issues.ts';
 import { getComboItems, getProductPortions, replaceComboItems } from '../../lib/api/products.ts';
 import { CUT_LABELS, PORTION_LABELS, PRODUCT_CATEGORY_LABELS } from '../../lib/menu-labels.ts';
 import { LabeledInput } from '../users/labeled-input.tsx';
@@ -446,7 +451,8 @@ function ComboItemsEditor({
                   }}
                 />
               )}
-              {(rowErrors.get(row.key) ?? []).map((message) => (
+              {/* Una fila tampoco repite el mismo mensaje dos veces (ADV-008-42). */}
+              {uniqueMessages(rowErrors.get(row.key) ?? []).map((message) => (
                 <p key={message} className="text-sm text-danger">
                   {message}
                 </p>
@@ -483,7 +489,8 @@ function ComboItemsEditor({
           <p className="text-sm text-muted">{NOTA_SUMA}</p>
         </div>
       )}
-      {sectionErrors.map((message) => (
+      {/* Dos issues con el mismo texto se ven una sola vez (ADV-008-42). */}
+      {uniqueMessages(sectionErrors).map((message) => (
         <p key={message} role="alert" className="text-danger">
           {message}
         </p>
