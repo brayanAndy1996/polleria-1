@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 1 de 6, usuarios y carta (RF-01, RF-18, RF-19; RNF-09, RNF-10). La Fase 0 se cerró y el usuario la aprobó el 2026-10-08.
-- Funcionalidad: 008-menu-admin cerrada técnicamente; pendiente la autorización del usuario para integrar a main.
-- Paso: ciclo completo de la 008 — spec aprobada el 2026-10-09 con las 10 respuestas recomendadas (21 AC; OpenAPI sin cambios, sigue en 0.7.0 — la 008 solo consume el contrato; 4 E2E nuevos). Test-writer en rojo, backend-dev (money.ts) y frontend-dev (pantallas) en verde, adversarial-tester (8 hallazgos originales + 1 de revalidación, todos corregidos y revalidados), reviewer APROBADO, verificación del orquestador ejecutada. La 007 quedó integrada a main el 2026-10-09 (merge 892914a).
-- Siguiente acción: autorización del usuario para integrar feat/008-menu-admin a main (merge --no-ff). Después: punto de control de cierre de la Fase 1 (pendientes manuales: pnpm db:migrate en polleria_dev, pruebas manuales por API con cookies, datos reales de combos/precios/presentaciones) y propuesta de la siguiente fase.
-- Rama: feat/008-menu-admin (creada desde main tras integrar la 007).
+- Funcionalidad: la 008-menu-admin se integró a main el 2026-10-09 (merge 01d23bb). La Fase 1 queda con sus seis funcionalidades integradas (003 a 008).
+- Paso: integración autorizada y hecha; la 008 cerró su ciclo completo (spec aprobada con las 10 respuestas recomendadas, 21 AC, TDD, 157 tests adversariales con 9 hallazgos corregidos, reviewer APROBADO, verificación del orquestador ejecutada).
+- Siguiente acción: punto de control de cierre de la Fase 1 con el usuario — pendientes manuales (pnpm db:migrate en polleria_dev para las migraciones de 005/006/007, pruebas manuales por API y recorrido de /admin/carta, datos reales de la carta) — y después la propuesta de la primera funcionalidad de la Fase 2 (pedidos/mesas).
+- Rama: main.
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -23,7 +23,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 005 | menu-products (productos y precios: categorías fijas, precio en céntimos 0-99999, nombre único sin mayúsculas, desactivar en vez de borrar; GET/POST/PATCH /api/products) | 1 | Cerrada (APROBADO; 15 AC; 33 adversariales verdes; integrada a main en el merge 2af8023; pendientes manuales registrados) | feat/005-menu-products | 2026-10-08 |
 | 006 | portions-eighths (presentaciones eighth/quarter/half/whole y partes breast/leg por producto 'chicken'; consumo en octavos derivado; GET + PUT /api/products/{id}/portions) | 1 | Cerrada (APROBADO; 14 AC; 28 adversariales verdes; integrada a main en el merge 4afbc66; pendientes manuales registrados) | feat/006-portions-eighths | 2026-10-09 |
 | 007 | combos (producto de categoría 'combo' + tabla combo_items; precio fijo; consumo en octavos derivado; GET + PUT /api/products/{id}/items; sin pantallas) | 1 | Cerrada (APROBADO; 15 AC; 30 adversariales con 0 hallazgos; integrada a main en el merge 892914a; pendientes manuales registrados) | feat/007-combos | 2026-10-09 |
-| 008 | menu-admin (pantallas /admin/carta: lista por categorías, alta/edición de productos, grilla de presentaciones del pollo, editor de componentes del combo con comparación de precios) | 1 | Cerrada (APROBADO; 21 AC; 157 tests adversariales verdes; 9 hallazgos corregidos; pendiente integración a main) | feat/008-menu-admin | 2026-10-09 |
+| 008 | menu-admin (pantallas /admin/carta: lista por categorías, alta/edición de productos, grilla de presentaciones del pollo, editor de componentes del combo con comparación de precios) | 1 | Cerrada (APROBADO; 21 AC; 157 tests adversariales verdes; 9 hallazgos corregidos; integrada a main en el merge 01d23bb; pendientes manuales registrados) | feat/008-menu-admin | 2026-10-09 |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec.
 
@@ -71,6 +71,7 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-09 | Autoriza integrar la 007 a main (merge --no-ff 892914a). |
 | 2026-10-09 | Spec 008 aprobada con las 10 respuestas recomendadas: solo admin gestiona la carta; pantallas con secciones apiladas (no pestañas); 4 E2E (3 desktop + 1 móvil a 360 px); lista completa sin paginar; precio en soles con vista previa; tras el alta de pollo/combo va a su edición; comparación de combo por precio de presentación vendida suelta con respaldo priceCents; desactivar pide confirmación; componente de pollo preselecciona cuarto+pierna; funciones de dinero en shared. |
 | 2026-10-09 | Autoriza corregir los 8 hallazgos adversariales de la 008 (1 alto ADV-008-04: cantidad que desborda a Infinity tumbaba la página; medios 05/06: dinero exponencial en pantalla y filas incompletas que sumaban; bajos 02/03/07/08) y después el residual bajo ADV-008-42 (claves React duplicadas por mensajes repetidos). Todos revalidados en verde con aserciones intactas. |
+| 2026-10-09 | Autoriza integrar la 008 a main (merge --no-ff 01d23bb). |
 
 ## Notas técnicas del orquestador
 
