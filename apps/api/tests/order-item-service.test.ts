@@ -243,7 +243,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-1',
       { userId: s.juan.id },
     );
-    const [item] = order.items;
+    const item = order.items[0]!;
     expect(item).toMatchObject({
       quantity: 2,
       priceCents: 1500,
@@ -285,7 +285,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-1',
       { userId: s.juan.id },
     );
-    const [combo] = order.items;
+    const combo = order.items[0]!;
     expect(combo).toMatchObject({ priceCents: 2200, breastEighths: 2, legEighths: 0 });
     expect(combo.components).toEqual([
       expect.objectContaining({
@@ -314,7 +314,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-2',
       { userId: s.juan.id },
     );
-    const combo2 = order2.items[order2.items.length - 1];
+    const combo2 = order2.items[order2.items.length - 1]!;
     expect(combo2).toMatchObject({ priceCents: 2200, breastEighths: 0, legEighths: 2 });
     expect(combo2.components?.[0]).toMatchObject({ portion: 'quarter', cut: 'leg' });
   });
@@ -332,7 +332,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
     const again = await orderService.getOrder(s.orderP.id);
     expect(again.items[0]).toMatchObject({ priceCents: 800, productName: 'Inca Kola 1L' });
     expect(again.totalCents).toBe(800);
-    expect(order.items[0].priceCents).toBe(800);
+    expect(order.items[0]!.priceCents).toBe(800);
   });
 
   it('AC-07: los issues por ítem se acumulan con su ruta items.N.*', async () => {
@@ -454,9 +454,12 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       }),
     ).rejects.toMatchObject(ORDER_NOT_FOUND);
     // Pedido cerrado → ORDER_NOT_OPEN.
-    await sequelize.query("UPDATE orders SET status = 'closed' WHERE id = $1", {
-      bind: [s.orderP.id],
-    });
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.orderP.id, s.admin.id],
+      },
+    );
     await expect(
       itemService.sendItems(s.orderP.id, { items: [{ productId: s.incaKola }] }, 'k-3', {
         userId: s.juan.id,
@@ -493,9 +496,9 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
     ).rejects.toMatchObject(ORDER_ITEMS_LIMIT);
     // Los ítems 'voided' no cuentan para el tope: anulo uno por SQL y vuelve a entrar uno.
     await sequelize.query(
-      "UPDATE order_items SET status = 'voided', voided_at = now(), voided_by_user_id = $2, " +
-        "void_reason = 'x', void_ticket_id = $3 WHERE id = (SELECT min(id) FROM order_items)",
-      { bind: [s.orderP.id, s.admin.id, ticket!.id] },
+      "UPDATE order_items SET status = 'voided', voided_at = now(), voided_by_user_id = $1, " +
+        "void_reason = 'x', void_ticket_id = $2 WHERE id = (SELECT min(id) FROM order_items)",
+      { bind: [s.admin.id, ticket!.id] },
     );
     await itemService.sendItems(s.orderP.id, { items: [{ productId: s.incaKola }] }, 'k-100', {
       userId: s.juan.id,
@@ -550,9 +553,12 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
     await orderService.moveOrder(s.orderP.id, mesa4, { userId: s.juan.id });
     const replay = await itemService.sendItems(s.orderP.id, body, 'k-9', { userId: s.juan.id });
     expect(replay.ticket.id).toBe(first.ticket.id);
-    await sequelize.query("UPDATE orders SET status = 'closed' WHERE id = $1", {
-      bind: [s.orderP.id],
-    });
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.orderP.id, s.admin.id],
+      },
+    );
     const replayClosed = await itemService.sendItems(s.orderP.id, body, 'k-9', {
       userId: s.juan.id,
     });
@@ -603,7 +609,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-1',
       { userId: s.juan.id },
     );
-    const itemId = sent.order.items[0].id;
+    const itemId = sent.order.items[0]!.id;
     await orderService.requestBill(s.orderP.id, { userId: s.juan.id });
     const { order } = await itemService.requestVoid(
       s.orderP.id,
@@ -612,7 +618,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-r1',
       { userId: s.juan.id },
     );
-    const item = order.items[0];
+    const item = order.items[0]!;
     expect(item).toMatchObject({
       status: 'void_requested',
       voidRequestReason: 'Se equivoc\u00F3 el cliente',
@@ -631,7 +637,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-r1',
       { userId: s.juan.id },
     );
-    expect(replay.order.items[0].status).toBe('void_requested');
+    expect(replay.order.items[0]!.status).toBe('void_requested');
     // Otra clave sobre el mismo ítem → ya tiene anulación pendiente.
     await expect(
       itemService.requestVoid(s.orderP.id, itemId, { reason: 'otro' }, 'k-r2', {
@@ -647,7 +653,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-1',
       { userId: s.juan.id },
     );
-    const itemId = sent.order.items[0].id;
+    const itemId = sent.order.items[0]!.id;
     await expect(
       itemService.requestVoid(s.orderP.id, 999999, { reason: 'x' }, 'k-r1', {
         userId: s.juan.id,
@@ -661,9 +667,12 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
         userId: s.juan.id,
       }),
     ).rejects.toMatchObject(ORDER_ITEM_ALREADY_VOIDED);
-    await sequelize.query("UPDATE orders SET status = 'closed' WHERE id = $1", {
-      bind: [s.orderP.id],
-    });
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.orderP.id, s.admin.id],
+      },
+    );
     await expect(
       itemService.requestVoid(s.orderP.id, itemId, { reason: 'x' }, 'k-r3', {
         userId: s.juan.id,
@@ -678,7 +687,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-1',
       { userId: s.juan.id },
     );
-    const itemId = sent.order.items[0].id;
+    const itemId = sent.order.items[0]!.id;
     await itemService.requestVoid(
       s.orderP.id,
       itemId,
@@ -694,7 +703,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-v1',
       { userId: s.admin.id },
     );
-    const item = order.items[0];
+    const item = order.items[0]!;
     expect(item).toMatchObject({
       status: 'voided',
       voidReason: 'Confirmado, error del cliente',
@@ -730,7 +739,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-1',
       { userId: s.juan.id },
     );
-    const itemId = sent.order.items[0].id;
+    const itemId = sent.order.items[0]!.id;
     const { order, ticket } = await itemService.voidItem(
       s.orderP.id,
       itemId,
@@ -749,9 +758,12 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
     await expect(
       itemService.voidItem(s.orderP.id, 999999, { reason: 'x' }, 'k-v2', { userId: s.admin.id }),
     ).rejects.toMatchObject(ORDER_ITEM_NOT_FOUND);
-    await sequelize.query("UPDATE orders SET status = 'closed' WHERE id = $1", {
-      bind: [s.orderP.id],
-    });
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.orderP.id, s.admin.id],
+      },
+    );
     await expect(
       itemService.voidItem(s.orderP.id, itemId, { reason: 'x' }, 'k-v3', { userId: s.admin.id }),
     ).rejects.toMatchObject(ORDER_NOT_OPEN);
@@ -764,7 +776,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-1',
       { userId: s.juan.id },
     );
-    const itemId = sent.order.items[0].id;
+    const itemId = sent.order.items[0]!.id;
     await itemService.requestVoid(
       s.orderP.id,
       itemId,
@@ -786,7 +798,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
     const replay = await itemService.rejectVoid(s.orderP.id, itemId, 'k-x1', {
       userId: s.admin.id,
     });
-    expect(replay.order.items[0].status).toBe('sent');
+    expect(replay.order.items[0]!.status).toBe('sent');
     // Sobre 'sent' → NOT_REQUESTED; el mozo puede volver a solicitar tras el rechazo.
     await expect(
       itemService.rejectVoid(s.orderP.id, itemId, 'k-x2', { userId: s.admin.id }),
@@ -798,13 +810,16 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-r2',
       { userId: s.juan.id },
     );
-    expect(again.order.items[0].status).toBe('void_requested');
+    expect(again.order.items[0]!.status).toBe('void_requested');
     await expect(
       itemService.rejectVoid(s.orderP.id, 999999, 'k-x3', { userId: s.admin.id }),
     ).rejects.toMatchObject(ORDER_ITEM_NOT_FOUND);
-    await sequelize.query("UPDATE orders SET status = 'closed' WHERE id = $1", {
-      bind: [s.orderP.id],
-    });
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.orderP.id, s.admin.id],
+      },
+    );
     await expect(
       itemService.rejectVoid(s.orderP.id, itemId, 'k-x4', { userId: s.admin.id }),
     ).rejects.toMatchObject(ORDER_NOT_OPEN);
@@ -817,7 +832,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
       'k-1',
       { userId: s.juan.id },
     );
-    const itemId = sent.order.items[0].id;
+    const itemId = sent.order.items[0]!.id;
     await itemService.voidItem(s.orderP.id, itemId, { reason: 'ok' }, 'k-v1', {
       userId: s.admin.id,
     });
@@ -837,7 +852,7 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
     await itemService.sendItems(s.orderP.id, { items: [{ productId: s.mostrito }] }, 'k-2', {
       userId: s.juan.id,
     });
-    const itemId = sent1.order.items[0].id;
+    const itemId = sent1.order.items[0]!.id;
     await itemService.requestVoid(
       s.orderP.id,
       itemId,
@@ -850,10 +865,10 @@ describe('010: servicio de ítems del pedido sobre polleria_test', () => {
     });
     const { tickets } = await itemService.listOrderTickets(s.orderP.id);
     expect(tickets.map((t: { kind: string }) => t.kind)).toEqual(['initial', 'additional', 'void']);
-    expect(tickets[0].items).toHaveLength(1);
-    expect(tickets[1].items[0].components).toHaveLength(2);
-    expect(tickets[2].items).toHaveLength(1);
-    expect(tickets[2].items[0].status).toBe('voided');
+    expect(tickets[0]!.items).toHaveLength(1);
+    expect(tickets[1]!.items[0]!.components).toHaveLength(2);
+    expect(tickets[2]!.items).toHaveLength(1);
+    expect(tickets[2]!.items[0]!.status).toBe('voided');
     // La solicitud no emite comanda: solo hay 3.
     expect(tickets).toHaveLength(3);
     await expect(itemService.listOrderTickets(999999)).rejects.toMatchObject(ORDER_NOT_FOUND);

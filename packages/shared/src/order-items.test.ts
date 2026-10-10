@@ -26,7 +26,7 @@ import {
   sendOrderItemsResponseSchema,
   voidOrderItemRequestSchema,
 } from '@polleria/shared';
-import type { Order } from '@polleria/shared';
+import type { Order, OrderItem } from '@polleria/shared';
 
 const PRODUCT_ID_MESSAGE = 'El identificador del producto no es v\u00E1lido.';
 const QUANTITY_MESSAGE = 'Indica cu\u00E1ntas unidades lleva el \u00EDtem.';
@@ -96,7 +96,7 @@ const SENT_ITEM = {
   orderedAtTable: { id: 3, name: 'Mesa 3' },
   createdBy: { id: 2, displayName: 'Juan' },
   createdAt: '2026-10-11T18:35:00.000Z',
-};
+} satisfies OrderItem;
 
 /** Pedido abierto válido con las trece claves de D-010-14. */
 const OPEN_ORDER = {

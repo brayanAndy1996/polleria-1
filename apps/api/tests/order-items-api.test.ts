@@ -8,6 +8,7 @@ import {
   kitchenTicketsResponseSchema,
   menuResponseSchema,
   orderResponseSchema,
+  orderSchema,
   sendOrderItemsResponseSchema,
 } from '@polleria/shared';
 import type { UserRole } from '@polleria/shared';
@@ -168,12 +169,12 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
     });
     return { mozo, mesa3, order, incaKola };
   }
-  /** El primer ítem enviado del pedido (fixture por servicio). */
+  /** El ítem creado por ESTE envío (el último de la lista, por id). */
   async function sentItem(orderId: number, productId: number, userId: number, key = 'k-1') {
     const { order } = await itemService.sendItems(orderId, { items: [{ productId }] }, key, {
       userId,
     });
-    return order.items[0];
+    return order.items[order.items.length - 1]!;
   }
 
   const postItems = (orderId: number | string, body: unknown, key?: string, cookie?: string) => {
@@ -247,7 +248,8 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
       admin,
     );
     expect(again.status).toBe(201);
-    expect(again.body.ticket.kind).toBe('additional');
+    const { ticket } = sendOrderItemsResponseSchema.parse(again.body);
+    expect(ticket.kind).toBe('additional');
     expect(log).not.toHaveBeenCalled();
   });
   it('AC-15: POST /items rechaza a cocina y caja, y exige sesión', async () => {
@@ -295,9 +297,12 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
     );
     expect(notFound.status).toBe(404);
     expect(notFound.body).toEqual(ORDER_NOT_FOUND_BODY);
-    await sequelize.query("UPDATE orders SET status = 'closed' WHERE id = $1", {
-      bind: [s.order.id],
-    });
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.order.id, s.mozo.id],
+      },
+    );
     const closed = await postItems(
       s.order.id,
       { items: [{ productId: s.incaKola.id }] },
@@ -337,7 +342,10 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
       await postItems(
         s.order.id,
         {
-          items: [{ productId: 999999 }, { productId: s.incaKola, portion: 'quarter', cut: 'leg' }],
+          items: [
+            { productId: 999999 },
+            { productId: s.incaKola.id, portion: 'quarter', cut: 'leg' },
+          ],
         },
         'k-1',
         mozo.cookie,
@@ -435,9 +443,12 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
       await postVoidAction(s.order.id, 'abc', 'request-void', { reason: 'x' }, 'k-b1', mozo.cookie),
     );
     expect(badId).toContainEqual({ path: 'itemId', message: ITEM_ID_MESSAGE });
-    await sequelize.query("UPDATE orders SET status = 'closed' WHERE id = $1", {
-      bind: [s.order.id],
-    });
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.order.id, s.mozo.id],
+      },
+    );
     const closed = await postVoidAction(
       s.order.id,
       item.id,
@@ -467,7 +478,7 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
     expect(response.headers['cache-control']).toBe('no-store');
     const { order, ticket } = sendOrderItemsResponseSchema.parse(response.body);
     expect(ticket.kind).toBe('void');
-    expect(order.items[0].status).toBe('voided');
+    expect(order.items[0]!.status).toBe('voided');
     // Ya anulado → ALREADY_VOIDED.
     const again = await postVoidAction(s.order.id, item.id, 'void', { reason: 'x' }, 'k-v2', admin);
     expect(again.status).toBe(409);
@@ -491,7 +502,8 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
       admin,
     );
     expect(approved.status).toBe(200);
-    expect(approved.body.order.items.find((i: { id: number }) => i.id === item2.id)).toMatchObject({
+    const { order: approvedOrder } = sendOrderItemsResponseSchema.parse(approved.body);
+    expect(approvedOrder.items.find((i) => i.id === item2.id)).toMatchObject({
       status: 'voided',
       voidRequestReason: 'pido',
     });
@@ -573,9 +585,12 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
     );
     expect(missing.status).toBe(404);
     expect(missing.body).toEqual(ORDER_ITEM_NOT_FOUND_BODY);
-    await sequelize.query("UPDATE orders SET status = 'closed' WHERE id = $1", {
-      bind: [s.order.id],
-    });
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.order.id, s.mozo.id],
+      },
+    );
     const closed = await postVoidAction(
       s.order.id,
       item.id,
@@ -680,7 +695,7 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
     expect(waiter.body).toEqual(FORBIDDEN_BODY);
     const done = await cancel(admin);
     expect(done.status).toBe(200);
-    expect(done.body.order.status).toBe('cancelled');
+    expect(orderSchema.parse(done.body).status).toBe('cancelled');
   });
   it('AC-18: join por HTTP mueve los ítems y el tablero suma el total', async () => {
     const s = await seed();
@@ -695,15 +710,16 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
       .send({ intoTableId: s.mesa3.id });
     expect(join.status).toBe(200);
     const view = await request(auth.app).get('/api/tables').set('Cookie', mozo.cookie);
-    const mesa3view = (view.body.tables as { id: number; order: { totalCents: number } }[]).find(
-      (t) => t.id === s.mesa3.id,
-    );
+    const tablesView = (view.body as { tables: { id: number; order: { totalCents: number } }[] })
+      .tables;
+    const mesa3view = tablesView.find((t) => t.id === s.mesa3.id);
     expect(mesa3view?.order.totalCents).toBe(1600);
     const orderP = await request(auth.app)
       .get(`/api/orders/${s.order.id}`)
       .set('Cookie', mozo.cookie);
-    expect(orderP.body.order.items).toHaveLength(2);
-    expect(orderP.body.order.totalCents).toBe(1600);
+    const orderPView = orderSchema.parse(orderP.body);
+    expect(orderPView.items).toHaveLength(2);
+    expect(orderPView.totalCents).toBe(1600);
   });
 
   it('AC-19: métodos y sub-rutas no declarados responden 404 con no-store', async () => {

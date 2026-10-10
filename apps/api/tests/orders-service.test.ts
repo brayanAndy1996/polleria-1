@@ -728,9 +728,8 @@ describe('010: cancel y unir con ítems sobre polleria_test', () => {
     service = createOrderService({ models });
     // Import dinámico: el módulo no existe en fase roja y así solo caen los tests
     // de la 010; los heredados de la 009 del mismo archivo siguen en verde.
-    const { createOrderItemService } = await import(
-      '../src/services/order-items/order-item.service.ts'
-    );
+    const { createOrderItemService } =
+      await import('../src/services/order-items/order-item.service.ts');
     itemService = createOrderItemService({ models });
   });
   afterAll(async () => {
@@ -742,7 +741,7 @@ describe('010: cancel y unir con ítems sobre polleria_test', () => {
     const luz = await createUser('salon.duena', 'Do\u00F1a Luz', ['admin']);
     const { order: p } = await tableWithOrder('Mesa 3', juan.id);
     const sent = await sendDrink(p.id, juan.id, 'k-1');
-    const itemId = sent.order.items[0].id;
+    const itemId = sent.order.items[0]!.id;
     await expect(
       service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id }),
     ).rejects.toMatchObject(ORDER_HAS_ACTIVE_ITEMS);
@@ -762,7 +761,7 @@ describe('010: cancel y unir con ítems sobre polleria_test', () => {
     const luz = await createUser('salon.duena', 'Do\u00F1a Luz', ['admin']);
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
     const sent = await sendDrink(p.id, juan.id, 'k-1');
-    const itemId = sent.order.items[0].id;
+    const itemId = sent.order.items[0]!.id;
     await itemService.voidItem(p.id, itemId, { reason: 'Error del cliente' }, 'k-v1', {
       userId: luz.id,
     });
@@ -774,7 +773,7 @@ describe('010: cancel y unir con ítems sobre polleria_test', () => {
     });
     expect(cancelled.status).toBe('cancelled');
     expect(cancelled.items).toHaveLength(1);
-    expect(cancelled.items[0].status).toBe('voided');
+    expect(cancelled.items[0]!.status).toBe('voided');
     expect(cancelled.totalCents).toBe(0);
     // Las mesas quedaron libres; ítems y comandas quedan como historial.
     const [mesa] = await sequelize.query<{ current_order_id: number | null }>(

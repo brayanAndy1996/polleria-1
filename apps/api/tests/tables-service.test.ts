@@ -224,13 +224,13 @@ describe('009: servicio de mesas sobre polleria_test', () => {
       'closedAt',
       'closedBy',
       'id',
+      'items',
       'mergedIntoOrderId',
       'openedAt',
       'openedBy',
       'readyAt',
       'status',
       'tables',
-      'items',
       'totalCents',
     ]);
     // Mesa 10: 'bill_requested' con su pedido; Depósito: inactiva, libre y sin pedido.

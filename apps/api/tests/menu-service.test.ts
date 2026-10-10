@@ -96,7 +96,7 @@ describe('010: servicio de la carta sobre polleria_test', () => {
   it('AC-14: el pollo trae sus presentaciones en el orden de la carta e items vacío', async () => {
     const s = await seedCarta();
     const { products } = await menuService.listMenu();
-    const pollo = products.find((p: { id: number }) => p.id === s.pollo.id);
+    const pollo = products.find((p: { id: number }) => p.id === s.pollo.id)!;
     expect(pollo).toMatchObject({
       id: s.pollo.id,
       name: 'Pollo a la brasa',
@@ -114,7 +114,7 @@ describe('010: servicio de la carta sobre polleria_test', () => {
   it('AC-14: el combo trae items con el componente embebido y portions vacío', async () => {
     const s = await seedCarta();
     const { products } = await menuService.listMenu();
-    const mostrito = products.find((p: { id: number }) => p.id === s.mostrito.id);
+    const mostrito = products.find((p: { id: number }) => p.id === s.mostrito.id)!;
     expect(mostrito).toMatchObject({
       id: s.mostrito.id,
       name: 'Mostrito',
@@ -122,31 +122,31 @@ describe('010: servicio de la carta sobre polleria_test', () => {
       priceCents: 2200,
       portions: [],
     });
-    expect(mostrito.items).toEqual([
-      expect.objectContaining({
-        product: expect.objectContaining({
+    expect(mostrito.items).toMatchObject([
+      {
+        product: {
           id: s.pollo.id,
           name: 'Pollo a la brasa',
           category: 'chicken',
           priceCents: 4800,
           isActive: true,
-        }),
+        },
         quantity: 1,
         portion: 'quarter',
         cut: 'leg',
-      }),
-      expect.objectContaining({
-        product: expect.objectContaining({
+      },
+      {
+        product: {
           id: s.incaKola.id,
           name: 'Inca Kola 1L',
           category: 'drink',
           priceCents: 800,
           isActive: true,
-        }),
+        },
         quantity: 1,
         portion: null,
         cut: null,
-      }),
+      },
     ]);
   });
   it('AC-14: un chicken sin porciones trae portions e items vacíos', async () => {

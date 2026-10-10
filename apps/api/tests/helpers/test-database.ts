@@ -202,7 +202,16 @@ export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<v
 export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
   const tables: string[] = [];
-  for (const table of ['combo_items', 'product_portions', 'products']) {
+  // order_items y sus hijas referencian products desde la spec 010: mismo
+  // criterio de un solo TRUNCATE que en clearOrderTables.
+  for (const table of [
+    'order_item_sauces',
+    'order_item_components',
+    'order_items',
+    'combo_items',
+    'product_portions',
+    'products',
+  ]) {
     if (await tableExists(sequelize, table)) tables.push(table);
   }
   if (tables.length > 0) {

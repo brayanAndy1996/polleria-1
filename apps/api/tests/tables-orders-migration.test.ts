@@ -21,6 +21,7 @@ const MIGRATIONS = [
   '20261011120000-create-order-items.ts',
 ];
 const TABLES_ORDERS_MIGRATION = '20261010120000-create-tables-orders.ts';
+const ORDER_ITEMS_MIGRATION = '20261011120000-create-order-items.ts';
 
 // Marcas de tiempo fijas para las columnas que piden los CHECK de pares.
 const T0 = '2026-10-10T15:00:00.000Z';
@@ -610,8 +611,12 @@ describe('009: tablas orders y tables con su migración sobre polleria_test', ()
     ])
       expect(await tableExists(sequelize, table)).toBe(true);
 
-    // La última aplicada es la de la spec 009: revierte primero ella y caen ambas
-    // tablas; el resto de la lista sigue en pie.
+    // La última aplicada es la de la spec 010: revierte primero ella, luego la
+    // de la 009, que es la que interesa a esta prueba.
+    expect(await migrateDown(sequelize)).toEqual([ORDER_ITEMS_MIGRATION]);
+    expect(await tableExists(sequelize, 'order_items')).toBe(false);
+    expect(await tableExists(sequelize, 'kitchen_tickets')).toBe(false);
+    expect(await tableExists(sequelize, 'tables')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([TABLES_ORDERS_MIGRATION]);
     expect(await tableExists(sequelize, 'tables')).toBe(false);
     expect(await tableExists(sequelize, 'orders')).toBe(false);
@@ -619,7 +624,7 @@ describe('009: tablas orders y tables con su migración sobre polleria_test', ()
     expect(await tableExists(sequelize, 'users')).toBe(true);
 
     // La migración es reaplicable tras revertir y las tablas vuelven a funcionar.
-    expect(await migrateUp(sequelize)).toEqual([TABLES_ORDERS_MIGRATION]);
+    expect(await migrateUp(sequelize)).toEqual([TABLES_ORDERS_MIGRATION, ORDER_ITEMS_MIGRATION]);
     expect(await tableExists(sequelize, 'orders')).toBe(true);
     expect(await tableExists(sequelize, 'tables')).toBe(true);
     const userId = await insertUser('mozo.migra');

@@ -413,7 +413,7 @@ describe('010: migración de ítems del pedido sobre polleria_test', () => {
     await expect(insert('half', null)).resolves.toBeDefined();
     await expect(insert('whole', null)).resolves.toBeDefined();
     await expect(insert(null, null)).resolves.toBeDefined();
-    for (const [portion, cut] of [
+    const invalidPairs: [string | null, string | null][] = [
       ['quarter', null],
       ['eighth', null],
       ['half', 'leg'],
@@ -421,7 +421,8 @@ describe('010: migración de ítems del pedido sobre polleria_test', () => {
       [null, 'leg'],
       ['cuarto', 'leg'],
       ['quarter', 'ala'],
-    ])
+    ];
+    for (const [portion, cut] of invalidPairs)
       await expect(insert(portion, cut)).rejects.toSatisfy(
         (e: unknown) => violatedConstraint(e) === 'order_items_portion_cut',
       );
