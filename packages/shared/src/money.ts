@@ -16,8 +16,10 @@ export const PRICE_INPUT_MESSAGE =
 
 /**
  * Entero de céntimos -> 'S/ X.XX' (1850 -> 'S/ 18.50', 0 -> 'S/ 0.00', 5 -> 'S/ 0.05').
- * Aritmética de enteros, sin Intl ni float: la parte entera con Math.trunc y los dos
- * dígitos de céntimos con padStart, así el resultado es el mismo en cualquier equipo.
+ * Aritmética de enteros, sin Intl ni float: la conversión a dígitos se hace con
+ * BigInt sobre el valor exacto del entero double —String() pasa a notación
+ * exponencial cuando la parte de soles llega a 1e21 y rompería el formato
+ * (ADV-008-03)—, así el resultado es el mismo en cualquier equipo.
  * Lanza error ante cualquier entrada que no sea un entero mayor o igual a 0
  * (defensa, igual que chickenConsumption): el dinero nunca es float ni texto.
  */
@@ -27,8 +29,11 @@ export function formatSoles(cents: number): string {
       `formatSoles espera un entero de céntimos mayor o igual a 0 y recibió: ${String(cents)}.`,
     );
   }
-  const soles = Math.trunc(cents / 100);
-  const centsText = String(cents % 100).padStart(2, '0');
+  // BigInt solo acepta números enteros: la guardia de arriba ya lo garantiza, y
+  // conserva el valor exacto aunque supere 2^53.
+  const integer = BigInt(cents);
+  const soles = integer / 100n;
+  const centsText = String(integer % 100n).padStart(2, '0');
   return `S/ ${soles}.${centsText}`;
 }
 
@@ -39,16 +44,26 @@ export function formatSoles(cents: number): string {
  * formato no cuadra: vacío, letras, el símbolo 'S/', más de un separador, más de dos
  * decimales, negativos, decimales sin dígito inicial ('.5'), separador sin decimales
  * ('18.') o espacios internos ('1 850'). No acota el rango: el tope lo revisa el
- * esquema del precio y se muestra con PRICE_INPUT_MESSAGE.
+ * esquema del precio y se muestra con PRICE_INPUT_MESSAGE. La única cota es la
+ * representabilidad (ADV-008-02): con ~309 dígitos o más en la parte entera
+ * parseInt desborda a Infinity y no existe un entero de céntimos que devolver,
+ * así que se devuelve null. Entre 2^53 y ese límite el resultado sigue siendo
+ * un entero finito aunque pierda precisión — límite documentado y aceptado,
+ * muy por encima del tope real de precios.
  */
 export function parseSolesToCents(text: string): number | null {
   const trimmed = text.trim();
   // Uno o más dígitos, opcionalmente con un separador '.' o ',' y 1-2 decimales.
   if (!/^\d+(?:[.,]\d{1,2})?$/.test(trimmed)) return null;
   const separatorIndex = trimmed.search(/[.,]/);
-  if (separatorIndex === -1) return Number.parseInt(trimmed, 10) * 100;
-  const soles = Number.parseInt(trimmed.slice(0, separatorIndex), 10);
+  const solesText = separatorIndex === -1 ? trimmed : trimmed.slice(0, separatorIndex);
   // Un decimal '5' vale 50 céntimos: se completa con un cero a la derecha.
-  const cents = Number.parseInt(trimmed.slice(separatorIndex + 1).padEnd(2, '0'), 10);
-  return soles * 100 + cents;
+  const cents =
+    separatorIndex === -1
+      ? 0
+      : Number.parseInt(trimmed.slice(separatorIndex + 1).padEnd(2, '0'), 10);
+  const total = Number.parseInt(solesText, 10) * 100 + cents;
+  // El contrato es "entero de céntimos o null": Infinity (desborde) no es un
+  // entero; todo resultado finito ya es un entero válido.
+  return Number.isFinite(total) ? total : null;
 }
