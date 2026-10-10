@@ -4,16 +4,18 @@ import { Button, Label } from '@heroui/react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   COMBO_ITEMS_MAX,
+  COMBO_ITEM_QUANTITY_MAX,
   PORTIONS,
   PRODUCT_CATEGORIES,
   SINGLE_CUT_PORTIONS,
   comboItemInputSchema,
   formatSoles,
+  replaceComboItemsRequestSchema,
 } from '@polleria/shared';
 import type { ComboItem, Product, ProductCategory } from '@polleria/shared';
 import { useMemo, useRef, useState } from 'react';
 import { apiErrorMessage } from '../../lib/api/error-message.ts';
-import { issuesFromApiError, splitIssues } from '../../lib/api/issues.ts';
+import { issuesFromApiError, issuesFromZod, splitIssues } from '../../lib/api/issues.ts';
 import { getComboItems, getProductPortions, replaceComboItems } from '../../lib/api/products.ts';
 import { CUT_LABELS, PORTION_LABELS, PRODUCT_CATEGORY_LABELS } from '../../lib/menu-labels.ts';
 import { LabeledInput } from '../users/labeled-input.tsx';
@@ -60,6 +62,22 @@ function buildItem(row: EditorRow, catalog: ReadonlyMap<number, Product>) {
     portion: isChicken ? (row.portion === '' ? null : row.portion) : null,
     cut: isChicken ? (singleCut ? row.cut : null) : null,
   };
+}
+
+/**
+ * Cantidad con la que la fila entra a la comparación 'por separado suman'
+ * (ADV-008-04/05/06): el campo es texto libre y Number() acepta '1e21', '0x10'
+ * o '150', valores que el PUT rechaza o que desbordan la suma a Infinity y
+ * tumban el render en formatSoles. La fila solo suma cuando su cantidad es un
+ * entero dentro del rango que el contrato acepta (1..COMBO_ITEM_QUANTITY_MAX);
+ * con cualquier otro texto devuelve null y la fila queda fuera de la suma.
+ */
+function sumableQuantity(text: string): number | null {
+  const quantity = Number(text);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > COMBO_ITEM_QUANTITY_MAX) {
+    return null;
+  }
+  return quantity;
 }
 
 /** Selector 'Producto': opción vacía y los no-combo agrupados por categoría con optgroup. */
@@ -210,29 +228,35 @@ function ComboItemsEditor({
   const portionsPending = portionsQueries.some((query) => query.isPending);
 
   const save = useMutation({
-    mutationFn: (body: {
+    // rowKeys viaja con el envío: los issues 'items.N.*' del 400 llegan con el
+    // índice del envío y hay que reexpresarlos con la clave estable de la fila.
+    mutationFn: (submission: {
       items: { productId: number; quantity: number; portion: string | null; cut: string | null }[];
-    }) => replaceComboItems(productId, body),
+      rowKeys: number[];
+    }) => replaceComboItems(productId, { items: submission.items }),
     onSuccess: (data) => {
       setRows(buildRows(data));
       setRowErrors(new Map());
       setSectionErrors([]);
       void queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
     },
-    onError: (error) => {
+    onError: (error, submission) => {
       const issues = issuesFromApiError(error);
       if (issues.length === 0) {
         setRowErrors(new Map());
         setSectionErrors([apiErrorMessage(error)]);
         return;
       }
-      // 'items.N.*' va a la fila N del envío, que coincide con la fila N visible.
+      // 'items.N.*' va a la fila N del envío; se guarda por la clave de la fila
+      // para que un 'Quitar' posterior no arrastre el mensaje a otra fila
+      // (ADV-008-08). Un índice fuera del envío cae en la sección.
       const { byIndex, root } = splitIssues(issues, 'items');
       const mapped = new Map<number, string[]>();
       const sectionMessages = [...root];
       for (const [index, messages] of byIndex) {
-        if (index >= 0 && index < rows.length) mapped.set(index, messages);
-        else sectionMessages.push(...messages);
+        const key = submission.rowKeys[index];
+        if (key === undefined) sectionMessages.push(...messages);
+        else mapped.set(key, messages);
       }
       setRowErrors(mapped);
       setSectionErrors(sectionMessages);
@@ -274,8 +298,10 @@ function ComboItemsEditor({
   const submit = () => {
     if (sending.current || save.isPending) return;
     // Validación por fila (D-008-13): primero los mensajes de la web, después el
-    // esquema del contrato; cualquier error local cancela el PUT.
+    // esquema del contrato; cualquier error local cancela el PUT. Los errores se
+    // guardan por la clave estable de la fila, no por su posición (ADV-008-08).
     const localErrors = new Map<number, string[]>();
+    const sectionMessages: string[] = [];
     const body = rows.map((row) => buildItem(row, catalog));
     rows.forEach((row, index) => {
       const messages: string[] = [];
@@ -288,26 +314,45 @@ function ComboItemsEditor({
         const parsed = comboItemInputSchema.safeParse(body[index]);
         if (!parsed.success) messages.push(...parsed.error.issues.map((issue) => issue.message));
       }
-      if (messages.length > 0) localErrors.set(index, messages);
+      if (messages.length > 0) localErrors.set(row.key, messages);
     });
+    if (localErrors.size === 0) {
+      // D-008-12: el cuerpo completo se valida con el esquema del contrato ANTES
+      // de la red — así los duplicados ('items.N') y el tope ('items') se
+      // detectan en local y no salen al PUT (ADV-008-07).
+      const wholeBody = replaceComboItemsRequestSchema.safeParse({ items: body });
+      if (!wholeBody.success) {
+        const { byIndex, root } = splitIssues(issuesFromZod(wholeBody.error), 'items');
+        sectionMessages.push(...root);
+        for (const [index, messages] of byIndex) {
+          const row = rows[index];
+          if (row === undefined) sectionMessages.push(...messages);
+          else localErrors.set(row.key, [...(localErrors.get(row.key) ?? []), ...messages]);
+        }
+      }
+    }
     setRowErrors(localErrors);
-    setSectionErrors([]);
-    if (localErrors.size > 0) return;
+    setSectionErrors(sectionMessages);
+    if (localErrors.size > 0 || sectionMessages.length > 0) return;
     sending.current = true;
-    save.mutate({ items: body });
+    save.mutate({ items: body, rowKeys: rows.map((row) => row.key) });
   };
 
   /**
    * Comparación 'por separado suman S/ X, el combo cuesta S/ Y' (D-008-09): solo con
-   * filas completas (producto elegido y cantidad válida); el pollo cobra el precio de
-   * su presentación en venta suelta con respaldo al priceCents del producto.
+   * filas completas (producto elegido, cantidad entera en el rango del PUT y, si es
+   * pollo, su presentación elegida); el pollo cobra el precio de su presentación en
+   * venta suelta con respaldo al priceCents del producto.
    */
   let separateTotal = 0;
   let completeRows = 0;
   for (const row of rows) {
     const product = catalog.get(Number(row.productId));
-    const quantity = Number(row.quantity);
-    if (!product || !Number.isInteger(quantity) || quantity < 1) continue;
+    const quantity = sumableQuantity(row.quantity);
+    if (!product || quantity === null) continue;
+    // Una fila de pollo suma solo con su presentación elegida (D-008-09):
+    // sin presentación no hay precio de venta suelto qué comparar.
+    if (product.category === 'chicken' && row.portion === '') continue;
     completeRows += 1;
     let unit = product.priceCents;
     if (product.category === 'chicken') {
@@ -321,7 +366,12 @@ function ComboItemsEditor({
     separateTotal += unit * quantity;
   }
   const comparison = (() => {
-    if (completeRows === 0 || portionsPending) return null;
+    // Defensa extra sobre la suma (ADV-008-04): con cantidad acotada y priceCents
+    // del contrato el total siempre es un entero seguro; si algo lo rompiera,
+    // la comparación se omite en vez de lanzar en formatSoles dentro del render.
+    if (completeRows === 0 || portionsPending || !Number.isSafeInteger(separateTotal)) {
+      return null;
+    }
     const combo = `El combo cuesta ${formatSoles(comboPriceCents)}`;
     const diff = separateTotal - comboPriceCents;
     if (diff === 0) return `${combo} (igual que por separado.)`;
@@ -396,7 +446,7 @@ function ComboItemsEditor({
                   }}
                 />
               )}
-              {(rowErrors.get(index) ?? []).map((message) => (
+              {(rowErrors.get(row.key) ?? []).map((message) => (
                 <p key={message} className="text-sm text-danger">
                   {message}
                 </p>
