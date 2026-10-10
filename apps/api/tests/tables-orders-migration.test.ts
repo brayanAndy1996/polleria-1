@@ -18,6 +18,7 @@ const MIGRATIONS = [
   '20261009120000-create-product-portions.ts',
   '20261009180000-create-combo-items.ts',
   '20261010120000-create-tables-orders.ts',
+  '20261011120000-create-order-items.ts',
 ];
 const TABLES_ORDERS_MIGRATION = '20261010120000-create-tables-orders.ts';
 
