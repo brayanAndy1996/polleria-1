@@ -104,7 +104,7 @@ Decisiones aprobadas de la 003 (detalle en la spec y en PROGRESS.md):
 - Ningún agente crea, borra ni recrea bases ni roles. Las pruebas usan solo polleria_test; db:migrate y db:seed van sobre polleria_dev.
 - Puertos: dev 3000 (web, 0.0.0.0) y 4000 (API, 127.0.0.1); E2E 3100 y 4100. Antes de `pnpm test:e2e` comprobar que estén libres (detener pnpm dev).
 - En la shell, `python` abre el acceso directo de Microsoft Store y se cuelga: usar `node -e` para scripts.
-- No hay repositorio remoto configurado; todo es local. Integrar a main solo con permiso del usuario y `git merge --no-ff`.
+- El repositorio vive en GitHub (`github.com/brayanAndy1996/polleria-1`, remoto `origin`): el trabajo es virtual, cada sesión clona desde GitHub y los cambios vuelven con push. Integrar a `main` solo con permiso del usuario y `git merge --no-ff`. Las notas de Windows de esta sección describen el equipo del usuario; una sesión en la nube no ve su PostgreSQL y necesita una base propia (el usuario autoriza cómo se crea en cada caso).
 
 ## 6. Cómo trabaja el equipo (prácticas que funcionaron)
 
