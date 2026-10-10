@@ -17,8 +17,10 @@ const MIGRATIONS = [
   '20261008180000-create-products.ts',
   '20261009120000-create-product-portions.ts',
   '20261009180000-create-combo-items.ts',
+  '20261010120000-create-tables-orders.ts',
 ];
 const COMBO_ITEMS_MIGRATION = '20261009180000-create-combo-items.ts';
+const TABLES_ORDERS_MIGRATION = '20261010120000-create-tables-orders.ts';
 
 /**
  * Nombre del CHECK, la unicidad o la FK que reporta el driver pg en un error (mismo
@@ -257,14 +259,27 @@ describe('007: tabla combo_items y su migración sobre polleria_test', () => {
   it('AC-07: aplica, revierte y reaplica la migración dentro de la lista completa', async () => {
     await resetMigrationTables(sequelize);
     expect(await migrateUp(sequelize)).toEqual(MIGRATIONS);
-    for (const table of ['users', 'sessions', 'products', 'product_portions', 'combo_items'])
+    for (const table of [
+      'users',
+      'sessions',
+      'products',
+      'product_portions',
+      'combo_items',
+      'orders',
+      'tables',
+    ])
       expect(await tableExists(sequelize, table)).toBe(true);
     // El up deja el CHECK aceptando 'combo'. La fila se borra antes del down: con
     // un 'combo' dado de alta el CHECK viejo no se puede restaurar (D-007-14).
     await insertProduct(5, 'Mostrito', 'combo', 2200);
     await sequelize.query('DELETE FROM products WHERE id = 5');
 
-    // La última aplicada es la de la spec 007: revierte primero ella.
+    // La última aplicada es la de la spec 009: revierte primero ella y luego la
+    // de la 007 (combo_items), que es la que interesa a esta prueba.
+    expect(await migrateDown(sequelize)).toEqual([TABLES_ORDERS_MIGRATION]);
+    expect(await tableExists(sequelize, 'tables')).toBe(false);
+    expect(await tableExists(sequelize, 'orders')).toBe(false);
+    expect(await tableExists(sequelize, 'combo_items')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([COMBO_ITEMS_MIGRATION]);
     expect(await tableExists(sequelize, 'combo_items')).toBe(false);
     expect(await tableExists(sequelize, 'product_portions')).toBe(true);
@@ -280,9 +295,12 @@ describe('007: tabla combo_items y su migración sobre polleria_test', () => {
     expect(violatedConstraint(comboRejected)).toBe('products_category_allowed');
     await insertProduct(7, 'Arroz con pollo', 'dish', 1500);
 
-    // La migración es reaplicable tras revertir y la tabla vuelve a funcionar.
-    expect(await migrateUp(sequelize)).toEqual([COMBO_ITEMS_MIGRATION]);
+    // Las migraciones son reaplicables tras revertir, en su orden de la lista:
+    // primero la de la 007 (combo_items) y luego la de la 009 (orders + tables).
+    expect(await migrateUp(sequelize)).toEqual([COMBO_ITEMS_MIGRATION, TABLES_ORDERS_MIGRATION]);
     expect(await tableExists(sequelize, 'combo_items')).toBe(true);
+    expect(await tableExists(sequelize, 'orders')).toBe(true);
+    expect(await tableExists(sequelize, 'tables')).toBe(true);
     await insertProduct(8, 'Combo familiar', 'combo', 3900);
     await insertItem(8, 7, 2);
     expect(await itemCount()).toEqual([{ id: 1 }]);

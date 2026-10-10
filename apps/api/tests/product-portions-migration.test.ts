@@ -15,9 +15,11 @@ const MIGRATIONS = [
   '20261008180000-create-products.ts',
   '20261009120000-create-product-portions.ts',
   '20261009180000-create-combo-items.ts',
+  '20261010120000-create-tables-orders.ts',
 ];
 const PRODUCT_PORTIONS_MIGRATION = '20261009120000-create-product-portions.ts';
 const COMBO_ITEMS_MIGRATION = '20261009180000-create-combo-items.ts';
+const TABLES_ORDERS_MIGRATION = '20261010120000-create-tables-orders.ts';
 
 /**
  * Nombre del CHECK, la unicidad o la FK que reporta el driver pg en un error (mismo
@@ -251,8 +253,15 @@ describe('006: tabla product_portions y su migración sobre polleria_test', () =
     expect(await tableExists(sequelize, 'product_portions')).toBe(true);
     expect(await tableExists(sequelize, 'products')).toBe(true);
     expect(await tableExists(sequelize, 'combo_items')).toBe(true);
+    expect(await tableExists(sequelize, 'orders')).toBe(true);
+    expect(await tableExists(sequelize, 'tables')).toBe(true);
 
-    // La última aplicada es la de la spec 007: revierte primero ella, luego la de la 006.
+    // La última aplicada es la de la spec 009: revierte primero ella, luego la de la
+    // 007 (combo_items) y después la de la 006 (product_portions).
+    expect(await migrateDown(sequelize)).toEqual([TABLES_ORDERS_MIGRATION]);
+    expect(await tableExists(sequelize, 'tables')).toBe(false);
+    expect(await tableExists(sequelize, 'orders')).toBe(false);
+    expect(await tableExists(sequelize, 'combo_items')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([COMBO_ITEMS_MIGRATION]);
     expect(await tableExists(sequelize, 'combo_items')).toBe(false);
     expect(await tableExists(sequelize, 'product_portions')).toBe(true);
@@ -261,9 +270,15 @@ describe('006: tabla product_portions y su migración sobre polleria_test', () =
     expect(await tableExists(sequelize, 'products')).toBe(true);
 
     // Las migraciones son reaplicables tras revertir, en su orden de la lista.
-    expect(await migrateUp(sequelize)).toEqual([PRODUCT_PORTIONS_MIGRATION, COMBO_ITEMS_MIGRATION]);
+    expect(await migrateUp(sequelize)).toEqual([
+      PRODUCT_PORTIONS_MIGRATION,
+      COMBO_ITEMS_MIGRATION,
+      TABLES_ORDERS_MIGRATION,
+    ]);
     expect(await tableExists(sequelize, 'product_portions')).toBe(true);
     expect(await tableExists(sequelize, 'combo_items')).toBe(true);
+    expect(await tableExists(sequelize, 'orders')).toBe(true);
+    expect(await tableExists(sequelize, 'tables')).toBe(true);
     await insertProduct(5, 'Pollo a la brasa');
     await insertPortion(5, 'quarter', 'breast', 1850);
     expect(await rows<{ id: number }>('SELECT id FROM product_portions')).toEqual([{ id: 1 }]);
