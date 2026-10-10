@@ -1,6 +1,6 @@
 # Tareas — Spec 009: mesas del salón y ciclo de vida del pedido
 
-- Spec: docs/specs/009-tables/spec.md (Propuesta — pendiente de aprobación del usuario; no iniciar T-01 hasta el visto bueno)
+- Spec: docs/specs/009-tables/spec.md (Aprobada, 2026-10-10)
 - Rama: feat/009-tables
 - Contrato: docs/api/openapi.yaml (versión 0.7.0 → propuesta 0.8.0, solo aditiva: tags `tables` y `orders`; las 12 rutas de la sección 9; esquemas TableName, TableState, OrderStatus, UserRef, TableRef, Table, Order, TablesResponse y los cuerpos de petición; parámetros TableId y OrderId; respuestas reutilizables y los nueve códigos nuevos en ErrorCode — lo edita la implementación en T-10, nunca el test-writer)
 - ADR: ninguno nuevo (D-009-16; reutiliza umzug, Sequelize con FOR NO KEY UPDATE, Zod, requireAuth/requireRole, el lector del cuerpo limitado y el formato de errores)
@@ -14,7 +14,7 @@
 3. **Implementación (backend-dev)**: primero T-06 (shared, lo necesita todo lo demás), luego T-07 (migración y modelos), T-08 (servicio de mesas), T-09 (servicio de pedidos) y T-10 (controllers, rutas, app.ts y la edición de openapi.yaml).
 4. **Cierre (T-11)**: definición de terminado y requisitos R-009-01 a R-009-07.
 
-Aprobación: pendiente. La spec queda en Propuesta hasta que el usuario responda las preguntas de la sección 17; los supuestos S-009-01 a S-009-14 registrados en §16 arrancan confirmados si el usuario aprueba las recomendaciones.
+Aprobación: el usuario aprobó la spec el 2026-10-10 con las respuestas recomendadas a las preguntas 1 a 13 (supuestos S-009-01 a S-009-14 confirmados). Decisiones confirmadas: solo dominio + API sin pantallas (el mozo en la 011, la administración de mesas en la 012); `tables.current_order_id` como puntero al pedido abierto con UPDATE condicional atómico; estados free/occupied/ready/bill_requested derivados con precedencia 'ready' y ambas marcas en la respuesta; `orders` con ciclo open/closed/cancelled/merged y auditoría opened_by/closed_by/cancel_reason/merged_into_order_id; lectura para cualquier rol con sesión, salón para waiter/admin, 'listo' también para kitchen y configuración de mesas solo admin; unir fusiona a una sola cuenta (merged) y separar deja la mesa libre; mover lleva el pedido completo con sus señales; cancelar exige motivo y lo hacen waiter/admin mientras no haya ítems (con ítems, las reglas de RN-009-08 que confirma RF-07); mesas configurables sin borrado, nombre único sin mayúsculas y sin posición; sin Socket.IO ni seeds (polling con TanStack Query en la 011).
 
 ## Pruebas en rojo (test-writer)
 

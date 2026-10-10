@@ -1,6 +1,6 @@
 # Spec 009 — Mesas del salón y ciclo de vida del pedido (dominio + API)
 
-- Estado: Propuesta (pendiente de aprobación del usuario)
+- Estado: Aprobada (2026-10-10, por el usuario, con las respuestas recomendadas a las preguntas 1 a 13)
 - Fase: 2 (Mesas y pedidos)
 - Rama: feat/009-tables
 - Fecha: 2026-10-10
@@ -39,7 +39,7 @@ Por qué así: los pedidos se cuelgan de las mesas, así que las mesas van prime
 
 ## 3. Decisiones técnicas
 
-Pendientes de confirmación del usuario; las que parten como supuesto llevan la marca SUPUESTO con su ID S-009-xx.
+Todas fueron confirmadas por el usuario el 2026-10-10 con la respuesta recomendada (sección 17); las que partieron como supuesto conservan la marca SUPUESTO con su ID S-009-xx como registro.
 
 **D-009-01. Alcance: solo dominio + API, sin pantallas (SUPUESTO S-009-01).**
 - Igual que las specs 005, 006 y 007: esta spec deja listo el modelo (tables y orders), los esquemas compartidos, los servicios y las rutas. Las pantallas del mozo son la spec 011 y la administración de mesas por pantalla la 012 (o la 011 si el usuario lo prefiere). No hay tareas de frontend-dev ni pruebas E2E.
@@ -486,41 +486,50 @@ Ninguna nueva. Reutiliza lo ya instalado: Sequelize (transacción + locks FOR NO
 
 ## 16. Supuestos
 
-Las preguntas quedaron abiertas hasta aprobar la spec; para poder escribirla se asumió:
+Confirmados por el usuario el 2026-10-10: S-009-01 a S-009-14, todos con la respuesta recomendada. Ya no son supuestos: son decisiones; se conservan abajo como registro.
 
-- Las mesas del local son pocas y fijas (~10-20, RNF-04); se configuran con nombre corto y quedan en la base hasta desactivarlas.
-- Unir mesas con pedido significa una sola cuenta (fusionar), no un pedido al lado del otro; mover/servir/cobrar es de la cuenta completa.
-- El estado se deriva siempre; no existe un campo `tables.state` que pueda contradecir la realidad.
-- Las señales del pedido (`ready_at`, `bill_requested_at`) son manuales y de una sola marca vigente; la primera marcación es la que cuenta.
-- `opened_by_user_id` basta como autor de la apertura; registrar además quién movió/unió cada paso queda para la bitácora de la Fase 6.
-- 'Pedido listo' lo puede marcar la cocina (si llegara a tener pantalla) o el mozo que escucha el aviso; 'servido' lo quita el mozo.
+| ID | Supuesto |
+| --- | --- |
+| S-009-01 | Solo dominio + API, sin pantallas: las del mozo en la 011 y la administración de mesas en la 012; ningún archivo de apps/web cambia. |
+| S-009-02 | `tables.current_order_id` es el puntero al pedido abierto (NULL = libre); un pedido puede cubrir varias mesas y la unicidad sale del UPDATE condicional atómico. |
+| S-009-03 | El estado de la mesa se deriva (free, occupied, ready, bill_requested), nunca se guarda; con ambas marcas gana 'ready'. |
+| S-009-04 | `orders` es la cuenta con ciclo open/closed/cancelled/merged; registra quién la abrió y quién la cerró; nunca se borra. |
+| S-009-05 | Lectura para cualquier rol con sesión; salón (abrir, mover, unir, separar, cuenta, servido) para waiter/admin; 'listo' también para kitchen; configuración de mesas solo admin. |
+| S-009-06 | Abrir una mesa crea el pedido y la ocupa en una transacción; el reintento choca con TABLE_OCCUPIED (idempotencia natural, sin Idempotency-Key hasta la 010). |
+| S-009-07 | Mover lleva el pedido completo a una mesa destino libre y activa, liberando todas las que cubría; las señales viajan con el pedido. |
+| S-009-08 | Unir suma la mesa origen a la cuenta del destino; si el origen tenía su propio pedido, este queda 'merged' con auditoría y sus ítems se moverán al destino en la 010. |
+| S-009-09 | Separar suelta la mesa a libre (el mozo abre una cuenta nueva si hace falta); el pedido de salón conserva siempre al menos una mesa. |
+| S-009-10 | 'Listo'/'servido'/'cuenta solicitada' son señales de una sola marca vigente con autor; la primera marcación cuenta; 'servido' limpia el listo y un listo nuevo vuelve a marcar. |
+| S-009-11 | Cancelar exige motivo (1-200 caracteres) y lo hacen waiter/admin mientras el pedido no tenga ítems; con ítems activos nadie sin anularlos antes y solo admin si el pedido llegó a tenerlos (RN-009-08). |
+| S-009-12 | Las mesas las configura el admin y nunca se borran (se desactivan estando libres); nombre único sin distinguir mayúsculas, sin número ni posición. |
+| S-009-13 | Las respuestas embeben el `order` completo en cada mesa (ambas marcas visibles aunque `state` elija una). |
+| S-009-14 | Sin Socket.IO, sin seeds de mesas, sin variables de entorno ni dependencias nuevas, sin ADR. |
 
-## 17. Preguntas abiertas
+## 17. Preguntas abiertas (con recomendación)
 
-Para aprobar:
+Respondidas el 2026-10-10, todas con la respuesta recomendada: 1 (el número y los nombres los configura el admin por API — 'Mesa 1' a 'Mesa 10', 'Barra', 'Balcón 1'), 2 (mesas fijas: las configura el admin y el mozo solo opera con las que hay), 3 (lo pueden marcar cocina y el mozo: la API acepta waiter/kitchen/admin), 4 (gana 'Pedido listo' con precedencia fija y ambas marcas llegan en la respuesta), 5 (sí, unir dos cuentas las fusiona en una: status 'merged' con auditoría y sobrevive el pedido destino), 6 (separar deja la mesa libre; el mozo abre una cuenta nueva si hace falta), 7 (mozo y admin con motivo obligatorio mientras el pedido no tenga ítems; con ítems activos nadie sin anularlos antes y solo admin si llegó a tenerlos — D-009-11 y RN-009-08 para que RF-07 lo confirme), 8 (para llevar queda para su fase: el modelo admite pedidos sin mesa pero el flujo no se necesita ya), 9 (sin Socket.IO: polling con TanStack Query en la 011; la API no cambia si luego se agregan eventos), 10 (sin estado limpiando/reservada: no está en RF-02 y se puede sumar después si hace falta), 11 (sin plano visual: el orden es por nombre; position_x/position_y los agregaría una spec futura), 12 (número de personas pospuesto: las columnas party_size quedan para la 010 o la Fase 6) y 13 (cualquier mozo opera todas las cuentas; restricciones por autor y bitácoras quedan para RF-15/Fase 6). Se conservan abajo como registro, cada una marcada como resuelta.
 
-1. ¿Cuántas mesas tiene el local y cómo se llaman? El modelo y la API no dependen del número: la base inicial se crea con POST /api/tables (ej. 'Mesa 1' a 'Mesa 10', 'Barra', 'Balcón 1').
-2. ¿Las mesas son fijas o el mozo las crea al vuelo? Se propone fijas: el admin las configura y el mozo solo opera con las que hay (RNF-12 las hace configurables).
-3. ¿Quién marca "pedido listo" — cocina con pantalla o el mozo al escuchar el aviso? Se propone permitir ambos roles ya (la API acepta waiter/kitchen/admin).
-4. ¿Si hay pedido listo y cuenta pedida a la vez, qué color gana en el tablero? Se propone 'Pedido listo' con precedencia fija y ambas marcas disponibles en la respuesta.
-5. Al unir dos mesas con cuentas separadas, ¿se fusiona todo en una cuenta? Se propone sí (status `merged` con auditoría, pedido destino). La alternativa "unidas pero con cuentas separadas" complicaría cobros y estados.
-6. ¿Separar una mesa unida la deja libre o le crea su propio pedido? Se propone libre (el mozo abre uno nuevo si hace falta).
-7. ¿Quién cancela una cuenta abierta sin ítems? Se propone mozo y admin con motivo obligatorio; con ítems activos nadie sin anularlos antes (y solo admin si el pedido llegó a tener ítems) — D-009-13 para que RF-07 lo confirme.
-8. ¿Pedidos para llevar/delivery sin mesa? El modelo lo admite; el flujo (cómo se crea, dónde se ve) queda para su fase — pendiente confirmar que no se necesita ya.
-9. ¿Socket.IO desde esta spec? Se propone no: polling en la 011; la API no cambia si luego se agregan eventos.
-10. ¿Hace falta el estado "limpiando/reservada" en la mesa? No está en RF-02 y se propone no agregarlo (se puede sumar como enum derivado o de acciones después).
-11. ¿Plano visual del salón (posiciones)? No se modela; el orden es por nombre. Si el dueño quiere dibujar el salón, una spec agrega `position_x`/`position_y` después.
-12. ¿Número de personas por mesa? Se propone posponerlo junto con el registro de personas del pedido (nota §19) — sin él, 'gente atendida' solo se puede contar en pedidos.
-13. ¿Restringir separar/mover a quien abrió la cuenta? Se propone que cualquier mozo lo haga (como hoy con el pedido en papel); RF-15 y las bitácoras de la Fase 6 podrían agregar restricciones.
+1. ¿Cuántas mesas tiene el local y cómo se llaman? El modelo y la API no dependen del número: la base inicial se crea con POST /api/tables (ej. 'Mesa 1' a 'Mesa 10', 'Barra', 'Balcón 1'). **Resuelta el 2026-10-10: recomendación aceptada.**
+2. ¿Las mesas son fijas o el mozo las crea al vuelo? Se propone fijas: el admin las configura y el mozo solo opera con las que hay (RNF-12 las hace configurables). **Resuelta el 2026-10-10: recomendación aceptada.**
+3. ¿Quién marca "pedido listo" — cocina con pantalla o el mozo al escuchar el aviso? Se propone permitir ambos roles ya (la API acepta waiter/kitchen/admin). **Resuelta el 2026-10-10: recomendación aceptada.**
+4. ¿Si hay pedido listo y cuenta pedida a la vez, qué color gana en el tablero? Se propone 'Pedido listo' con precedencia fija y ambas marcas disponibles en la respuesta. **Resuelta el 2026-10-10: recomendación aceptada.**
+5. Al unir dos mesas con cuentas separadas, ¿se fusiona todo en una cuenta? Se propone sí (status `merged` con auditoría, pedido destino). La alternativa "unidas pero con cuentas separadas" complicaría cobros y estados. **Resuelta el 2026-10-10: recomendación aceptada.**
+6. ¿Separar una mesa unida la deja libre o le crea su propio pedido? Se propone libre (el mozo abre uno nuevo si hace falta). **Resuelta el 2026-10-10: recomendación aceptada.**
+7. ¿Quién cancela una cuenta abierta sin ítems? Se propone mozo y admin con motivo obligatorio; con ítems activos nadie sin anularlos antes (y solo admin si el pedido llegó a tener ítems) — D-009-11 y RN-009-08 para que RF-07 lo confirme. **Resuelta el 2026-10-10: recomendación aceptada.**
+8. ¿Pedidos para llevar/delivery sin mesa? El modelo lo admite; el flujo (cómo se crea, dónde se ve) queda para su fase — queda confirmado que no se necesita ya. **Resuelta el 2026-10-10: recomendación aceptada.**
+9. ¿Socket.IO desde esta spec? Se propone no: polling en la 011; la API no cambia si luego se agregan eventos. **Resuelta el 2026-10-10: recomendación aceptada.**
+10. ¿Hace falta el estado "limpiando/reservada" en la mesa? No está en RF-02 y se propone no agregarlo (se puede sumar como enum derivado o de acciones después). **Resuelta el 2026-10-10: recomendación aceptada.**
+11. ¿Plano visual del salón (posiciones)? No se modela; el orden es por nombre. Si el dueño quiere dibujar el salón, una spec agrega `position_x`/`position_y` después. **Resuelta el 2026-10-10: recomendación aceptada.**
+12. ¿Número de personas por mesa? Se propone posponerlo junto con el registro de personas del pedido (nota §19) — sin él, 'gente atendida' solo se puede contar en pedidos. **Resuelta el 2026-10-10: recomendación aceptada.**
+13. ¿Restringir separar/mover a quien abrió la cuenta? Se propone que cualquier mozo lo haga (como hoy con el pedido en papel); RF-15 y las bitácoras de la Fase 6 podrían agregar restricciones. **Resuelta el 2026-10-10: recomendación aceptada.**
 
-## 18. Acción del usuario al aprobar
+## 18. Acción del usuario y verificación manual
 
-1. Responder las preguntas 1-13 (o aprobar las propuestas tal cual).
-2. `pnpm -w build` (compila @polleria/shared).
-3. `pnpm --filter @polleria/api db:migrate:dev` — crea orders y tables en desarrollo.
-4. Crear mesas por API: con sesión de admin, POST /api/tables { "name": "Mesa 1" } … (en CMD se puede `curl.exe` con `-b` para la cookie o desde la consola del navegador con `fetch('/api/tables',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"name":"Mesa 1"}'})`).
-5. Verificación manual: con sesión de mozo, GET /api/tables (todas `free`); POST /api/tables/{id}/orders → `occupied`; POST /api/tables/{id}/join con otra mesa → un pedido cubriendo dos; POST /api/orders/{id}/request-bill → `bill_requested`; POST /api/orders/{id}/ready → `ready`; POST /api/orders/{id}/served → vuelve a `occupied`; POST /api/orders/{id}/cancel { "reason": "prueba" } → mesas libres.
-6. El cierre documental registra el merge a main cuando el orquestador lo autorice.
+1. `pnpm -w build` (compila @polleria/shared).
+2. `pnpm --filter @polleria/api db:migrate:dev` — crea orders y tables en desarrollo.
+3. Crear mesas por API: con sesión de admin, POST /api/tables { "name": "Mesa 1" } … (en CMD se puede `curl.exe` con `-b` para la cookie o desde la consola del navegador con `fetch('/api/tables',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"name":"Mesa 1"}'})`).
+4. Verificación manual: con sesión de mozo, GET /api/tables (todas `free`); POST /api/tables/{id}/orders → `occupied`; POST /api/tables/{id}/join con otra mesa → un pedido cubriendo dos; POST /api/orders/{id}/request-bill → `bill_requested`; POST /api/orders/{id}/ready → `ready`; POST /api/orders/{id}/served → vuelve a `occupied`; POST /api/orders/{id}/cancel { "reason": "prueba" } → mesas libres.
+5. El cierre documental registra el merge a main cuando el orquestador lo autorice.
 
 ## 19. Notas para specs siguientes
 
