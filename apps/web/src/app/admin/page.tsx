@@ -13,6 +13,12 @@ export default function Page() {
         >
           Usuarios
         </Link>
+        <Link
+          href="/admin/carta"
+          className="flex min-h-16 items-center justify-center rounded-2xl border border-separator bg-surface px-5 py-4 text-xl font-semibold transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+        >
+          Carta
+        </Link>
       </nav>
     </RoleGuard>
   );
