@@ -71,6 +71,8 @@ const VALID_ORDER = {
   closedBy: null,
   cancelReason: null,
   mergedIntoOrderId: null,
+  items: [],
+  totalCents: 0,
 };
 
 /** Mesa mínima válida según D-009-14. */
@@ -272,7 +274,7 @@ describe('009 adversarial: esquemas de mesas y pedidos', () => {
     ]) {
       expect(tableSchema.safeParse(bad).success).toBe(false);
     }
-    // orderSchema estricto: las once claves exactas; fechas deben ser ISO o null.
+    // orderSchema estricto: las trece claves exactas; fechas deben ser ISO o null.
     expect(orderSchema.safeParse(VALID_ORDER).success).toBe(true);
     for (const bad of [
       { ...VALID_ORDER, extra: 1 },
