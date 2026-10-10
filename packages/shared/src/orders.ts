@@ -67,8 +67,7 @@ const tableIdSchema = z
  * que el campo rechaza con su mensaje.
  */
 function singleFieldBody(input: unknown, key: string): unknown {
-  if (typeof input !== 'object' || input === null || Array.isArray(input))
-    return { [key]: null };
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) return { [key]: null };
   if (Object.keys(input).some((name) => name !== key)) return { [key]: null };
   return input;
 }

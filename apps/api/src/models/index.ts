@@ -287,9 +287,7 @@ export function initComboItemAssociations(models: Pick<Models, 'Product' | 'Comb
  * quien cerró— y a sí mismo como destino del merge; cada mesa apunta al pedido
  * que la cubre con current_order_id y un pedido cubre muchas mesas.
  */
-export function initOrderTableAssociations(
-  models: Pick<Models, 'User' | 'Order' | 'Table'>,
-): void {
+export function initOrderTableAssociations(models: Pick<Models, 'User' | 'Order' | 'Table'>): void {
   const { User, Order, Table } = models;
   Order.belongsTo(User, { foreignKey: 'openedByUserId', as: 'openedBy' });
   Order.belongsTo(User, { foreignKey: 'readyByUserId', as: 'readyBy' });

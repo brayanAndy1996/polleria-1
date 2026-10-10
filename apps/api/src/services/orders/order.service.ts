@@ -157,10 +157,7 @@ export function createOrderService({ models }: { models: Models }): OrderService
         if (table === null) throw createTableNotFoundError();
         if (!table.isActive) throw createTableInactiveError();
         if (table.currentOrderId !== null) throw createTableOccupiedError();
-        const order = await models.Order.create(
-          { openedByUserId: actor.userId },
-          { transaction },
-        );
+        const order = await models.Order.create({ openedByUserId: actor.userId }, { transaction });
         // La ocupación es el UPDATE condicional atómico de D-009-02: solo se toma
         // una mesa libre. Cero filas afectadas = la mesa quedó ocupada — aunque con
         // el bloqueo de fila es inalcanzable, es la guardia que manda la spec.
@@ -194,12 +191,10 @@ export function createOrderService({ models }: { models: Models }): OrderService
         const locked = await lockedTables(targetIds, transaction);
         const destination = locked.find((table) => table.id === tableId);
         // El destino es dato del cuerpo: su inexistencia es un issue, no un 404.
-        if (destination === undefined)
-          throw validationIssue('tableId', 'Esa mesa no existe.');
+        if (destination === undefined) throw validationIssue('tableId', 'Esa mesa no existe.');
         if (!destination.isActive) throw createTableInactiveError();
         // Ya cubre sola: mover es un no-op (D-009-07).
-        if (covered.length === 1 && covered[0] === tableId)
-          return viewOf(orderId, transaction);
+        if (covered.length === 1 && covered[0] === tableId) return viewOf(orderId, transaction);
         if (destination.currentOrderId === null) {
           const [affected] = await models.Table.update(
             { currentOrderId: orderId },
@@ -232,8 +227,7 @@ export function createOrderService({ models }: { models: Models }): OrderService
         const destination = await models.Table.findByPk(intoTableId, {
           attributes: ['id', 'isActive', 'currentOrderId'],
         });
-        if (destination === null)
-          throw validationIssue('intoTableId', 'Esa mesa no existe.');
+        if (destination === null) throw validationIssue('intoTableId', 'Esa mesa no existe.');
         if (!destination.isActive) throw createTableInactiveError();
         const involvedIds = [
           ...new Set(
@@ -271,8 +265,7 @@ export function createOrderService({ models }: { models: Models }): OrderService
               throw createTableHasNoOrderError();
             const targetOrderId = destinationOrder.id;
             // Mismo pedido en ambas mesas: unir es un no-op.
-            if (originOrderId === destinationOrderId)
-              return viewOf(targetOrderId, transaction);
+            if (originOrderId === destinationOrderId) return viewOf(targetOrderId, transaction);
             if (originOrderId === null) {
               // Mesa origen libre: se suma a la cuenta del destino.
               await lockedOrigin.update({ currentOrderId: targetOrderId }, { transaction });
@@ -372,10 +365,7 @@ export function createOrderService({ models }: { models: Models }): OrderService
       return sequelize.transaction(async (transaction) => {
         const order = await openOrderRow(orderId, transaction);
         if (order.readyAt === null)
-          await order.update(
-            { readyAt: now(), readyByUserId: actor.userId },
-            { transaction },
-          );
+          await order.update({ readyAt: now(), readyByUserId: actor.userId }, { transaction });
         return viewOf(orderId, transaction);
       });
     },

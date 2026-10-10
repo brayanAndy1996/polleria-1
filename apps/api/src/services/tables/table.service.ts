@@ -59,7 +59,9 @@ export function createTableHasNoOrderError(): AppError {
  * precedencia fija ready > bill_requested > occupied y sin pedido, free. Las dos
  * señales conviven en la respuesta; el estado solo elige cuál dibuja el tablero.
  */
-export function deriveTableState(order: Pick<Order, 'readyAt' | 'billRequestedAt'> | null): TableState {
+export function deriveTableState(
+  order: Pick<Order, 'readyAt' | 'billRequestedAt'> | null,
+): TableState {
   if (order === null) return 'free';
   if (order.readyAt !== null) return 'ready';
   if (order.billRequestedAt !== null) return 'bill_requested';
@@ -67,10 +69,7 @@ export function deriveTableState(order: Pick<Order, 'readyAt' | 'billRequestedAt
 }
 
 /** Las cinco claves exactas de la forma pública de la mesa (D-009-14). */
-function toTable(
-  row: { id: number; name: string; isActive: boolean },
-  order: Order | null,
-): Table {
+function toTable(row: { id: number; name: string; isActive: boolean }, order: Order | null): Table {
   return {
     id: row.id,
     name: row.name,
@@ -99,10 +98,7 @@ export function createTableService({ models }: { models: Models }): TableService
   const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
 
   /** Forma pública del pedido que cubre a la mesa, o null si está libre. */
-  async function orderOf(
-    orderId: number | null,
-    transaction: Transaction,
-  ): Promise<Order | null> {
+  async function orderOf(orderId: number | null, transaction: Transaction): Promise<Order | null> {
     if (orderId === null) return null;
     const order = await models.Order.findByPk(orderId, { transaction });
     if (order === null) return null;
@@ -134,9 +130,7 @@ export function createTableService({ models }: { models: Models }): TableService
             row.currentOrderId === null ? null : (views.get(row.currentOrderId) ?? null),
           ),
         )
-        .sort(
-          (first, second) => collator.compare(first.name, second.name) || first.id - second.id,
-        );
+        .sort((first, second) => collator.compare(first.name, second.name) || first.id - second.id);
     },
     async createTable(input) {
       const { name } = createTableRequestSchema.parse(input);
