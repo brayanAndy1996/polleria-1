@@ -27,6 +27,24 @@ export const ERROR_CODES = {
   COMBO_ITEMS_NOT_ALLOWED: 'COMBO_ITEMS_NOT_ALLOWED',
   PRODUCT_HAS_ITEMS: 'PRODUCT_HAS_ITEMS',
   PRODUCT_IS_COMPONENT: 'PRODUCT_IS_COMPONENT',
+  /** RF-02/RF-03 (spec 009): la mesa de la ruta no existe. */
+  TABLE_NOT_FOUND: 'TABLE_NOT_FOUND',
+  /** RF-03: el pedido de la ruta no existe. */
+  ORDER_NOT_FOUND: 'ORDER_NOT_FOUND',
+  /** RF-02: ya hay una mesa con ese nombre (la comparación no distingue mayúsculas). */
+  TABLE_NAME_TAKEN: 'TABLE_NAME_TAKEN',
+  /** RF-03: la mesa ya tiene un pedido abierto al abrir cuenta o moverse a ella. */
+  TABLE_OCCUPIED: 'TABLE_OCCUPIED',
+  /** RF-02/RF-03: la mesa está desactivada y no admite operaciones de salón. */
+  TABLE_INACTIVE: 'TABLE_INACTIVE',
+  /** RF-02: no se puede desactivar una mesa mientras tenga un pedido abierto. */
+  TABLE_HAS_OPEN_ORDER: 'TABLE_HAS_OPEN_ORDER',
+  /** RF-03: la mesa no tiene pedido abierto donde la operación lo exige. */
+  TABLE_HAS_NO_ORDER: 'TABLE_HAS_NO_ORDER',
+  /** RF-03: el pedido ya está cerrado (closed, cancelled o merged). */
+  ORDER_NOT_OPEN: 'ORDER_NOT_OPEN',
+  /** RF-03: quitar la última mesa dejaría el pedido sin mesa; hay que cerrarlo. */
+  ORDER_NEEDS_TABLE: 'ORDER_NEEDS_TABLE',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
