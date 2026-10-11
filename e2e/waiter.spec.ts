@@ -69,6 +69,13 @@ async function sendItems(
 function tableCard(page: Page, name: string) {
   return page.getByRole('link', { name: new RegExp(name) });
 }
+/** Sección 'Pedido' de la página de mesa: los ítems enviados viven ahí; las
+ * comandas (donde se repite el nombre de un componente de combo) van aparte. */
+function sentItems(page: Page) {
+  return page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: 'Pedido', exact: true, level: 2 }) });
+}
 
 test.describe('011: pantallas del mozo en el celular', () => {
   test('AC-22: abrir la mesa, enviar una tanda mixta y las señales listo/servido/cuenta', async ({
@@ -137,7 +144,7 @@ test.describe('011: pantallas del mozo en el celular', () => {
     await expect(page.getByText('Adición')).toBeVisible();
     await expectNoOverflow(page);
     // Solicita la anulación de la gaseosa con motivo.
-    await page
+    await sentItems(page)
       .getByText(/E2E Gaseosa/)
       .locator('xpath=ancestor::*[.//button[contains(., "Solicitar")]][1]')
       .getByRole('button', { name: 'Solicitar anulación' })
@@ -163,7 +170,7 @@ test.describe('011: pantallas del mozo en el celular', () => {
     await page.getByRole('button', { name: /^E2E Chaufa/ }).click();
     await page.getByRole('button', { name: 'Agregar al pedido' }).click();
     await page.getByRole('button', { name: 'Enviar a cocina (1)' }).click();
-    await page
+    await sentItems(page)
       .getByText(/E2E Chaufa/)
       .locator('xpath=ancestor::*[.//button[contains(., "Solicitar")]][1]')
       .getByRole('button', { name: 'Solicitar anulación' })
@@ -178,7 +185,7 @@ test.describe('011: pantallas del mozo en el celular', () => {
     // El ítem vuelve a 'Enviado': sin marca y con 'Anular' otra vez disponible.
     await expect(admin.getByRole('button', { name: 'Rechazar solicitud' })).toHaveCount(0);
     await expect(
-      admin
+      sentItems(admin)
         .getByText(/E2E Chaufa/)
         .locator('xpath=ancestor::*[.//button[contains(., "Anular")]][1]')
         .getByRole('button', { name: 'Anular', exact: true }),

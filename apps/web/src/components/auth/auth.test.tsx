@@ -54,6 +54,8 @@ beforeEach(() => {
       }),
     ),
     http.get('*/api/auth/users', () => HttpResponse.json({ users: USERS })),
+    // El tablero del mozo solo pinta 'Mesas' cuando la consulta resuelve.
+    http.get('*/api/tables', () => HttpResponse.json({ tables: [] })),
   );
 });
 afterEach(() => {
@@ -345,13 +347,13 @@ describe('003: guardias, páginas y cambio de área', () => {
       mockSession(roles as UserRole[]);
       show(<MozoPage />);
       expect(screen.getByRole('status')).toHaveTextContent('Cargando...');
-      expect(screen.queryByRole('heading', { name: 'Mozo' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Mesas' })).not.toBeInTheDocument();
       if (destination) {
         await waitFor(() => {
           expect(replace).toHaveBeenCalledWith(destination);
         });
-        expect(screen.queryByRole('heading', { name: 'Mozo' })).not.toBeInTheDocument();
-      } else expect(await screen.findByRole('heading', { name: 'Mozo', level: 1 })).toBeVisible();
+        expect(screen.queryByRole('heading', { name: 'Mesas' })).not.toBeInTheDocument();
+      } else expect(await screen.findByRole('heading', { name: 'Mesas', level: 1 })).toBeVisible();
     },
   );
   it('AC-33: sin sesión recarga en login y sin red ofrece reintentar', async () => {
@@ -360,17 +362,17 @@ describe('003: guardias, páginas y cambio de área', () => {
     await waitFor(() => {
       expect(hardNavigate).toHaveBeenCalledWith('/login');
     });
-    expect(screen.queryByRole('heading', { name: 'Mozo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Mesas' })).not.toBeInTheDocument();
     view.unmount();
     server.use(http.get('*/api/auth/me', () => HttpResponse.error()));
     show(<MozoPage />);
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo verificar tu sesión.');
     mockSession();
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
-    expect(await screen.findByRole('heading', { name: 'Mozo' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Mesas' })).toBeVisible();
   });
   it.each([
-    [MozoPage, 'Mozo', ['waiter'], 'Juan', 'Juan · Mozo'],
+    [MozoPage, 'Mesas', ['waiter'], 'Juan', 'Juan · Mozo'],
     [CajaPage, 'Caja', ['cashier', 'waiter'], 'Ana', 'Ana · Mozo, Cajero'],
     [CocinaPage, 'Cocina', ['kitchen'], 'Beto', 'Beto · Cocina'],
     [AdminPage, 'Administración', ['admin'], 'Carlos', 'Carlos · Administrador'],
@@ -385,8 +387,8 @@ describe('003: guardias, páginas y cambio de área', () => {
     },
   );
   it.each([
-    ['/mozo', 'waiter', MozoPage, 'Mozo'],
-    ['/mozo', 'admin', MozoPage, 'Mozo'],
+    ['/mozo', 'waiter', MozoPage, 'Mesas'],
+    ['/mozo', 'admin', MozoPage, 'Mesas'],
     ['/caja', 'cashier', CajaPage, 'Caja'],
     ['/caja', 'admin', CajaPage, 'Caja'],
     ['/cocina', 'kitchen', CocinaPage, 'Cocina'],
@@ -404,8 +406,8 @@ describe('003: guardias, páginas y cambio de área', () => {
     },
   );
   it.each([
-    ['/mozo', ['kitchen'], '/cocina', MozoPage, 'Mozo'],
-    ['/mozo', ['cashier'], '/caja', MozoPage, 'Mozo'],
+    ['/mozo', ['kitchen'], '/cocina', MozoPage, 'Mesas'],
+    ['/mozo', ['cashier'], '/caja', MozoPage, 'Mesas'],
     ['/caja', ['waiter'], '/mozo', CajaPage, 'Caja'],
     ['/caja', ['kitchen'], '/cocina', CajaPage, 'Caja'],
     ['/cocina', ['waiter'], '/mozo', CocinaPage, 'Cocina'],
@@ -559,8 +561,8 @@ describe('003: guardias, páginas y cambio de área', () => {
   it.each([
     [CajaPage, ['waiter', 'cashier'], '/caja', true, 'Caja'],
     [AdminPage, ['admin'], '/admin', true, 'Administración'],
-    [MozoPage, ['admin'], '/mozo', true, 'Mozo'],
-    [MozoPage, ['waiter'], '/mozo', false, 'Mozo'],
+    [MozoPage, ['admin'], '/mozo', true, 'Mesas'],
+    [MozoPage, ['waiter'], '/mozo', false, 'Mesas'],
     [CocinaPage, ['kitchen'], '/cocina', false, 'Cocina'],
   ])(
     'AC-43: recuerda el área autorizada %s y ofrece cambio solo con varias áreas',
