@@ -1,6 +1,6 @@
 # Spec 011 — Pantallas del mozo: tablero de mesas, pedido y toma de comanda
 
-- Estado: Borrador (pendiente de aprobación del usuario)
+- Estado: Aprobada (2026-10-11): las 12 preguntas abiertas de la sección 17 respondidas con las recomendaciones propuestas
 - Fase: 2 (Mesas y pedidos)
 - Rama: feat/011-waiter-screens
 - Fecha: 2026-10-11
@@ -34,7 +34,7 @@ Hoy el mozo memoriza o anota en papel, camina a la cocina a dictar y suma la cue
 
 ## 3. Decisiones técnicas
 
-Ninguna fue confirmada aún: todas parten como SUPUESTO con su ID S-011-xx y se responden en la sección 17.
+Confirmadas por el usuario el 2026-10-11: S-011-01 a S-011-16 con las respuestas recomendadas de la sección 17. Se conservan abajo como registro.
 
 **D-011-01. Alcance: solo apps/web (SUPUESTO S-011-01).**
 - La API, la base de datos, packages/shared y el contrato no cambian: docs/api/openapi.yaml queda en la versión 0.9.0 sin una línea nueva. La 011 consume tal cual las 17 rutas de salón de las specs 009 y 010 más GET /api/menu.

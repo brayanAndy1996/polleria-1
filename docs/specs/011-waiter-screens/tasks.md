@@ -1,6 +1,6 @@
 # Tareas — Spec 011: Pantallas del mozo
 
-- Spec: docs/specs/011-waiter-screens/spec.md (estado Borrador; esta lista no se ejecuta hasta que el usuario la apruebe)
+- Spec: docs/specs/011-waiter-screens/spec.md (Aprobada el 2026-10-11 con las recomendaciones del §17; en ejecución: test-writer con T-01 a T-08 en rojo)
 - Rama: feat/011-waiter-screens
 - Contrato: docs/api/openapi.yaml 0.9.0, SIN CAMBIOS (la spec es solo web; consumo de las rutas de la 009/010)
 - ADR: ninguno — composición de lo ya decidido
