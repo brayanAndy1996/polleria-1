@@ -6,10 +6,10 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 2 de 6, mesas y pedidos (RF-02 a RF-07). La Fase 1 quedó completa en código con la integración de la 008 el 2026-10-09 (pendientes manuales documentados: pnpm db:migrate en polleria_dev, pruebas por API y recorrido de /admin/carta).
-- Funcionalidad: 010-order-items (spec aprobada; siguiente: tests en rojo). La 009-tables se integró a main el 2026-10-10 (merge 389e86f).
-- Paso: propuesta 010 redactada por el spec-writer y aprobada por el usuario el 2026-10-10 con las respuestas recomendadas salvo la de anulación: el usuario decidió que el mozo puede SOLICITAR la anulación (ciclo sent → void_requested → voided con aprobación y posible rechazo del admin; auditoría de dos actores). El cliente elige pecho/pierna del combo y se vende combo con componente desactivado (ambos como recomendado). 19 AC; OpenAPI propuesto 0.8.0 → 0.9.0 (único cambio no aditivo: Order gana items + totalCents).
-- Siguiente acción: test-writer escribe los AC-01 a AC-19 en rojo (T-01 a T-06); luego backend-dev (T-07 a T-11), adversarial-tester y reviewer.
-- Rama: feat/010-order-items (creada desde main tras integrar la 009).
+- Funcionalidad: 010-order-items **APROBADA por el reviewer** el 2026-10-11 tras corregir el único bloqueante (paths ausentes en el contrato). Pendiente de integración a main.
+- Paso: ciclo completo — spec aprobada 2026-10-10 (anulación por decisión del usuario: el mozo SOLICITA y el admin aprueba/rechaza); tests en rojo T-01 a T-06 (~77 pruebas nuevas, rojo válido verificado); implementación T-07 a T-11 en verde; 19 adversariales ADV-010-01..19 con 7 hallazgos corregidos en producción (2 críticos, 2 altos, 2 medios, 1 bajo — los medios/bajos eran violaciones directas de la spec: FK ausente, filtro Zl/Zp, etiqueta de parámetro); reviewer APROBADO en segunda vuelta. Verificación del orquestador: pnpm test 2218 verdes (única falla la ambiental autorizada ADV-002-01), lint y typecheck en 0, cobertura global 98,4 % de líneas con services ≥90 % (order-item.service 98,06 %, menu.service 100 %, order.service 95,48 %), OpenAPI 0.9.0 válido con Redocly (0 errores) y coincidente con las 6 rutas implementadas.
+- Siguiente acción: pedir al usuario permiso para integrar feat/010-order-items a main con `git merge --no-ff`; después, spec-writer prepara la propuesta 011 (pantallas del mozo).
+- Rama: feat/010-order-items (creada desde main tras integrar la 009; todos los commits pusheados).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
 ## Tabla de funcionalidades
@@ -25,7 +25,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 007 | combos (producto de categoría 'combo' + tabla combo_items; precio fijo; consumo en octavos derivado; GET + PUT /api/products/{id}/items; sin pantallas) | 1 | Cerrada (APROBADO; 15 AC; 30 adversariales con 0 hallazgos; integrada a main en el merge 892914a; pendientes manuales registrados) | feat/007-combos | 2026-10-09 |
 | 008 | menu-admin (pantallas /admin/carta: lista por categorías, alta/edición de productos, grilla de presentaciones del pollo, editor de componentes del combo con comparación de precios) | 1 | Cerrada (APROBADO; 21 AC; 157 tests adversariales verdes; 9 hallazgos corregidos; integrada a main en el merge 01d23bb; pendientes manuales registrados) | feat/008-menu-admin | 2026-10-09 |
 | 009 | tables (mesas del salón + ciclo del pedido sin ítems: estados derivados, abrir, mover, unir, separar, listo/servido, pedir cuenta, cancelar) | 2 | Cerrada (APROBADO; 21 AC; 24 adversariales verdes; 2 hallazgos corregidos; integrada a main en el merge 389e86f; pendientes manuales registrados) | feat/009-tables | 2026-10-10 |
-| 010 | order-items (ítems del pedido con presentación/parte/cremas/observaciones, envío idempotente, comandas como registro, anulación solicitada por el mozo y ejecutada por admin) | 2 | En curso (spec aprobada 2026-10-10; 19 AC) | feat/010-order-items | — |
+| 010 | order-items (ítems del pedido con presentación/parte/cremas/observaciones, envío idempotente, comandas como registro, anulación solicitada por el mozo y ejecutada por admin) | 2 | APROBADO por reviewer; pendiente de integración a main | feat/010-order-items | — |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec. La de la Fase 2 (009 a 012) la propuso el spec-writer de la 009.
 
@@ -78,6 +78,9 @@ La división 004 a 008 es una propuesta del orquestador; cada una se confirma al
 | 2026-10-10 | Autoriza corregir los 2 hallazgos adversariales de la 009 (alto ADV-009-22: GET /api/tables con lectura rasgada durante merges → REPEATABLE READ en listTables y getOrder; medio ADV-009-14: rutas sin cuerpo rechazaban cuerpos ilegibles → bypass BODILESS_PATH_PATTERN). Revalidados en verde, 24/24. |
 | 2026-10-10 | Autoriza integrar la 009 a main (merge --no-ff 389e86f). |
 | 2026-10-10 | Spec 010 aprobada: respuestas recomendadas salvo la anulación — el usuario decidió que el MOZO puede SOLICITAR la anulación del ítem y el admin la aprueba (o rechaza); ciclo sent → void_requested → voided con auditoría de dos actores. Confirmadas como recomendado: el cliente elige pecho/pierna del combo en el mostrador (defecto de carta) y se vende combo con componente desactivado. |
+| 2026-10-11 | Arbitraje de la 010: el backend-dev reportó 6 defectos en los tests del test-writer (TRUNCATE sin las tablas nuevas por FK, UPDATEs de cierre inconsistentes con el CHECK de la 009, helpers y sobres mal leídos, errores de tipos) — verificados por el orquestador y corregidos por el test-writer sin que el implementador tocara pruebas. |
+| 2026-10-11 | Adversariales de la 010: 19 casos; 7 hallazgos reales corregidos en producción en el mismo pase (críticos: octavos corruptos en componente 'half' y replay fantasma de anulación por hash sin itemId; altos: octavos descartados en silencio en componentes no-half y bytes de control persistidos en el motivo; medios: separadores Unicode Zl/Zp en notas y motivo, FK ausente en void_requested_by_user_id — la spec la declaraba; bajo: issue de parámetro con etiqueta equivocada). Se corrigieron también los medios/bajos por ser violaciones directas de la spec, no decisiones nuevas. Los 12 casos restantes (ADV-010-08..19) documentan vectores que resistieron. |
+| 2026-10-11 | Reviewer de la 010: primera vuelta RECHAZADO por bloqueante B-1 (openapi.yaml 0.9.0 declaraba los componentes pero no las 6 entradas de paths; además la clave raíz `components:` se había borrado por accidente en T-11). Corregido por backend-dev; segunda vuelta APROBADO. El orquestador corrigió el typo de tasks.md ("4 rutas" → "6 rutas") que contribuyó a la omisión. |
 
 ## Notas técnicas del orquestador
 
@@ -205,6 +208,14 @@ Ataques de la 002 sin fallas (regresión en verde): ningún punto de código Uni
 - Reviewer: order.service.ts quedó en 90,16 % de líneas (sobre el umbral pero con margen fino; ramas 81,13 %). Reforzar cobertura de ramas en la 010, que toca el mismo servicio.
 - Reviewer: 13 componentes de respuesta huérfanos en openapi.yaml (InvalidJson, TableOccupied, OrderNeedsTable, etc. — las rutas inlinean los errores). Cosmético; eliminarlos o referenciarlos en una próxima edición del contrato.
 - ADV-004-20 (timeout en proceso real bajo carga) suma un segundo flake documentado de la misma clase que los timeouts web: pasa aislado (17/17) y falla solo bajo ~97 workers.
+
+### Observaciones documentadas de la 010 (adversarial-tester y reviewer; deuda para decidir después)
+
+- Reviewer: el 409 de `cancel` lista los códigos en texto plano sin anclas markdown a los componentes nombrados (las rutas nuevas de la 010 sí los usan); `OrderHasActiveItems` queda sin referencia directa. Estilo inconsistente, contenido correcto; uniformar en una próxima edición del contrato.
+- ADV-010-08..19 documentan los vectores que resistieron: doble clic con la misma clave (1 comanda/1 ítem/1 key), clave no quemada en envío fallido, send‖join sin huérfanos y void post-merge en el destino, requestVoid‖voidItem con una sola comanda 'void', send‖cancel nunca cancela con ítems vivos, carrera al tope 99, hash del cuerpo validado estable, precio/nombre congelados tras update/deactivate de carta (regla 4), requestVoid‖requestVoid con un solo ganador, ids hostiles 400/404, Idempotency-Key duplicada → 400, roles en el ciclo de anulación, CHECKs de la migración activos.
+- ADV-002-01: flake ambiental confirmado en la nube — el `it.fails` del documento más costoso <2 s pasa en VMs rápidas (vitest lo reporta "Expect test to fail") y falla como se espera en corridas lentas; el adversarial-tester analizó el gate y sigue siendo razonable, pero las notas de ítem y el motivo de anulación quedaron blindados con filtro `\p{Cc}\p{Cf}\p{Zl}\p{Zp}` antes de la Fase 3.
+- ADV-007-27 endurecido por el adversarial-tester: la aserción del constraint `combo_items_unique` ya no depende del locale de Postgres (usa `error.parent.constraint`); verde en Postgres en inglés y en español.
+- Orquestador: `pnpm --filter @polleria/web build` (next build) falla en main por `useSyncExternalStore` sin `getServerSnapshot` en `src/lib/primary-instance.ts` al prerenderizar /admin/carta — preexistente a la 010 (apps/web sin diff), heredado del patrón de la 004 ya documentado en la 008 como warning; ahora bloquea el build de producción. Decidir si se corrige como deuda propia.
 
 ### Otras deudas bajas abiertas
 
