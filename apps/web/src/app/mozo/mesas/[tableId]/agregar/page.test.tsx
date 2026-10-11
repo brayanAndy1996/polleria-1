@@ -372,7 +372,7 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     await openEditor(/^Chaufa/);
     expect(screen.getByText('0/200')).toBeVisible();
     fireEvent.change(screen.getByLabelText('Observación'), { target: { value: 'bien cocido' } });
-    expect(screen.getByText('12/200')).toBeVisible();
+    expect(screen.getByText('11/200')).toBeVisible();
     for (let i = 0; i < 20; i += 1) {
       if (!screen.queryByRole('button', { name: 'Agregar al pedido' })) await openEditor(/^Chaufa/);
       fireEvent.click(screen.getAllByRole('button', { name: 'Agregar al pedido' }).at(-1)!);
@@ -507,9 +507,10 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     fireEvent.click(await screen.findByRole('button', { name: 'Enviar a cocina (2)' }));
     const lineaPollo = cartLine(/Pollo a la brasa/);
     const lineaChaufa = cartLine('Chaufa');
-    expect(within(lineaPollo).getByText('La presentación no va con la parte.')).toBeVisible();
-    expect(within(lineaChaufa).getByText('Esa crema no existe.')).toBeVisible();
-    expect(screen.getByText('Revisa la tanda completa.')).toBeVisible();
+    // Los issues por línea llegan con la respuesta 400: espera asíncrona.
+    expect(await within(lineaPollo).findByText('La presentación no va con la parte.')).toBeVisible();
+    expect(await within(lineaChaufa).findByText('Esa crema no existe.')).toBeVisible();
+    expect(await screen.findByText('Revisa la tanda completa.')).toBeVisible();
     // El carrito se conserva con sus dos líneas.
     expect(screen.getByRole('button', { name: 'Enviar a cocina (2)' })).toBeInTheDocument();
   });
