@@ -1400,12 +1400,24 @@ describe('007-adversarial: API, servicio y concurrencia de componentes sobre pol
     // NULLS NOT DISTINCT real: la segunda fila con las mismas claves NULL choca.
     const other = await createDish('Tallarin SQL');
     await insertItemSql(combo.id, other.id, 1, null, null);
-    const dupNull = await rejection(
-      'INSERT INTO combo_items (combo_id, product_id, quantity, portion, cut) ' +
-        'VALUES ($1, $2, 9, NULL, NULL)',
-      [combo.id, other.id],
-    );
-    expect(dupNull).toContain('combo_items_unique');
+    // Locale-robusto: en un Postgres en ingles Sequelize envuelve la violacion de
+    // unicidad como 'SequelizeUniqueConstraintError: Validation error' y el nombre
+    // del indice no llega al mensaje; el driver pg siempre lo expone en
+    // error.parent.constraint. Se acepta cualquiera de las dos senales.
+    let dupNull: unknown = null;
+    try {
+      await database().query(
+        'INSERT INTO combo_items (combo_id, product_id, quantity, portion, cut) ' +
+          'VALUES ($1, $2, 9, NULL, NULL)',
+        { bind: [combo.id, other.id] },
+      );
+    } catch (error) {
+      dupNull = error;
+    }
+    expect(dupNull).not.toBeNull();
+    const dupSignal =
+      (dupNull as { parent?: { constraint?: string } }).parent?.constraint ?? String(dupNull);
+    expect(dupSignal).toContain('combo_items_unique');
     // El arbitro de ON CONFLICT resuelve con la clave NULLS NOT DISTINCT (lo que el
     // updateOnDuplicate del servicio necesita para no reventar en el doble-clic).
     await database().query(

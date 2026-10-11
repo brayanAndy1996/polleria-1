@@ -405,12 +405,11 @@ describe('007-adversarial: esquemas de componentes y consumo de combos', () => {
   });
 
   it('ADV-007-06: comboChickenConsumption frente a entradas fuera de contrato', () => {
-    // La firma declara `Iterable<...> | ComboConsumptionItem`, pero un item suelto no
-    // es iterable: compila y revienta con TypeError en ejecucion. Observacion
-    // documentada (Bajo): la union de la firma anuncia un uso que siempre falla; la
-    // Fase 2 debe pasar siempre una coleccion.
+    // La firma quedo en `Iterable<...>` puro (la 010 aplico la recomendacion de
+    // ADV-007-06): un item suelto ya no compila y sigue lanzando TypeError si un
+    // caller lo fuerza en ejecucion.
     const single = { quantity: 1, portion: 'quarter' as const, cut: 'leg' as const };
-    expect(() => comboChickenConsumption(single)).toThrow(TypeError);
+    expect(() => comboChickenConsumption(single as never)).toThrow(TypeError);
     // No iterables: null, undefined, numero, booleano y objeto plano lanzan TypeError.
     for (const bad of [null, undefined, 5, true, { items: [] }, Symbol('x')])
       expect(() => comboChickenConsumption(bad as never)).toThrow(TypeError);

@@ -38,7 +38,7 @@ const ORDER_NEEDS_TABLE_BODY = {
   },
 };
 
-/** Un pedido abierto válido: las once claves exactas de D-009-14. */
+/** Un pedido abierto válido: las trece claves exactas de D-010-14 (la 010 suma items y totalCents). */
 const OPEN_ORDER = {
   id: 12,
   status: 'open',
@@ -51,6 +51,8 @@ const OPEN_ORDER = {
   closedBy: null,
   cancelReason: null,
   mergedIntoOrderId: null,
+  items: [],
+  totalCents: 0,
 } satisfies Order;
 
 /** Comprueba que el esquema rechaza la entrada y que al menos un issue trae el mensaje. */

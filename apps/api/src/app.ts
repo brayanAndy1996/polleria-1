@@ -27,6 +27,10 @@ import { createTableService } from './services/tables/table.service.ts';
 import { createOrderService } from './services/orders/order.service.ts';
 import { createTablesController } from './controllers/tables.controller.ts';
 import { createOrdersController } from './controllers/orders.controller.ts';
+import { createOrderItemService } from './services/order-items/order-item.service.ts';
+import { createOrderItemsController } from './controllers/order-items.controller.ts';
+import { createMenuService } from './services/menu/menu.service.ts';
+import { createMenuController } from './controllers/menu.controller.ts';
 
 export interface AppDependencies {
   sequelize: Sequelize;
@@ -48,6 +52,7 @@ const NO_STORE_PATH_PREFIXES = [
   '/api/products',
   '/api/tables',
   '/api/orders',
+  '/api/menu',
 ] as const;
 
 /**
@@ -60,7 +65,7 @@ const NO_STORE_PATH_PREFIXES = [
  * la API sigue pasando por el lector estricto.
  */
 const BODILESS_PATH_PATTERN =
-  /^\/api\/(?:tables\/[^/]+\/(?:orders|leave)|orders\/[^/]+\/(?:request-bill|ready|served))\/?$/i;
+  /^\/api\/(?:tables\/[^/]+\/(?:orders|leave)|orders\/[^/]+\/(?:request-bill|ready|served)|orders\/[^/]+\/items\/[^/]+\/reject-void)\/?$/i;
 
 /** Arma la aplicación Express sin ponerla a escuchar (eso lo hace server.ts). */
 export function createApp({
@@ -106,6 +111,12 @@ export function createApp({
   const orderService = createOrderService({ models });
   const tablesController = createTablesController({ tableService, orderService });
   const ordersController = createOrdersController({ orderService });
+  // Ítems del pedido y carta (spec 010): envío idempotente, anulación con
+  // auditoría y comandas; la carta resuelve presentaciones y componentes.
+  const orderItemService = createOrderItemService({ models });
+  const orderItemsController = createOrderItemsController({ orderItemService });
+  const menuService = createMenuService({ models });
+  const menuController = createMenuController({ menuService });
   const requireAuth = createRequireAuth({ sessionService });
 
   const app = express();
@@ -146,6 +157,8 @@ export function createApp({
       comboItemsController,
       tablesController,
       ordersController,
+      orderItemsController,
+      menuController,
       requireAuth,
     }),
   );

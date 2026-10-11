@@ -18,9 +18,11 @@ const MIGRATIONS = [
   '20261009120000-create-product-portions.ts',
   '20261009180000-create-combo-items.ts',
   '20261010120000-create-tables-orders.ts',
+  '20261011120000-create-order-items.ts',
 ];
 const COMBO_ITEMS_MIGRATION = '20261009180000-create-combo-items.ts';
 const TABLES_ORDERS_MIGRATION = '20261010120000-create-tables-orders.ts';
+const ORDER_ITEMS_MIGRATION = '20261011120000-create-order-items.ts';
 
 /**
  * Nombre del CHECK, la unicidad o la FK que reporta el driver pg en un error (mismo
@@ -274,8 +276,11 @@ describe('007: tabla combo_items y su migración sobre polleria_test', () => {
     await insertProduct(5, 'Mostrito', 'combo', 2200);
     await sequelize.query('DELETE FROM products WHERE id = 5');
 
-    // La última aplicada es la de la spec 009: revierte primero ella y luego la
-    // de la 007 (combo_items), que es la que interesa a esta prueba.
+    // La última aplicada es la de la spec 010: revierte primero ella, luego la
+    // de la 009 (tables y orders) y después la de la 007 (combo_items).
+    expect(await migrateDown(sequelize)).toEqual([ORDER_ITEMS_MIGRATION]);
+    expect(await tableExists(sequelize, 'order_items')).toBe(false);
+    expect(await tableExists(sequelize, 'tables')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([TABLES_ORDERS_MIGRATION]);
     expect(await tableExists(sequelize, 'tables')).toBe(false);
     expect(await tableExists(sequelize, 'orders')).toBe(false);
@@ -296,8 +301,12 @@ describe('007: tabla combo_items y su migración sobre polleria_test', () => {
     await insertProduct(7, 'Arroz con pollo', 'dish', 1500);
 
     // Las migraciones son reaplicables tras revertir, en su orden de la lista:
-    // primero la de la 007 (combo_items) y luego la de la 009 (orders + tables).
-    expect(await migrateUp(sequelize)).toEqual([COMBO_ITEMS_MIGRATION, TABLES_ORDERS_MIGRATION]);
+    // la de la 007 (combo_items), la de la 009 (orders + tables) y la de la 010.
+    expect(await migrateUp(sequelize)).toEqual([
+      COMBO_ITEMS_MIGRATION,
+      TABLES_ORDERS_MIGRATION,
+      ORDER_ITEMS_MIGRATION,
+    ]);
     expect(await tableExists(sequelize, 'combo_items')).toBe(true);
     expect(await tableExists(sequelize, 'orders')).toBe(true);
     expect(await tableExists(sequelize, 'tables')).toBe(true);

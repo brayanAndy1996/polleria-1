@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { displayNameSchema } from './auth.ts';
+import {
+  kitchenTicketSchema,
+  orderItemSchema,
+  tableRefSchema,
+  userRefSchema,
+} from './order-items.ts';
 
 /**
  * Ciclo de vida del pedido (spec 009, D-009-04): open es la cuenta abierta de una o
@@ -11,29 +16,19 @@ export const ORDER_STATUSES = ['open', 'closed', 'cancelled', 'merged'] as const
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const orderStatusSchema = z.enum(ORDER_STATUSES);
 
-/** Referencia a un usuario en la respuesta: solo id y nombre visible (D-009-14). */
-export const userRefSchema = z.strictObject({
-  id: z.number().int().positive(),
-  displayName: displayNameSchema,
-});
-export type UserRef = z.infer<typeof userRefSchema>;
-
 /**
- * Referencia a una mesa en la respuesta: solo id y nombre (D-009-14). El nombre va
- * como texto simple —usar tableNameSchema aquí crearía un ciclo tables.ts ↔ orders.ts.
+ * userRefSchema y tableRefSchema se definieron en order-items.ts (spec 010): los
+ * esquemas de ítems y comandas los necesitan y este módulo importa ese para embeber
+ * items en orderSchema — la dependencia queda en una sola dirección y los nombres
+ * se reexportan desde aquí sin cambiar el contrato de la spec 009.
  */
-export const tableRefSchema = z.strictObject({
-  id: z.number().int().positive(),
-  name: z.string(),
-});
-export type TableRef = z.infer<typeof tableRefSchema>;
+export { userRefSchema, tableRefSchema } from './order-items.ts';
+export type { UserRef, TableRef } from './order-items.ts';
 
 /**
- * Un pedido tal como lo devuelve la API (D-009-14): exactamente estas once claves.
- * `tables` son las mesas que lo cubren (las que lo apuntan con current_order_id),
- * las marcas llegan como fecha ISO o null para que la interfaz pueda mostrar ambas
- * aunque el estado derivado elija una (D-009-03) y el cierre cuenta cómo terminó
- * (closedBy, cancelReason, mergedIntoOrderId).
+ * Un pedido tal como lo devuelve la API (D-009-14, ampliado en la spec 010): las
+ * once claves de la 009 más `items` —los ítems del pedido con su estado y traza—
+ * y `totalCents`, la suma de los ítems activos con sus cremas (D-010-03).
  */
 export const orderSchema = z.strictObject({
   id: z.number().int().positive(),
@@ -47,8 +42,25 @@ export const orderSchema = z.strictObject({
   closedBy: userRefSchema.nullable(),
   cancelReason: z.string().nullable(),
   mergedIntoOrderId: z.number().int().positive().nullable(),
+  items: z.array(orderItemSchema),
+  totalCents: z.number().int().min(0),
 });
 export type Order = z.infer<typeof orderSchema>;
+
+/**
+ * Respuestas con un solo pedido (POST .../request-void y .../reject-void de la spec
+ * 010). Viven aquí y no en order-items.ts porque embeben orderSchema y la
+ * importación solo puede ir en un sentido: orders.ts -> order-items.ts.
+ */
+export const orderResponseSchema = z.strictObject({ order: orderSchema });
+export type OrderResponse = z.infer<typeof orderResponseSchema>;
+
+/** Respuesta de POST .../items y POST .../void: el pedido más la comanda emitida. */
+export const sendOrderItemsResponseSchema = z.strictObject({
+  order: orderSchema,
+  ticket: kitchenTicketSchema,
+});
+export type SendOrderItemsResponse = z.infer<typeof sendOrderItemsResponseSchema>;
 
 const TABLE_ID_MESSAGE = 'El identificador de la mesa no es válido.';
 /** Máximo del tipo INTEGER de PostgreSQL (misma regla que los id de ruta, D-009-13). */

@@ -139,13 +139,23 @@ export async function cleanFixtureTables(sequelize: Sequelize): Promise<void> {
  * La lista crece con cada spec que agrega una migración: sin borrar las tablas de dominio, volver
  * a migrar fallaría con "la tabla ya existe". La spec 005 autorizó limpiar `products` igual que
  * `users` y `sessions` (D-005-10 y sección 12); la 006 autorizó `product_portions` (D-006-10);
- * la 007 autorizó `combo_items` (D-007-14); la 009 autorizó `tables` y `orders` (D-009-15).
+ * la 007 autorizó `combo_items` (D-007-14); la 009 autorizó `tables` y `orders` (D-009-15);
+ * la 010 autorizó las cinco tablas de ítems (order_item_sauces, order_item_components,
+ * order_items, idempotency_keys, kitchen_tickets) (D-010-19).
  * Las tablas de la carta van antes que `products` porque la referencian con una FK (combo_items
- * la referencia dos veces). `tables` va antes que `orders` por la FK tables.current_order_id,
- * y ambas antes que `users` por las FK orders→users (D-009-15).
+ * la referencia dos veces). Las cinco de ítems van antes que `orders` y `users` por sus FK
+ * (order_items→orders/users/products, order_item_components/sauces→order_items/products,
+ * kitchen_tickets→orders/users, idempotency_keys→orders). `tables` va antes que `orders`
+ * por la FK tables.current_order_id, y ambas antes que `users` por las FK orders→users
+ * (D-009-15).
  */
 export async function resetMigrationTables(sequelize: Sequelize): Promise<void> {
   await dropTables(sequelize, [
+    'order_item_sauces',
+    'order_item_components',
+    'order_items',
+    'idempotency_keys',
+    'kitchen_tickets',
     'tables',
     'orders',
     'combo_items',
@@ -192,7 +202,16 @@ export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<v
 export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
   const tables: string[] = [];
-  for (const table of ['combo_items', 'product_portions', 'products']) {
+  // order_items y sus hijas referencian products desde la spec 010: mismo
+  // criterio de un solo TRUNCATE que en clearOrderTables.
+  for (const table of [
+    'order_item_sauces',
+    'order_item_components',
+    'order_items',
+    'combo_items',
+    'product_portions',
+    'products',
+  ]) {
     if (await tableExists(sequelize, table)) tables.push(table);
   }
   if (tables.length > 0) {
@@ -201,13 +220,15 @@ export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
 }
 
 /**
- * Vacía las tablas del salón: `orders` y `tables` (spec 009, D-009-15), autorizadas a la
- * limpieza de pruebas igual que `products` y `combo_items`. Llamar después de migrateUp (o
- * de migrateAndClearAuthTables).
+ * Vacía las tablas del salón: las cinco de ítems de la spec 010 (order_item_sauces,
+ * order_item_components, order_items, idempotency_keys, kitchen_tickets, D-010-19) junto
+ * con `orders` y `tables` (spec 009, D-009-15), autorizadas a la limpieza de pruebas igual
+ * que `products` y `combo_items`. Llamar después de migrateUp (o de migrateAndClearAuthTables).
  *
- * `tables` referencia `orders` con una FK (current_order_id) y PostgreSQL bloquea `TRUNCATE`
- * sobre una tabla referenciada aunque esté vacía: por eso las que existen se truncan en UN
- * solo comando (mismo criterio que clearMenuTables).
+ * Las tablas se referencian entre sí (components/sauces→order_items, order_items y
+ * kitchen_tickets→orders, idempotency_keys→orders, tables→orders) y PostgreSQL bloquea
+ * `TRUNCATE` sobre una tabla referenciada aunque esté vacía: por eso las que existen se
+ * truncan en UN solo comando (mismo criterio que clearMenuTables).
  *
  * Cada tabla va detrás de su `tableExists`: en la fase roja, cuando la migración aún no está
  * escrita, se trunca solo lo que hay; si ninguna existe no hace nada.
@@ -215,7 +236,15 @@ export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
 export async function clearOrderTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
   const existing: string[] = [];
-  for (const table of ['orders', 'tables']) {
+  for (const table of [
+    'order_item_sauces',
+    'order_item_components',
+    'order_items',
+    'idempotency_keys',
+    'kitchen_tickets',
+    'orders',
+    'tables',
+  ]) {
     if (await tableExists(sequelize, table)) existing.push(table);
   }
   if (existing.length > 0) {

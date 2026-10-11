@@ -214,6 +214,8 @@ describe('009: servicio de mesas sobre polleria_test', () => {
       closedBy: null,
       cancelReason: null,
       mergedIntoOrderId: null,
+      items: [],
+      totalCents: 0,
     });
     expect(typeof barraView.order?.openedAt).toBe('string');
     expect(Object.keys(barraView.order ?? {}).sort()).toEqual([
@@ -222,12 +224,14 @@ describe('009: servicio de mesas sobre polleria_test', () => {
       'closedAt',
       'closedBy',
       'id',
+      'items',
       'mergedIntoOrderId',
       'openedAt',
       'openedBy',
       'readyAt',
       'status',
       'tables',
+      'totalCents',
     ]);
     // Mesa 10: 'bill_requested' con su pedido; Depósito: inactiva, libre y sin pedido.
     expect(mesa10View).toMatchObject({ id: mesa10, isActive: true, state: 'bill_requested' });

@@ -45,6 +45,20 @@ export const ERROR_CODES = {
   ORDER_NOT_OPEN: 'ORDER_NOT_OPEN',
   /** RF-03: quitar la última mesa dejaría el pedido sin mesa; hay que cerrarlo. */
   ORDER_NEEDS_TABLE: 'ORDER_NEEDS_TABLE',
+  /** RF-04: el ítem de la ruta no existe en el pedido indicado. */
+  ORDER_ITEM_NOT_FOUND: 'ORDER_ITEM_NOT_FOUND',
+  /** RF-04: el ítem ya está anulado; no admite solicitar, aprobar ni rechazar. */
+  ORDER_ITEM_ALREADY_VOIDED: 'ORDER_ITEM_ALREADY_VOIDED',
+  /** RF-04: el ítem ya tiene una anulación solicitada pendiente de autorización. */
+  ORDER_ITEM_VOID_REQUESTED: 'ORDER_ITEM_VOID_REQUESTED',
+  /** RF-04: se intentó rechazar una anulación sobre un ítem que no la tenía pedida. */
+  ORDER_ITEM_NOT_REQUESTED: 'ORDER_ITEM_NOT_REQUESTED',
+  /** RF-04: el pedido tiene ítems activos y no puede cancelarse ni cerrarse. */
+  ORDER_HAS_ACTIVE_ITEMS: 'ORDER_HAS_ACTIVE_ITEMS',
+  /** RF-04: el envío supera el límite de ítems activos del pedido. */
+  ORDER_ITEMS_LIMIT: 'ORDER_ITEMS_LIMIT',
+  /** RF-04: la clave Idempotency-Key ya se usó con otro cuerpo u otro pedido. */
+  IDEMPOTENCY_CONFLICT: 'IDEMPOTENCY_CONFLICT',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

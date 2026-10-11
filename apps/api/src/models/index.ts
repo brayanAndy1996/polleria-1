@@ -1,6 +1,14 @@
 import { DataTypes } from 'sequelize';
 import type { Model, ModelStatic, Optional, Sequelize } from 'sequelize';
-import type { Cut, OrderStatus, Portion, ProductCategory, UserRole } from '@polleria/shared';
+import type {
+  Cut,
+  KitchenTicketKind,
+  OrderItemStatus,
+  OrderStatus,
+  Portion,
+  ProductCategory,
+  UserRole,
+} from '@polleria/shared';
 
 export interface UserAttributes {
   id: number;
@@ -71,6 +79,74 @@ export interface TableAttributes {
   createdAt: Date;
   updatedAt: Date;
 }
+export interface KitchenTicketAttributes {
+  id: number;
+  orderId: number;
+  kind: KitchenTicketKind;
+  createdByUserId: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+export interface OrderItemAttributes {
+  id: number;
+  orderId: number;
+  productId: number;
+  productName: string;
+  productCategory: ProductCategory;
+  quantity: number;
+  priceCents: number;
+  portion: Portion | null;
+  cut: Cut | null;
+  breastEighths: number;
+  legEighths: number;
+  notes: string | null;
+  status: OrderItemStatus;
+  kitchenTicketId: number;
+  voidTicketId: number | null;
+  voidRequestedAt: Date | null;
+  voidRequestedByUserId: number | null;
+  voidRequestReason: string | null;
+  voidedAt: Date | null;
+  voidedByUserId: number | null;
+  voidReason: string | null;
+  orderedAtTableId: number | null;
+  createdByUserId: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+export interface OrderItemComponentAttributes {
+  id: number;
+  orderItemId: number;
+  productId: number;
+  productName: string;
+  quantity: number;
+  portion: Portion | null;
+  cut: Cut | null;
+  breastEighths: number;
+  legEighths: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+export interface OrderItemSauceAttributes {
+  id: number;
+  orderItemId: number;
+  productId: number;
+  productName: string;
+  quantity: number;
+  priceCents: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+export interface IdempotencyKeyAttributes {
+  id: number;
+  scope: string;
+  key: string;
+  orderId: number;
+  requestHash: string;
+  responseStatus: number;
+  responseBody: unknown;
+  createdAt: Date;
+}
 export type UserModel = Model<
   UserAttributes,
   Optional<UserAttributes, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>
@@ -121,6 +197,53 @@ export type TableModel = Model<
   Optional<TableAttributes, 'id' | 'isActive' | 'currentOrderId' | 'createdAt' | 'updatedAt'>
 > &
   TableAttributes;
+export type KitchenTicketModel = Model<
+  KitchenTicketAttributes,
+  Optional<KitchenTicketAttributes, 'id' | 'createdAt' | 'updatedAt'>
+> &
+  KitchenTicketAttributes;
+export type OrderItemModel = Model<
+  OrderItemAttributes,
+  Optional<
+    OrderItemAttributes,
+    | 'id'
+    | 'portion'
+    | 'cut'
+    | 'breastEighths'
+    | 'legEighths'
+    | 'notes'
+    | 'status'
+    | 'voidTicketId'
+    | 'voidRequestedAt'
+    | 'voidRequestedByUserId'
+    | 'voidRequestReason'
+    | 'voidedAt'
+    | 'voidedByUserId'
+    | 'voidReason'
+    | 'orderedAtTableId'
+    | 'createdAt'
+    | 'updatedAt'
+  >
+> &
+  OrderItemAttributes;
+export type OrderItemComponentModel = Model<
+  OrderItemComponentAttributes,
+  Optional<
+    OrderItemComponentAttributes,
+    'id' | 'portion' | 'cut' | 'breastEighths' | 'legEighths' | 'createdAt' | 'updatedAt'
+  >
+> &
+  OrderItemComponentAttributes;
+export type OrderItemSauceModel = Model<
+  OrderItemSauceAttributes,
+  Optional<OrderItemSauceAttributes, 'id' | 'createdAt' | 'updatedAt'>
+> &
+  OrderItemSauceAttributes;
+export type IdempotencyKeyModel = Model<
+  IdempotencyKeyAttributes,
+  Optional<IdempotencyKeyAttributes, 'id' | 'createdAt'>
+> &
+  IdempotencyKeyAttributes;
 export interface Models {
   User: ModelStatic<UserModel>;
   Session: ModelStatic<SessionModel>;
@@ -129,6 +252,11 @@ export interface Models {
   ComboItem: ModelStatic<ComboItemModel>;
   Order: ModelStatic<OrderModel>;
   Table: ModelStatic<TableModel>;
+  KitchenTicket: ModelStatic<KitchenTicketModel>;
+  OrderItem: ModelStatic<OrderItemModel>;
+  OrderItemComponent: ModelStatic<OrderItemComponentModel>;
+  OrderItemSauce: ModelStatic<OrderItemSauceModel>;
+  IdempotencyKey: ModelStatic<IdempotencyKeyModel>;
 }
 
 export function defineModels(sequelize: Sequelize): Models {
@@ -139,7 +267,12 @@ export function defineModels(sequelize: Sequelize): Models {
     sequelize.isDefined('ProductPortion') &&
     sequelize.isDefined('ComboItem') &&
     sequelize.isDefined('Order') &&
-    sequelize.isDefined('Table')
+    sequelize.isDefined('Table') &&
+    sequelize.isDefined('KitchenTicket') &&
+    sequelize.isDefined('OrderItem') &&
+    sequelize.isDefined('OrderItemComponent') &&
+    sequelize.isDefined('OrderItemSauce') &&
+    sequelize.isDefined('IdempotencyKey')
   ) {
     return {
       User: sequelize.model('User') as ModelStatic<UserModel>,
@@ -149,6 +282,13 @@ export function defineModels(sequelize: Sequelize): Models {
       ComboItem: sequelize.model('ComboItem') as ModelStatic<ComboItemModel>,
       Order: sequelize.model('Order') as ModelStatic<OrderModel>,
       Table: sequelize.model('Table') as ModelStatic<TableModel>,
+      KitchenTicket: sequelize.model('KitchenTicket') as ModelStatic<KitchenTicketModel>,
+      OrderItem: sequelize.model('OrderItem') as ModelStatic<OrderItemModel>,
+      OrderItemComponent: sequelize.model(
+        'OrderItemComponent',
+      ) as ModelStatic<OrderItemComponentModel>,
+      OrderItemSauce: sequelize.model('OrderItemSauce') as ModelStatic<OrderItemSauceModel>,
+      IdempotencyKey: sequelize.model('IdempotencyKey') as ModelStatic<IdempotencyKeyModel>,
     };
   }
   const User = sequelize.define<UserModel>(
@@ -263,7 +403,111 @@ export function defineModels(sequelize: Sequelize): Models {
     },
     { tableName: 'tables', underscored: true },
   );
-  const models: Models = { User, Session, Product, ProductPortion, ComboItem, Order, Table };
+  // Spec 010: comandas, ítems del pedido con sus hijas y claves de idempotencia.
+  // Los CHECK de forma de fila, la consistencia de la anulación y la unicidad
+  // (scope, key) viven en la migración, no en el modelo.
+  const KitchenTicket = sequelize.define<KitchenTicketModel>(
+    'KitchenTicket',
+    {
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+      orderId: { type: DataTypes.INTEGER, allowNull: false },
+      kind: { type: DataTypes.STRING(12), allowNull: false },
+      createdByUserId: { type: DataTypes.INTEGER, allowNull: false },
+      createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+      updatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    },
+    { tableName: 'kitchen_tickets', underscored: true },
+  );
+  const OrderItem = sequelize.define<OrderItemModel>(
+    'OrderItem',
+    {
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+      orderId: { type: DataTypes.INTEGER, allowNull: false },
+      productId: { type: DataTypes.INTEGER, allowNull: false },
+      productName: { type: DataTypes.STRING(60), allowNull: false },
+      productCategory: { type: DataTypes.STRING(16), allowNull: false },
+      quantity: { type: DataTypes.INTEGER, allowNull: false },
+      priceCents: { type: DataTypes.INTEGER, allowNull: false },
+      portion: { type: DataTypes.STRING(8), allowNull: true },
+      cut: { type: DataTypes.STRING(8), allowNull: true },
+      breastEighths: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+      legEighths: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+      notes: { type: DataTypes.STRING(200), allowNull: true },
+      status: { type: DataTypes.STRING(16), allowNull: false, defaultValue: 'sent' },
+      kitchenTicketId: { type: DataTypes.INTEGER, allowNull: false },
+      voidTicketId: { type: DataTypes.INTEGER, allowNull: true },
+      voidRequestedAt: { type: DataTypes.DATE, allowNull: true },
+      voidRequestedByUserId: { type: DataTypes.INTEGER, allowNull: true },
+      voidRequestReason: { type: DataTypes.STRING(200), allowNull: true },
+      voidedAt: { type: DataTypes.DATE, allowNull: true },
+      voidedByUserId: { type: DataTypes.INTEGER, allowNull: true },
+      voidReason: { type: DataTypes.STRING(200), allowNull: true },
+      orderedAtTableId: { type: DataTypes.INTEGER, allowNull: true },
+      createdByUserId: { type: DataTypes.INTEGER, allowNull: false },
+      createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+      updatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    },
+    { tableName: 'order_items', underscored: true },
+  );
+  const OrderItemComponent = sequelize.define<OrderItemComponentModel>(
+    'OrderItemComponent',
+    {
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+      orderItemId: { type: DataTypes.INTEGER, allowNull: false },
+      productId: { type: DataTypes.INTEGER, allowNull: false },
+      productName: { type: DataTypes.STRING(60), allowNull: false },
+      quantity: { type: DataTypes.INTEGER, allowNull: false },
+      portion: { type: DataTypes.STRING(8), allowNull: true },
+      cut: { type: DataTypes.STRING(8), allowNull: true },
+      breastEighths: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+      legEighths: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+      createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+      updatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    },
+    { tableName: 'order_item_components', underscored: true },
+  );
+  const OrderItemSauce = sequelize.define<OrderItemSauceModel>(
+    'OrderItemSauce',
+    {
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+      orderItemId: { type: DataTypes.INTEGER, allowNull: false },
+      productId: { type: DataTypes.INTEGER, allowNull: false },
+      productName: { type: DataTypes.STRING(60), allowNull: false },
+      quantity: { type: DataTypes.INTEGER, allowNull: false },
+      priceCents: { type: DataTypes.INTEGER, allowNull: false },
+      createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+      updatedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    },
+    { tableName: 'order_item_sauces', underscored: true },
+  );
+  const IdempotencyKey = sequelize.define<IdempotencyKeyModel>(
+    'IdempotencyKey',
+    {
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+      scope: { type: DataTypes.STRING(32), allowNull: false },
+      key: { type: DataTypes.STRING(128), allowNull: false },
+      orderId: { type: DataTypes.INTEGER, allowNull: false },
+      requestHash: { type: DataTypes.STRING(64), allowNull: false },
+      responseStatus: { type: DataTypes.SMALLINT, allowNull: false },
+      responseBody: { type: DataTypes.JSONB, allowNull: false },
+      createdAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    },
+    { tableName: 'idempotency_keys', underscored: true, updatedAt: false },
+  );
+  const models: Models = {
+    User,
+    Session,
+    Product,
+    ProductPortion,
+    ComboItem,
+    Order,
+    Table,
+    KitchenTicket,
+    OrderItem,
+    OrderItemComponent,
+    OrderItemSauce,
+    IdempotencyKey,
+  };
   initAssociations(models);
   return models;
 }
@@ -298,6 +542,61 @@ export function initOrderTableAssociations(models: Pick<Models, 'User' | 'Order'
   Table.belongsTo(Order, { foreignKey: 'currentOrderId', as: 'currentOrder' });
 }
 
+/**
+ * Asociaciones de la spec 010 (sección 8.6): la comanda pertenece al pedido y la
+ * firma un usuario; el ítem pertenece al pedido, al producto original, a la
+ * comanda que lo creó y —si está anulado— a la comanda 'void'; conserva la mesa
+ * donde se envió y referencia a quienes lo enviaron, pidieron anular y anularon;
+ * componentes y cremas cuelgan del ítem; la clave de idempotencia pertenece al
+ * pedido.
+ */
+export function initOrderItemAssociations(
+  models: Pick<
+    Models,
+    | 'User'
+    | 'Order'
+    | 'Table'
+    | 'Product'
+    | 'KitchenTicket'
+    | 'OrderItem'
+    | 'OrderItemComponent'
+    | 'OrderItemSauce'
+    | 'IdempotencyKey'
+  >,
+): void {
+  const {
+    User,
+    Order,
+    Table,
+    Product,
+    KitchenTicket,
+    OrderItem,
+    OrderItemComponent,
+    OrderItemSauce,
+    IdempotencyKey,
+  } = models;
+  Order.hasMany(KitchenTicket, { foreignKey: 'orderId', as: 'kitchenTickets' });
+  KitchenTicket.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+  KitchenTicket.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdBy' });
+  KitchenTicket.hasMany(OrderItem, { foreignKey: 'kitchenTicketId', as: 'items' });
+  Order.hasMany(OrderItem, { foreignKey: 'orderId', as: 'items' });
+  OrderItem.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+  OrderItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+  OrderItem.belongsTo(KitchenTicket, { foreignKey: 'kitchenTicketId', as: 'kitchenTicket' });
+  OrderItem.belongsTo(KitchenTicket, { foreignKey: 'voidTicketId', as: 'voidTicket' });
+  OrderItem.belongsTo(Table, { foreignKey: 'orderedAtTableId', as: 'orderedAtTable' });
+  OrderItem.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdBy' });
+  OrderItem.belongsTo(User, { foreignKey: 'voidRequestedByUserId', as: 'voidRequestedBy' });
+  OrderItem.belongsTo(User, { foreignKey: 'voidedByUserId', as: 'voidedBy' });
+  OrderItem.hasMany(OrderItemComponent, { foreignKey: 'orderItemId', as: 'components' });
+  OrderItemComponent.belongsTo(OrderItem, { foreignKey: 'orderItemId', as: 'orderItem' });
+  OrderItemComponent.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+  OrderItem.hasMany(OrderItemSauce, { foreignKey: 'orderItemId', as: 'sauces' });
+  OrderItemSauce.belongsTo(OrderItem, { foreignKey: 'orderItemId', as: 'orderItem' });
+  OrderItemSauce.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+  IdempotencyKey.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
+}
+
 /** Registra todas las asociaciones entre modelos ya definidos. */
 function initAssociations(models: Models): void {
   const { User, Session, Product, ProductPortion } = models;
@@ -307,4 +606,5 @@ function initAssociations(models: Models): void {
   ProductPortion.belongsTo(Product, { foreignKey: 'productId' });
   initComboItemAssociations(models);
   initOrderTableAssociations(models);
+  initOrderItemAssociations(models);
 }

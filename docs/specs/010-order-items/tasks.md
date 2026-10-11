@@ -139,6 +139,6 @@ Reglas comunes:
   - `pnpm -w build`, `pnpm test`, `pnpm lint`, `pnpm typecheck` en verde en toda la rama.
   - `pnpm test:coverage`: ≥90 % líneas en packages/shared y en los services nuevos (order-item.service, menu.service); order.service no baja de su nivel previo (~90 % líneas / ~81 % ramas).
   - Cada AC-01 a AC-19 tiene al menos una prueba cuyo nombre empieza con su ID dentro de un `describe` con prefijo `010:`.
-  - openapi.yaml válido con Redocly y coincidente con las 4 rutas implementadas (incluida la forma ampliada de Order).
+  - openapi.yaml válido con Redocly y coincidente con las 6 rutas implementadas de la sección 9 de la spec (incluida la forma ampliada de Order).
   - Verificación manual pendiente de la spec §18 (migrar en dev y el recorrido por API) — la ejecuta el usuario/orquestador.
   - Reporte: suites nuevas, coberturas por archivo, cambios hechos en tests heredados (Order ampliado, iterable de comboChickenConsumption, MIGRATIONS, helpers) y pendientes.

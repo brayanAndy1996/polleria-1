@@ -38,7 +38,7 @@ const TABLE_NOT_FOUND_BODY = {
   error: { code: 'TABLE_NOT_FOUND', message: 'Esa mesa no existe.', details: null },
 };
 
-/** Un pedido abierto válido tal como lo embebe tableSchema (forma de D-009-14). */
+/** Un pedido abierto válido tal como lo embebe tableSchema (forma de D-010-14: la 010 suma items y totalCents). */
 const EMBEDDED_ORDER = {
   id: 12,
   status: 'open',
@@ -51,6 +51,8 @@ const EMBEDDED_ORDER = {
   closedBy: null,
   cancelReason: null,
   mergedIntoOrderId: null,
+  items: [],
+  totalCents: 0,
 } satisfies Order;
 
 /** Una mesa libre válida: las cinco claves exactas de D-009-14. */
