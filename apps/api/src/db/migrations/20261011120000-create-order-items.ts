@@ -26,8 +26,7 @@ import type { QueryInterface } from 'sequelize';
  * - idempotency_keys_scope_key_unique: un par (scope, key) se registra una vez.
  *
  * FKs de order_items: orders, products, kitchen_tickets (envío y anulación),
- * tables (mesa de origen) y users (created_by y voided_by — void_requested_by se
- * deja sin FK, igual que lo cuenta la spec en su sección 8: siete en total).
+ * tables (mesa de origen) y users (created_by, void_requested_by y voided_by).
  * Sin ON DELETE: pedidos, ítems y comandas son historial que nunca se borra.
  */
 export async function up({ context }: { context: QueryInterface }): Promise<void> {
@@ -81,7 +80,7 @@ export async function up({ context }: { context: QueryInterface }): Promise<void
         kitchen_ticket_id INTEGER NOT NULL REFERENCES kitchen_tickets(id),
         void_ticket_id INTEGER REFERENCES kitchen_tickets(id),
         void_requested_at TIMESTAMPTZ,
-        void_requested_by_user_id INTEGER,
+        void_requested_by_user_id INTEGER REFERENCES users(id),
         void_request_reason VARCHAR(200),
         voided_at TIMESTAMPTZ,
         voided_by_user_id INTEGER REFERENCES users(id),
