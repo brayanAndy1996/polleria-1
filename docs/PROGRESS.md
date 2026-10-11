@@ -6,9 +6,9 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual
 
 - Fase: 2 de 6, mesas y pedidos (RF-02 a RF-07). La Fase 1 quedó completa en código con la integración de la 008 el 2026-10-09 (pendientes manuales documentados: pnpm db:migrate en polleria_dev, pruebas por API y recorrido de /admin/carta).
-- Funcionalidad: 010-order-items **APROBADA por el reviewer** el 2026-10-11 tras corregir el único bloqueante (paths ausentes en el contrato). Pendiente de integración a main.
+- Funcionalidad: 010-order-items **CERRADA e integrada a main** el 2026-10-11 (merge 5110579, --no-ff, autorizado por el usuario).
 - Paso: ciclo completo — spec aprobada 2026-10-10 (anulación por decisión del usuario: el mozo SOLICITA y el admin aprueba/rechaza); tests en rojo T-01 a T-06 (~77 pruebas nuevas, rojo válido verificado); implementación T-07 a T-11 en verde; 19 adversariales ADV-010-01..19 con 7 hallazgos corregidos en producción (2 críticos, 2 altos, 2 medios, 1 bajo — los medios/bajos eran violaciones directas de la spec: FK ausente, filtro Zl/Zp, etiqueta de parámetro); reviewer APROBADO en segunda vuelta. Verificación del orquestador: pnpm test 2218 verdes (única falla la ambiental autorizada ADV-002-01), lint y typecheck en 0, cobertura global 98,4 % de líneas con services ≥90 % (order-item.service 98,06 %, menu.service 100 %, order.service 95,48 %), OpenAPI 0.9.0 válido con Redocly (0 errores) y coincidente con las 6 rutas implementadas.
-- Siguiente acción: pedir al usuario permiso para integrar feat/010-order-items a main con `git merge --no-ff`; después, spec-writer prepara la propuesta 011 (pantallas del mozo).
+- Siguiente acción: spec-writer prepara la propuesta 011 (pantallas del mozo) en una rama feat/011-*, que debe aprobar el usuario.
 - Rama: feat/010-order-items (creada desde main tras integrar la 009; todos los commits pusheados).
 - Vueltas por los pasos 5 a 7 en la 003: 1 de 3. La primera auditoría adversarial independiente dejó dos hallazgos medios; el usuario aprobó corregir ambos.
 
@@ -25,7 +25,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 007 | combos (producto de categoría 'combo' + tabla combo_items; precio fijo; consumo en octavos derivado; GET + PUT /api/products/{id}/items; sin pantallas) | 1 | Cerrada (APROBADO; 15 AC; 30 adversariales con 0 hallazgos; integrada a main en el merge 892914a; pendientes manuales registrados) | feat/007-combos | 2026-10-09 |
 | 008 | menu-admin (pantallas /admin/carta: lista por categorías, alta/edición de productos, grilla de presentaciones del pollo, editor de componentes del combo con comparación de precios) | 1 | Cerrada (APROBADO; 21 AC; 157 tests adversariales verdes; 9 hallazgos corregidos; integrada a main en el merge 01d23bb; pendientes manuales registrados) | feat/008-menu-admin | 2026-10-09 |
 | 009 | tables (mesas del salón + ciclo del pedido sin ítems: estados derivados, abrir, mover, unir, separar, listo/servido, pedir cuenta, cancelar) | 2 | Cerrada (APROBADO; 21 AC; 24 adversariales verdes; 2 hallazgos corregidos; integrada a main en el merge 389e86f; pendientes manuales registrados) | feat/009-tables | 2026-10-10 |
-| 010 | order-items (ítems del pedido con presentación/parte/cremas/observaciones, envío idempotente, comandas como registro, anulación solicitada por el mozo y ejecutada por admin) | 2 | APROBADO por reviewer; pendiente de integración a main | feat/010-order-items | — |
+| 010 | order-items (ítems del pedido con presentación/parte/cremas/observaciones, envío idempotente, comandas como registro, anulación solicitada por el mozo y ejecutada por admin) | 2 | Cerrada (APROBADO en 2.ª vuelta; 19 AC; 19 adversariales con 7 hallazgos corregidos —2 críticos, 2 altos, 2 medios, 1 bajo—; integrada a main en el merge 5110579; pendientes manuales registrados) | feat/010-order-items | 2026-10-11 |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec. La de la Fase 2 (009 a 012) la propuso el spec-writer de la 009.
 
