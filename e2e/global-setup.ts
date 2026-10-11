@@ -6,6 +6,7 @@ const preparationSource = `
 import {
   assertConnectedToTestDatabase,
   clearMenuTables,
+  clearOrderTables,
   closeTestDatabase,
   connectTestDatabase,
   getTestDatabaseUrl,
@@ -16,6 +17,8 @@ import { createBcryptPinHasher } from ${moduleUrl('../apps/api/src/services/auth
 import { createUserService } from ${moduleUrl('../apps/api/src/services/users/user.service.ts')};
 import { createProductService } from ${moduleUrl('../apps/api/src/services/products/product.service.ts')};
 import { createProductPortionService } from ${moduleUrl('../apps/api/src/services/products/product-portion.service.ts')};
+import { createComboItemService } from ${moduleUrl('../apps/api/src/services/combo-items/combo-item.service.ts')};
+import { createTableService } from ${moduleUrl('../apps/api/src/services/tables/table.service.ts')};
 
 try {
   if (decodeURIComponent(new URL(getTestDatabaseUrl()).pathname) !== '/polleria_test') {
@@ -35,6 +38,11 @@ try {
     // y products ya están autorizadas en polleria_test por D-006-10 y D-007-14. Deja a la
     // vista los productos que las pruebas crearon por la interfaz en la corrida anterior.
     await clearMenuTables(sequelize);
+    // Limpieza autorizada del salón (spec 011, D-011-16): order_item_sauces,
+    // order_item_components, order_items, idempotency_keys, kitchen_tickets, orders
+    // y tables ya están autorizadas en polleria_test por la 009/010. Deja libres las
+    // mesas que los recorridos anteriores ocuparon, movieron o unieron.
+    await clearOrderTables(sequelize);
     const models = defineModels(sequelize);
     const service = createUserService({
       models,
@@ -65,7 +73,7 @@ try {
         { portion: 'whole', cut: null, priceCents: 6500 },
       ],
     });
-    await productService.createProduct({
+    const chaufa = await productService.createProduct({
       name: 'E2E Chaufa',
       category: 'dish',
       priceCents: 1400,
@@ -75,6 +83,28 @@ try {
       category: 'drink',
       priceCents: 400,
     });
+    // Semilla del salón (spec 011, D-011-16): crema sin costo para las tandas mixtas
+    // y el combo mostrito (cuarto pierna del E2E Pollo + chaufa) para las adiciones.
+    await productService.createProduct({
+      name: 'E2E Ají',
+      category: 'sauce',
+      priceCents: 0,
+    });
+    const mostrito = await productService.createProduct({
+      name: 'E2E Mostrito',
+      category: 'combo',
+      priceCents: 2200,
+    });
+    await createComboItemService({ models }).replaceComboItems(mostrito.id, {
+      items: [
+        { productId: pollo.id, quantity: 1, portion: 'quarter', cut: 'leg' },
+        { productId: chaufa.id, quantity: 1 },
+      ],
+    });
+    const tableService = createTableService({ models });
+    for (const name of ['E2E Mesa 1', 'E2E Mesa 2', 'E2E Mesa 3', 'E2E Mesa 4']) {
+      await tableService.createTable({ name });
+    }
   } finally {
     await closeTestDatabase(sequelize);
   }
