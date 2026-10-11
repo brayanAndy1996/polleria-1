@@ -605,13 +605,37 @@ export function createOrderItemService({ models }: { models: Models }): OrderIte
                     (row.portion !== null ||
                       ((given.cut ?? null) === row.cut &&
                         given.breastEighths === undefined &&
-                        given.legEighths === undefined)) &&
-                    (row.portion !== 'half' ||
-                      given.breastEighths === undefined ||
-                      (given.legEighths !== undefined &&
-                        given.breastEighths + given.legEighths === 4))
+                        given.legEighths === undefined))
                   );
                 }));
+            // La distribución de octavos de un componente sigue la misma regla
+            // que la del ítem de línea (regla 1): solo en el medio y sumando 4.
+            let componentIssue = false;
+            for (const given of input) {
+              const hasEighths =
+                given.breastEighths !== undefined || given.legEighths !== undefined;
+              if (!hasEighths) continue;
+              componentIssue = true;
+              if ((given.portion ?? null) !== 'half') {
+                issues.push({
+                  path: `${path}.components`,
+                  message: 'La distribución de partes solo se indica en el medio pollo.',
+                });
+                break;
+              }
+              if (
+                given.breastEighths === undefined ||
+                given.legEighths === undefined ||
+                given.breastEighths + given.legEighths !== 4
+              ) {
+                issues.push({
+                  path: `${path}.components`,
+                  message: 'La distribución del medio debe sumar 4 octavos entre pecho y pierna.',
+                });
+                break;
+              }
+            }
+            if (componentIssue) return;
             if (!matches) {
               issues.push({
                 path: `${path}.components`,
@@ -727,7 +751,9 @@ export function createOrderItemService({ models }: { models: Models }): OrderIte
 
     async requestVoid(orderId, itemId, body, key, actor) {
       const { reason } = voidOrderItemRequestSchema.parse(body);
-      const requestHash = requestHashOf({ reason });
+      // El hash cubre también el ítem de la ruta: la misma clave y motivo sobre
+      // OTRO itemId es conflicto, no replay (D-010-08).
+      const requestHash = requestHashOf({ itemId, reason });
       return sequelize.transaction(async (transaction) => {
         const claim = await claimKey(SCOPE_REQUEST, key, orderId, requestHash, transaction);
         if (claim !== 'claimed') return claim.response_body as { order: Order };
@@ -752,7 +778,7 @@ export function createOrderItemService({ models }: { models: Models }): OrderIte
 
     async voidItem(orderId, itemId, body, key, actor) {
       const { reason } = voidOrderItemRequestSchema.parse(body);
-      const requestHash = requestHashOf({ reason });
+      const requestHash = requestHashOf({ itemId, reason });
       return sequelize.transaction(async (transaction) => {
         const claim = await claimKey(SCOPE_VOID, key, orderId, requestHash, transaction);
         if (claim !== 'claimed')
@@ -785,8 +811,8 @@ export function createOrderItemService({ models }: { models: Models }): OrderIte
     },
 
     async rejectVoid(orderId, itemId, key) {
-      // Sin cuerpo: el hash es el del objeto vacío (D-010-08).
-      const requestHash = requestHashOf({});
+      // Sin cuerpo: el hash cubre el ítem de la ruta (D-010-08).
+      const requestHash = requestHashOf({ itemId });
       return sequelize.transaction(async (transaction) => {
         const claim = await claimKey(SCOPE_REJECT, key, orderId, requestHash, transaction);
         if (claim !== 'claimed') return claim.response_body as { order: Order };
