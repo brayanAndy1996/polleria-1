@@ -296,10 +296,10 @@ describe('010: migración de ítems del pedido sobre polleria_test', () => {
       expect(columns.get(stamp)?.data_type).toBe('timestamp with time zone');
     expect(await primaryKeyColumns('order_items')).toEqual(['id']);
   });
-  it('AC-03: order_items tiene sus siete FK y sus cuatro índices', async () => {
+  it('AC-03: order_items tiene sus ocho FK y sus cuatro índices', async () => {
     const constraints = await constraintsOf('order_items');
-    expect(constraints.filter((c) => c.contype === 'f')).toHaveLength(7);
-    // orders, products, kitchen_tickets (x2), users (x2), tables
+    expect(constraints.filter((c) => c.contype === 'f')).toHaveLength(8);
+    // orders, products, kitchen_tickets (x2), users (x3: created, requested, voided), tables
     const indexNames = (await indexesOf('order_items')).map((i) => i.indexname);
     for (const name of [
       'order_items_order_id',
@@ -346,6 +346,27 @@ describe('010: migración de ítems del pedido sobre polleria_test', () => {
         ),
       ).rejects.toThrow();
     }
+    // voided_by y void_requested_by inexistentes fallan por su FK (tras ADV-010-06
+    // ambas son REFERENCES users): van con su cuádruple/triple para pasar el CHECK
+    // void_consistent y chocar solo con la FK.
+    await expect(
+      sequelize.query(
+        'INSERT INTO order_items (order_id, product_id, product_name, product_category, quantity, ' +
+          'price_cents, status, kitchen_ticket_id, created_by_user_id, voided_at, ' +
+          'voided_by_user_id, void_reason, void_ticket_id, created_at, updated_at) VALUES ' +
+          "($1, $2, 'x', 'drink', 1, 1, 'voided', $3, $4, now(), 999999, 'x', $3, now(), now())",
+        { bind: [orderId, productId, ticketId, userId] },
+      ),
+    ).rejects.toThrow();
+    await expect(
+      sequelize.query(
+        'INSERT INTO order_items (order_id, product_id, product_name, product_category, quantity, ' +
+          'price_cents, status, kitchen_ticket_id, created_by_user_id, void_requested_at, ' +
+          'void_requested_by_user_id, void_request_reason, created_at, updated_at) VALUES ' +
+          "($1, $2, 'x', 'drink', 1, 1, 'void_requested', $3, $4, now(), 999999, 'x', now(), now())",
+        { bind: [orderId, productId, ticketId, userId] },
+      ),
+    ).rejects.toThrow();
     // ordered_at_table_id con una mesa real pasa (queda anotada la mesa de origen).
     const tableId = await insertTable('Mesa 9');
     const [withTable] = await rows<{ id: number }>(
