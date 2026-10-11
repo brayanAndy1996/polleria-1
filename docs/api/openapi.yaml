@@ -1752,7 +1752,495 @@ paths:
                       details: null
         '500':
           $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/items:
+    post:
+      operationId: sendOrderItems
+      tags:
+        - orders
+      summary: Envía una tanda de ítems a cocina
+      description: >-
+        Roles permitidos: waiter, admin. Registra de 1 a 20 ítems del pedido
+        abierto, los agrupa en UNA comanda ('initial' el primer envío,
+        'additional' los siguientes) y congela nombre, categoría y precio de la
+        carta al momento del envío. Idempotente por la cabecera
+        Idempotency-Key: reenviar la misma clave con los mismos datos devuelve
+        la respuesta guardada sin duplicar ítems ni comandas; con otros datos u
+        otro pedido responde 409 IDEMPOTENCY_CONFLICT. El pedido debe existir
+        (404 ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN); el envío no
+        puede dejar más de 99 ítems sin anular (409 ORDER_ITEMS_LIMIT). Los
+        datos de cada ítem se validan por línea — producto activo y en la
+        carta, presentación y parte, octavos del medio, componentes del combo —
+        y cualquier problema se devuelve acumulado en issues con path items.N
+        (400 VALIDATION_ERROR) sin escribir nada. Cabecera Cache-Control:
+        no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendOrderItemsRequest'
+      responses:
+        '201':
+          description: El pedido ya con sus ítems y totalCents, y la comanda creada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendOrderItemsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          description: >-
+            Conflicto de estado: el pedido ya está cerrado
+            ([OrderNotOpen](#/components/responses/OrderNotOpen)), el envío
+            superaría el límite de 99 ítems sin anular
+            ([OrderItemsLimit](#/components/responses/OrderItemsLimit)) o la
+            clave de idempotencia ya se usó con otros datos u otro pedido
+            ([IdempotencyConflict](#/components/responses/IdempotencyConflict)).
+            Nada quedó escrito.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                cerrado:
+                  value:
+                    error:
+                      code: ORDER_NOT_OPEN
+                      message: El pedido ya está cerrado.
+                      details: null
+                limite:
+                  value:
+                    error:
+                      code: ORDER_ITEMS_LIMIT
+                      message: El pedido llegó al límite de ítems.
+                      details: null
+                conflicto-idempotencia:
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: Esa clave de envío ya se usó con otros datos.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/items/{itemId}/request-void:
+    post:
+      operationId: requestVoidOrderItem
+      tags:
+        - orders
+      summary: Solicita la anulación de un ítem enviado
+      description: >-
+        Roles permitidos: waiter, admin. Sobre un ítem 'sent' lo pasa a
+        'void_requested' con quién pidió, cuándo y por qué (reason de 1 a 200
+        caracteres tras el recorte). La solicitud NO emite comanda: el plato
+        sigue en cocina hasta que el administrador apruebe o rechace, y el
+        ítem sigue contando en totalCents y en el tope. Sobre 'void_requested'
+        responde 409 ORDER_ITEM_VOID_REQUESTED; sobre 'voided', 409
+        ORDER_ITEM_ALREADY_VOIDED. El pedido debe existir (404
+        ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN); el ítem debe
+        pertenecer a ese pedido (404 ORDER_ITEM_NOT_FOUND). Idempotente por la
+        cabecera Idempotency-Key, igual que el envío. Cabecera Cache-Control:
+        no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoidOrderItemRequest'
+            example:
+              reason: Se equivocó el cliente.
+      responses:
+        '200':
+          description: El pedido con el ítem ya en 'void_requested'.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            El pedido no existe
+            ([OrderNotFound](#/components/responses/OrderNotFound)) o el ítem
+            no existe en ese pedido
+            ([OrderItemNotFound](#/components/responses/OrderItemNotFound)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                pedido:
+                  value:
+                    error:
+                      code: ORDER_NOT_FOUND
+                      message: Ese pedido no existe.
+                      details: null
+                item:
+                  value:
+                    error:
+                      code: ORDER_ITEM_NOT_FOUND
+                      message: Ese ítem no existe en este pedido.
+                      details: null
+        '409':
+          description: >-
+            Conflicto de estado: el pedido ya está cerrado
+            ([OrderNotOpen](#/components/responses/OrderNotOpen)), el ítem ya
+            fue anulado
+            ([OrderItemAlreadyVoided](#/components/responses/OrderItemAlreadyVoided)),
+            ya tiene una anulación pendiente
+            ([OrderItemVoidRequested](#/components/responses/OrderItemVoidRequested))
+            o la clave de idempotencia ya se usó con otros datos u otro ítem
+            ([IdempotencyConflict](#/components/responses/IdempotencyConflict)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                cerrado:
+                  value:
+                    error:
+                      code: ORDER_NOT_OPEN
+                      message: El pedido ya está cerrado.
+                      details: null
+                anulado:
+                  value:
+                    error:
+                      code: ORDER_ITEM_ALREADY_VOIDED
+                      message: Ese ítem ya fue anulado.
+                      details: null
+                pendiente:
+                  value:
+                    error:
+                      code: ORDER_ITEM_VOID_REQUESTED
+                      message: Ese ítem ya tiene una anulación pendiente.
+                      details: null
+                conflicto-idempotencia:
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: Esa clave de envío ya se usó con otros datos.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/items/{itemId}/void:
+    post:
+      operationId: voidOrderItem
+      tags:
+        - orders
+      summary: Anula un ítem (aprueba la solicitud o lo anula directo)
+      description: >-
+        Roles permitidos: admin (regla 6). Aprueba una solicitud pendiente o
+        anula directo un ítem 'sent': el ítem queda 'voided' con el motivo
+        FINAL del administrador, quién aprobó, cuándo y su comanda 'void'. Si
+        vino por solicitud, se conserva el triple void_requested_* como
+        auditoría del mozo. El ítem ya no cuenta en totalCents ni en el tope,
+        y se limpia billRequestedAt del pedido. Re-anular un ítem 'voided' con
+        otra clave responde 409 ORDER_ITEM_ALREADY_VOIDED; con la misma clave y
+        los mismos datos es replay. El pedido debe existir (404
+        ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN); el ítem debe
+        pertenecer a ese pedido (404 ORDER_ITEM_NOT_FOUND). Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoidOrderItemRequest'
+            example:
+              reason: Confirmado, error del cliente.
+      responses:
+        '200':
+          description: El pedido con el ítem 'voided' y la comanda 'void' creada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendOrderItemsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            El pedido no existe
+            ([OrderNotFound](#/components/responses/OrderNotFound)) o el ítem
+            no existe en ese pedido
+            ([OrderItemNotFound](#/components/responses/OrderItemNotFound)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                pedido:
+                  value:
+                    error:
+                      code: ORDER_NOT_FOUND
+                      message: Ese pedido no existe.
+                      details: null
+                item:
+                  value:
+                    error:
+                      code: ORDER_ITEM_NOT_FOUND
+                      message: Ese ítem no existe en este pedido.
+                      details: null
+        '409':
+          description: >-
+            Conflicto de estado: el pedido ya está cerrado
+            ([OrderNotOpen](#/components/responses/OrderNotOpen)), el ítem ya
+            fue anulado
+            ([OrderItemAlreadyVoided](#/components/responses/OrderItemAlreadyVoided))
+            o la clave de idempotencia ya se usó con otros datos u otro ítem
+            ([IdempotencyConflict](#/components/responses/IdempotencyConflict)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                cerrado:
+                  value:
+                    error:
+                      code: ORDER_NOT_OPEN
+                      message: El pedido ya está cerrado.
+                      details: null
+                anulado:
+                  value:
+                    error:
+                      code: ORDER_ITEM_ALREADY_VOIDED
+                      message: Ese ítem ya fue anulado.
+                      details: null
+                conflicto-idempotencia:
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: Esa clave de envío ya se usó con otros datos.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/items/{itemId}/reject-void:
+    post:
+      operationId: rejectVoidOrderItem
+      tags:
+        - orders
+      summary: Rechaza la solicitud de anulación de un ítem
+      description: >-
+        Roles permitidos: admin. Devuelve el ítem 'void_requested' a 'sent' y
+        limpia el triple de la solicitud (quién pidió, cuándo y por qué): el
+        ítem sigue contando y cocina lo termina normal. La auditoría de
+        solicitudes rechazadas no se conserva. Sobre un ítem 'sent' responde
+        409 ORDER_ITEM_NOT_REQUESTED; sobre 'voided', 409
+        ORDER_ITEM_ALREADY_VOIDED. El pedido debe existir (404
+        ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN); el ítem debe
+        pertenecer a ese pedido (404 ORDER_ITEM_NOT_FOUND). No lleva cuerpo,
+        pero la cabecera Idempotency-Key sigue siendo obligatoria. Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: El pedido con el ítem de vuelta a 'sent'.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            El pedido no existe
+            ([OrderNotFound](#/components/responses/OrderNotFound)) o el ítem
+            no existe en ese pedido
+            ([OrderItemNotFound](#/components/responses/OrderItemNotFound)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                pedido:
+                  value:
+                    error:
+                      code: ORDER_NOT_FOUND
+                      message: Ese pedido no existe.
+                      details: null
+                item:
+                  value:
+                    error:
+                      code: ORDER_ITEM_NOT_FOUND
+                      message: Ese ítem no existe en este pedido.
+                      details: null
+        '409':
+          description: >-
+            Conflicto de estado: el pedido ya está cerrado
+            ([OrderNotOpen](#/components/responses/OrderNotOpen)), el ítem no
+            tiene una anulación pendiente
+            ([OrderItemNotRequested](#/components/responses/OrderItemNotRequested)),
+            ya fue anulado
+            ([OrderItemAlreadyVoided](#/components/responses/OrderItemAlreadyVoided))
+            o la clave de idempotencia ya se usó con otros datos u otro ítem
+            ([IdempotencyConflict](#/components/responses/IdempotencyConflict)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                cerrado:
+                  value:
+                    error:
+                      code: ORDER_NOT_OPEN
+                      message: El pedido ya está cerrado.
+                      details: null
+                sin-solicitud:
+                  value:
+                    error:
+                      code: ORDER_ITEM_NOT_REQUESTED
+                      message: Ese ítem no tiene una anulación pendiente.
+                      details: null
+                anulado:
+                  value:
+                    error:
+                      code: ORDER_ITEM_ALREADY_VOIDED
+                      message: Ese ítem ya fue anulado.
+                      details: null
+                conflicto-idempotencia:
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: Esa clave de envío ya se usó con otros datos.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/tickets:
+    get:
+      operationId: listOrderTickets
+      tags:
+        - orders
+      summary: Las comandas del pedido, en orden de emisión
+      description: >-
+        Roles permitidos: cualquier rol con sesión. Devuelve las comandas del
+        pedido ordenadas por id: las 'initial' y 'additional' con sus ítems
+        (cada uno con sus cremas y componentes) y las 'void' con el ítem
+        anulado que las originó. Un pedido sin envíos responde { tickets: [] }.
+        Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Las comandas del pedido, ordenadas por id.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenTicketsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /menu:
+    get:
+      operationId: getMenu
+      tags:
+        - menu
+      summary: La carta armada para tomar pedidos
+      description: >-
+        Roles permitidos: cualquier rol con sesión. Devuelve solo los productos
+        ACTIVOS en el orden de la carta (categoría, luego nombre con collator
+        'es', luego id): cada producto con sus presentaciones y precios
+        (pollos) y sus componentes ya resueltos con el producto embebido
+        (combos). La carta se valida otra vez al enviar: lo que aquí se muestra
+        es solo la referencia del mozo. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Los productos activos de la carta, en orden.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
+components:
   securitySchemes:
     sessionCookie:
       type: apiKey
