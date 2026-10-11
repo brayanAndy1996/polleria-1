@@ -76,8 +76,8 @@ const orderItemEighthsSchema = z
   .min(0, ORDER_ITEM_EIGHTHS_MESSAGE)
   .max(8, ORDER_ITEM_EIGHTHS_MESSAGE);
 
-/** Caracteres de control y de formato: la observación es una sola línea (D-010-07). */
-const ORDER_ITEM_CONTROL_CHARS = /[\p{Cc}\p{Cf}]/u;
+/** Caracteres de control, de formato y separadores de línea Unicode: una sola línea (D-010-07). */
+const ORDER_ITEM_CONTROL_CHARS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 
 /**
  * La observación del ítem (D-010-07): se normaliza a NFC y se recorta antes de
@@ -339,6 +339,7 @@ function reasonOnlyBody(input: unknown): unknown {
  */
 const voidReasonSchema = z
   .string({ error: VOID_REASON_MESSAGE })
+  .refine((value) => !ORDER_ITEM_CONTROL_CHARS.test(value), VOID_REASON_MESSAGE)
   .trim()
   .min(1, VOID_REASON_MESSAGE)
   .max(200, VOID_REASON_MESSAGE);
