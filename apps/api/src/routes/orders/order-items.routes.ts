@@ -2,8 +2,9 @@ import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import type { OrderItemsController } from '../../controllers/order-items.controller.ts';
 import { ORDER_ITEM_ID_MESSAGE } from '../../controllers/order-items.controller.ts';
+import { ORDER_ID_MESSAGE } from '../../controllers/orders.controller.ts';
 import { requireRole } from '../../middlewares/auth.ts';
-import { malformedIdParamError } from '../../middlewares/id-param-error.ts';
+import { malformedIdParamsError } from '../../middlewares/id-param-error.ts';
 import { requireJsonContentType, requireJsonObject } from '../../middlewares/json-body.ts';
 
 /**
@@ -56,8 +57,14 @@ export function createOrderItemsRoutes(
     requireRole('admin'),
     controller.rejectVoid,
   );
-  // Un percent-encoding roto en itemId ('%', 'abc%') estalla al decodificar la ruta,
-  // antes del parser: se responde con el mismo VALIDATION_ERROR del parámetro.
-  router.use(malformedIdParamError('itemId', ORDER_ITEM_ID_MESSAGE));
+  // Un percent-encoding roto en cualquier id ('%', 'abc%') estalla al decodificar
+  // la ruta, antes del parser: el issue etiqueta el segmento que falla —orderId va
+  // en la posición 1 e itemId en la 3 de la URL relativa del router.
+  router.use(
+    malformedIdParamsError([
+      { index: 1, path: 'orderId', message: ORDER_ID_MESSAGE },
+      { index: 3, path: 'itemId', message: ORDER_ITEM_ID_MESSAGE },
+    ]),
+  );
   return router;
 }
