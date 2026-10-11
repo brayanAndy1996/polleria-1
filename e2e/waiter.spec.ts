@@ -193,21 +193,23 @@ test.describe('011: pantallas del mozo en el celular', () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile-chrome', 'Solo aplica a mobile-chrome.');
     await loginAsWaiter(page);
-    // Dos pedidos abiertos por API: el de Mesa 2 se mueve y luego une Mesa 4.
-    await openOrder(page.request, 'E2E Mesa 2');
+    // Mesas "limpias" para este escenario: AC-22 dejó la 1 ocupada y AC-23 la 2,
+    // así que el pedido vacío (condición para cancelarlo) arranca en la 3, se
+    // mueve a la 5 libre y une la 4 (también con pedido vacío).
+    await openOrder(page.request, 'E2E Mesa 3');
     await openOrder(page.request, 'E2E Mesa 4');
     await page.goto('/mozo');
-    await tableCard(page, 'E2E Mesa 2').click();
-    // Mover el pedido a 'E2E Mesa 3'.
-    await page.getByRole('button', { name: 'Mover a otra mesa' }).click();
-    await page.getByRole('combobox').selectOption({ label: 'E2E Mesa 3' });
-    await page.getByRole('button', { name: /^(Mover|Sí, mover)$/ }).click();
-    await expect(page.getByRole('heading', { name: 'E2E Mesa 3', level: 1 })).toBeVisible();
-    await expectNoOverflow(page);
-    // La mesa 2 quedó libre.
-    await page.goto('/mozo');
-    await expect(tableCard(page, 'E2E Mesa 2').getByText('Libre')).toBeVisible();
     await tableCard(page, 'E2E Mesa 3').click();
+    // Mover el pedido vacío a 'E2E Mesa 5' (única libre que no toca este test).
+    await page.getByRole('button', { name: 'Mover a otra mesa' }).click();
+    await page.getByRole('combobox').selectOption({ label: 'E2E Mesa 5' });
+    await page.getByRole('button', { name: /^(Mover|Sí, mover)$/ }).click();
+    await expect(page.getByRole('heading', { name: 'E2E Mesa 5', level: 1 })).toBeVisible();
+    await expectNoOverflow(page);
+    // La mesa 3 quedó libre.
+    await page.goto('/mozo');
+    await expect(tableCard(page, 'E2E Mesa 3').getByText('Libre')).toBeVisible();
+    await tableCard(page, 'E2E Mesa 5').click();
     // Unir 'E2E Mesa 4' a la cuenta: la vista muestra la mesa unida.
     await page.getByRole('button', { name: 'Unir mesa' }).click();
     await page.getByRole('combobox').selectOption({ label: 'E2E Mesa 4' });
@@ -221,12 +223,12 @@ test.describe('011: pantallas del mozo en el celular', () => {
     await page.goto('/mozo');
     await expect(tableCard(page, 'E2E Mesa 4').getByText('Libre')).toBeVisible();
     // Cancelar el pedido (sin ítems) con su motivo y de vuelta al tablero.
-    await tableCard(page, 'E2E Mesa 3').click();
+    await tableCard(page, 'E2E Mesa 5').click();
     await page.getByRole('button', { name: 'Cancelar pedido' }).click();
     await page.getByLabel('Motivo de la cancelación').fill('Se fueron sin pedir');
     await page.getByRole('button', { name: 'Aceptar' }).click();
     await expect(page).toHaveURL(/\/mozo$/);
-    await expect(tableCard(page, 'E2E Mesa 3').getByText('Libre')).toBeVisible();
+    await expect(tableCard(page, 'E2E Mesa 5').getByText('Libre')).toBeVisible();
     await expectNoOverflow(page);
   });
 });

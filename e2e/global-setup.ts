@@ -102,7 +102,9 @@ try {
       ],
     });
     const tableService = createTableService({ models });
-    for (const name of ['E2E Mesa 1', 'E2E Mesa 2', 'E2E Mesa 3', 'E2E Mesa 4']) {
+    // Mesa 5 extra: AC-24 necesita tres mesas "limpias" (origen, destino del mover
+    // y la que une) porque AC-22 y AC-23 dejan la 1 y la 2 ocupadas.
+    for (const name of ['E2E Mesa 1', 'E2E Mesa 2', 'E2E Mesa 3', 'E2E Mesa 4', 'E2E Mesa 5']) {
       await tableService.createTable({ name });
     }
   } finally {
