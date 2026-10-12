@@ -272,9 +272,9 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     fireEvent.change(presentacionFrito, {
       target: { value: selectedValueOf(presentacionFrito, 'Cuarto') },
     });
-    // En octavo/cuarto aparece 'Parte' con pierna preseleccionada.
+    // La carta solo oferta cuarto de pierna: la Parte no inventa 'Pecho'.
     const parte = screen.getByRole('combobox', { name: 'Parte' });
-    expect(optionNames(parte)).toEqual(['Pecho', 'Pierna']);
+    expect(optionNames(parte)).toEqual(['Pierna']);
     expect(selectedOptionText(parte)).toBe('Pierna');
     // En entero no hay ni Parte ni Distribución.
     fireEvent.change(presentacionFrito, {
@@ -287,7 +287,10 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     const presentacion = screen.getByRole('combobox', { name: 'Presentación' });
     expect(optionNames(presentacion)).toEqual(['Octavo', 'Cuarto', 'Medio pollo', 'Pollo entero']);
     expect(selectedOptionText(presentacion)).toBe('Cuarto');
-    expect(selectedOptionText(screen.getByRole('combobox', { name: 'Parte' }))).toBe('Pierna');
+    // En la brasa el cuarto sí oferta ambas partes; pierna sigue preseleccionada.
+    const parteBrasa = screen.getByRole('combobox', { name: 'Parte' });
+    expect(optionNames(parteBrasa)).toEqual(['Pecho', 'Pierna']);
+    expect(selectedOptionText(parteBrasa)).toBe('Pierna');
     // En medio aparece la Distribución con las cinco sumas válidas, 2+2 preseleccionada.
     fireEvent.change(presentacion, {
       target: { value: selectedValueOf(presentacion, 'Medio pollo') },
