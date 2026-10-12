@@ -1,6 +1,6 @@
 # Tareas — Spec 012: Pantalla de administración de mesas
 
-- Spec: docs/specs/012-tables-admin/spec.md (Borrador — pendiente de aprobación del usuario con las respuestas del §17)
+- Spec: docs/specs/012-tables-admin/spec.md (Aprobada por el usuario el 2026-10-12 con las 7 respuestas recomendadas del §17)
 - Rama: feat/012-tables-admin
 - Contrato: docs/api/openapi.yaml 0.9.0, SIN CAMBIOS (la spec es solo web; consumo de las rutas de la 009)
 - ADR: ninguno — composición de lo ya decidido

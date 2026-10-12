@@ -1,6 +1,6 @@
 # Spec 012 — Pantalla de administración de mesas en /admin
 
-- Estado: Borrador (propuesta para aprobación del usuario)
+- Estado: Aprobada por el usuario el 2026-10-12 con las recomendaciones de las 7 preguntas abiertas de la sección 17
 - Fase: 2 (Mesas y pedidos) — último ítem de la división aprobada en la spec 009 (009 mesas + ciclo, 010 ítems, 011 pantallas del mozo, 012 administración de mesas)
 - Rama: feat/012-tables-admin
 - Fecha: 2026-10-12
@@ -259,7 +259,7 @@ Ninguna nueva ni de soporte: TanStack Query, MSW, Playwright, HeroUI, Tailwind, 
 | S-012-10 | Sin migraciones, variables, dependencias ni ADR (D-012-10). |
 | S-012-11 | Un recorrido E2E en mobile-chrome con la semilla vigente (D-012-11). |
 
-## 17. Preguntas abiertas (con recomendación)
+## 17. Preguntas abiertas (con recomendación) — respondidas por el usuario el 2026-10-12: se aceptan las 7 recomendaciones
 
 1. **¿Una sola pantalla /admin/mesas con acciones por fila, o el patrón de tres rutas (lista + /nuevo + /[id]) de la 004/008?** Se propone una sola: la mesa solo tiene nombre y activa/inactiva; una página de edición entera para un campo sería navegación vacía en el celular. Se conserva el resto del patrón (lista completa, confirmación, mensajes del servidor, MSW). Recomendación: aceptar la pantalla única.
 2. **¿Mostrar el estado operativo derivado (Libre/Ocupada/Pedido listo/Pidió la cuenta) en la lista del admin, o solo activa/inactiva?** Se propone mostrarlo solo informativo: explica por qué 'Desactivar' puede fallar con TABLE_HAS_OPEN_ORDER y da contexto del salón sin duplicar el tablero. Recomendación: mostrarlo.
