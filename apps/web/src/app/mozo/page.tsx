@@ -12,8 +12,9 @@ import { TABLE_STATE_LABELS } from '../../lib/menu-labels.ts';
 /**
  * Lectura laxa del salón para el tablero (D-011-03): la tarjeta solo necesita el
  * estado del ítem para la marca 'Anulación pedida'; un ítem parcial no debe
- * tumbar el listado completo, así que se valida solo lo que la tarjeta usa.
+ * tumbar el listado completo — se descarta por ítem, no por mesa (ADV-011-10).
  */
+const boardItemSchema = z.looseObject({ status: z.string() });
 const boardOrderSchema = z.looseObject({
   id: z.number().int().positive(),
   status: z.string(),
@@ -22,7 +23,13 @@ const boardOrderSchema = z.looseObject({
   readyAt: z.string().nullable(),
   billRequestedAt: z.string().nullable(),
   tables: z.array(z.looseObject({ id: z.number().int().positive(), name: z.string() })),
-  items: z.array(z.looseObject({ status: z.string() })),
+  items: z
+    .array(z.unknown())
+    .transform((items) =>
+      items.filter(
+        (item): item is z.infer<typeof boardItemSchema> => boardItemSchema.safeParse(item).success,
+      ),
+    ),
 });
 const boardTableSchema = z.looseObject({
   id: z.number().int().positive(),
@@ -114,27 +121,29 @@ export default function Page() {
         <span className="sr-only">Cargando...</span>
       </p>
     );
-  // Solo un error de la API merece la pantalla de reintento: un fallo de red se
-  // deja al guard, que sigue mostrando el chrome de sesión.
-  if (tables.isError && tables.error instanceof ApiError && tables.error.code !== 'NETWORK_ERROR')
-    return (
-      <div className="space-y-4 p-6 text-center">
-        <p role="alert">No se pudo cargar el salón.</p>
-        <Button
-          className="min-h-12"
-          onPress={() => {
-            void tables.refetch();
-          }}
-        >
-          Reintentar
-        </Button>
-      </div>
-    );
+  // Cualquier fallo (API o red) muestra la misma pantalla de reintento dentro
+  // del chrome del guard (AC-06, ADV-011-03).
+  const isNetworkFailure =
+    tables.error instanceof ApiError && tables.error.code === 'NETWORK_ERROR';
   return (
     <RoleGuard area="/mozo">
-      {/* Etiqueta del área para lectores de pantalla: el encabezado visual es 'Mesas'. */}
-      <h1 className="sr-only">Mozo</h1>
-      {tables.data !== undefined ? <WaiterBoard tables={tables.data} /> : null}
+      {tables.isError ? (
+        <div className="space-y-4 p-6 text-center">
+          {/* Sin role=alert cuando es un fallo de red: el tablero convive con
+              otros flujos del chrome (logout), que sí llevan su propio alert. */}
+          <p role={isNetworkFailure ? undefined : 'alert'}>No se pudo cargar el salón.</p>
+          <Button
+            className="min-h-12"
+            onPress={() => {
+              void tables.refetch();
+            }}
+          >
+            Reintentar
+          </Button>
+        </div>
+      ) : tables.data !== undefined ? (
+        <WaiterBoard tables={tables.data} />
+      ) : null}
     </RoleGuard>
   );
 }
