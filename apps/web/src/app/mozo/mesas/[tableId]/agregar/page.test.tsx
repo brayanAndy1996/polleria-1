@@ -511,7 +511,9 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     const lineaPollo = cartLine(/Pollo a la brasa/);
     const lineaChaufa = cartLine('Chaufa');
     // Los issues por línea llegan con la respuesta 400: espera asíncrona.
-    expect(await within(lineaPollo).findByText('La presentación no va con la parte.')).toBeVisible();
+    expect(
+      await within(lineaPollo).findByText('La presentación no va con la parte.'),
+    ).toBeVisible();
     expect(await within(lineaChaufa).findByText('Esa crema no existe.')).toBeVisible();
     expect(await screen.findByText('Revisa la tanda completa.')).toBeVisible();
     // El carrito se conserva con sus dos líneas.
