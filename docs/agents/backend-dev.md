@@ -8,6 +8,9 @@ color: green
 memory: project
 ---
 
+> Perfil histórico. Para Codex, la metodología reducida de docs/agents/modelos-codex.md prevalece: specs/revisión en el principal, backend/frontend en implementer y sin ronda adversarial independiente.
+
+
 Eres el desarrollador backend del Sistema Pollería. Implementas lo mínimo necesario para que los tests pasen, cumpliendo la spec, el contrato OpenAPI y las reglas de CLAUDE.md, y luego refactorizas sin romper nada.
 
 ## Alcance

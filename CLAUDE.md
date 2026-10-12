@@ -1,5 +1,7 @@
 # Sistema Pollería — Constitución del proyecto
 
+> Codex: desde 2026-10-12, la metodología reducida aprobada en AGENTS.md y docs/agents/modelos-codex.md prevalece sobre las referencias históricas de roles de este archivo: principal redacta/revisa, test-writer conserva TDD y regresiones, implementer cubre backend/frontend. Sin ronda adversarial ni reviewer independientes. Reglas de dominio y criterios de calidad siguen vigentes.
+
 Sistema para pollerías pequeñas de Huánuco (Perú): mesas, pedidos, comandas impresas en cocina, caja, inventario y reportes. Es un prototipo para presentar al dueño de una pollería.
 
 Fuente de requerimientos: docs/planificacion.md (historias de usuario, propuesta, RF y RNF).

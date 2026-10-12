@@ -3,6 +3,12 @@
 Documento de traspaso para retomar el trabajo en una conversación nueva. Lo mantiene el orquestador.
 Corte: 2026-10-12. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 
+## Cambio de metodología — 2026-10-12
+
+- Usuario aprobó flujo reducido: principal redacta specs/OpenAPI y revisa; solo test-writer e implementer como subagentes, medium. Luna para pruebas/tareas sencillas, gpt-6.1-sol para implementación compleja. Sin rondas independientes de spec-writer, reviewer o adversarial-tester; conservar pruebas existentes.
+- El límite de uso interrumpió el equipo anterior. Preservar cambios parciales de 013 y validar su estado antes de continuar; no afirmar verde/cierre de bloques sin nueva evidencia.
+- Retomar por bloques pequeños: primero fixtures/contrato de tests y migración/snapshot/formateo ya parcialmente escritos; después despacho/API y UI. Todos los 14 AC aprobados permanecen requeridos. Las referencias del traspaso de abajo al equipo anterior son históricas.
+
 ## Actualización actual en Codex — 2026-10-12
 
 - El usuario autorizó iniciar el desarrollo con los subagentes y modelos documentados en docs/agents/modelos-codex.md. La documentación fue publicada en main en 659061d. Trabajo actual en feat/013-kitchen-printing.

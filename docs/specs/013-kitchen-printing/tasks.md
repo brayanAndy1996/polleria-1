@@ -1,5 +1,7 @@
 # Tareas — Spec 013, generación automática de comandas file
 
+> Adaptación aprobada 2026-10-12: mantener IDs/AC/dependencias, asignar tareas spec-writer al principal, backend-dev/frontend-dev al implementer y reviewer al principal. A-01 ya fue ejecutada por el equipo anterior; A-02 deja de ser una ronda independiente: test-writer conserva regresiones críticas y el principal revisa. No eliminar pruebas existentes ni reducir AC. Esta asignación prevalece sobre los responsables históricos de las tablas.
+
 - Estado: **Aprobadas spec/P-01…P-06 por el usuario el 2026-10-12**, con las seis recomendaciones aceptadas. `file` había sido confirmado antes. **S-01 completada por spec-writer el 2026-10-12**; T-01/T-02 y T-03…T-08 pueden continuar según dependencias. El contrato marca las tres nuevas rutas pendientes de implementación.
 - Rama: `feat/013-kitchen-printing`; alcance aprobado de driver: file. Sin ESC/POS/barra/pantalla cocina.
 - Fuente de verdad: [spec.md](spec.md), con 14 AC. OpenAPI aprobado 0.10.0 en S-01, operaciones 013 marcadas pending y formas/operaciones previas 0.9.0 conservadas; contrato de §9 antes de los tests T-03…T-08.

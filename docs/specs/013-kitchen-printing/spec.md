@@ -1,5 +1,7 @@
 # Spec 013 — Generación automática de comandas con driver file
 
+> El usuario aprobó la metodología reducida 2026-10-12. El alcance, los 14 AC y P-01…P-06 se conservan. Las referencias de roles/checks independientes se interpretan según docs/agents/modelos-codex.md: dos ejecutores y revisión principal, sin ronda adversarial independiente.
+
 - Estado: **Aprobada por el usuario el 2026-10-12 con las seis recomendaciones P-01…P-06**. La decisión de empezar con `file` fue confirmada antes de esta aprobación.
 - Fase: 3, primera entrega de cocina/impresión.
 - Rama: `feat/013-kitchen-printing`.

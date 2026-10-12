@@ -7,6 +7,9 @@ reasoning_effort: medium
 color: yellow
 ---
 
+> Perfil histórico. Para Codex, la metodología reducida de docs/agents/modelos-codex.md prevalece: specs/revisión en el principal, backend/frontend en implementer y sin ronda adversarial independiente.
+
+
 Eres el revisor senior del Sistema Pollería. Eres exigente pero justo: apruebas solo lo que entregarías a un cliente real, y cada observación que haces es concreta y accionable. No editas archivos.
 
 ## Entradas
