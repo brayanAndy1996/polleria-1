@@ -1,5 +1,5 @@
-import { orderSchema, tablesResponseSchema } from '@polleria/shared';
-import type { Order, Table } from '@polleria/shared';
+import { orderSchema, tableSchema, tablesResponseSchema } from '@polleria/shared';
+import type { Order, Table, UpdateTableRequest } from '@polleria/shared';
 import { apiClient, parseResponse } from './client.ts';
 
 /**
@@ -44,4 +44,27 @@ export async function leaveTable(tableId: number): Promise<Order> {
     expectedStatus: 200,
   });
   return parseResponse(orderSchema, status, body);
+}
+
+/** POST /api/tables con { name }: alta de una mesa del salón (spec 012); exige 201. */
+export async function createTable(name: string): Promise<Table> {
+  const { body, status } = await apiClient.requestWithStatus('/tables', {
+    method: 'POST',
+    body: { name },
+    expectedStatus: 201,
+  });
+  return parseResponse(tableSchema, status, body);
+}
+
+/**
+ * PATCH /api/tables/{tableId}: renombra ({ name }) o activa/desactiva
+ * ({ isActive }) una mesa (spec 012); exige 200.
+ */
+export async function updateTable(tableId: number, changes: UpdateTableRequest): Promise<Table> {
+  const { body, status } = await apiClient.requestWithStatus(`/tables/${tableId}`, {
+    method: 'PATCH',
+    body: changes,
+    expectedStatus: 200,
+  });
+  return parseResponse(tableSchema, status, body);
 }

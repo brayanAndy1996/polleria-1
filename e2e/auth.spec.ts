@@ -27,10 +27,10 @@ test.describe('003: inicio de sesión y áreas', () => {
     await page.getByRole('button', { name: /^Mozo E2E/ }).click();
     await enterPin(page, '2468');
     await expect(page).toHaveURL(/\/mozo$/, { timeout: 10000 });
-    await expect(page.getByRole('heading', { name: 'Mozo', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mesas', exact: true })).toBeVisible();
     await expect(page.getByText('Mozo E2E · Mozo', { exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole('heading', { name: 'Mozo', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mesas', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Cerrar sesión' }).click();
     await expect(page).toHaveURL(/\/login$/);
     await page.goto('/mozo');
@@ -90,7 +90,7 @@ test.describe('003: inicio de sesión y áreas', () => {
     await expectTouchTargets(page, 13);
     await expectNoOverflow(page);
     await enterPin(page, '2468');
-    await expect(page.getByRole('heading', { name: 'Mozo', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mesas', exact: true })).toBeVisible();
     await expectNoOverflow(page);
     expect(
       urls
@@ -129,6 +129,6 @@ test.describe('003: inicio de sesión y áreas', () => {
     await expect(page.getByRole('heading', { name: 'Hola, Mozo Caja E2E' })).toBeVisible();
     await enterPin(page, '8642');
     await expect(page).toHaveURL(/\/mozo$/);
-    await expect(page.getByRole('heading', { name: 'Mozo', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mesas', exact: true })).toBeVisible();
   });
 });

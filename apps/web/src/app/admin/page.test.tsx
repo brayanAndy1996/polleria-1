@@ -68,3 +68,35 @@ describe('008: enlace a Carta en Administración', () => {
     );
   });
 });
+
+describe('012: enlace a Mesas en Administración', () => {
+  // AC-04 de la spec 012: va EN ROJO hasta que T-07 sume el enlace 'Mesas' a
+  // app/admin/page.tsx junto a 'Usuarios' y 'Carta'.
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    window.history.replaceState({}, '', '/admin');
+    server.use(
+      http.get('*/api/auth/me', () =>
+        HttpResponse.json({
+          user: { id: 1, username: 'dueno', displayName: 'Carlos', roles: ['admin'] },
+          expiresAt: '2026-10-09T07:00:00.000Z',
+        }),
+      ),
+    );
+  });
+  it('AC-04: muestra el enlace Mesas a /admin/mesas junto a Usuarios y Carta', async () => {
+    show(<AdminPage />);
+    expect(
+      await screen.findByRole('heading', { name: 'Administraci\u00F3n', level: 1 }),
+    ).toBeVisible();
+    const mesas = screen.getByRole('link', { name: 'Mesas' });
+    expect(mesas).toBeVisible();
+    expect(mesas).toHaveAttribute('href', '/admin/mesas');
+    expect(screen.getByRole('link', { name: 'Usuarios' })).toHaveAttribute(
+      'href',
+      '/admin/usuarios',
+    );
+    expect(screen.getByRole('link', { name: 'Carta' })).toHaveAttribute('href', '/admin/carta');
+  });
+});
