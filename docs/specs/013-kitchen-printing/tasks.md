@@ -1,14 +1,14 @@
 # Tareas — Spec 013, generación automática de comandas file
 
-- Estado: **Propuesta pendiente de aprobación de spec/P-01…P-06**. Ninguna tarea de comportamiento 013 está iniciada.
+- Estado: **Aprobadas spec/P-01…P-06 por el usuario el 2026-10-12**, con las seis recomendaciones aceptadas. `file` había sido confirmado antes. **S-01 completada por spec-writer el 2026-10-12**; T-01/T-02 y T-03…T-08 pueden continuar según dependencias. El contrato marca las tres nuevas rutas pendientes de implementación.
 - Rama: `feat/013-kitchen-printing`; alcance aprobado de driver: file. Sin ESC/POS/barra/pantalla cocina.
-- Fuente de verdad: [spec.md](spec.md), con 14 AC. OpenAPI actual 0.9.0 permanece intacto en este borrador; propuesta 0.10.0 en §9. Tras aprobación lo actualiza spec-writer en S-01, antes de los tests de contrato.
+- Fuente de verdad: [spec.md](spec.md), con 14 AC. OpenAPI aprobado 0.10.0 en S-01, operaciones 013 marcadas pending y formas/operaciones previas 0.9.0 conservadas; contrato de §9 antes de los tests T-03…T-08.
 - Tamaño objetivo: cada tarea 1–2 h; dividir por AC/archivo si supera ese tamaño. No reducir AC ni agregar infraestructura para cumplir una estimación.
 
 ## Puertas previas y reglas de ejecución
 
 1. Baseline existente corregido por test-writer en `d42ea8b`, revisión independiente APROBADO, 81/81 casos dirigidos. Verificación final del orquestador: 122 archivos pasan, 2418 pruebas pasan + 6 esperadas + 2 skip; tipos/lint pasan. Los 29 fallos iniciales se resolvieron con sincronización de tests, sin cambios de producción; no son nuevos AC de esta funcionalidad ni fueron omitidos. Mantener separados expected-fail y skip.
-2. Orquestador + usuario: aprobar spec y P-01…P-06; hasta entonces solo documentos. Elegir file ya está confirmado y no se pregunta de nuevo.
+2. Puerta de aprobación cumplida el 2026-10-12: spec y P-01…P-06 aceptadas con las seis recomendaciones; file confirmado previamente. Seguir contrato→tests→implementación→ataque→revisión. No solicitar esta aprobación de nuevo; integrar a main requiere autorización separada.
 3. Test-writer escribe pruebas, comprueba rojo por el comportamiento ausente/defecto y reporta evidencia; implementadores no editan tests. Un import ausente es rojo válido para un módulo nuevo, pero la regresión de deuda debe fallar por la causa concreta.
 4. La deuda ADV-002-02/01 se corrige y revalida **antes de automatizar comandas**. Mantener expected-fail restantes. Solo sus autores convierten a tests ordinarios las regresiones demostradas resueltas; una VM rápida que pasa un it.fails no es corrección.
 5. Tests sobre polleria_test exclusivamente, con guardias y permiso de limpieza del orquestador; ninguna acción sobre polleria_dev/bases/roles. File siempre en carpetas temporales; no instalar paquetes. Suites con DB en serie desde raíz.
@@ -18,7 +18,7 @@
 
 | Tarea | Descripción y evidencia requerida | Responsable | Dependencias | AC |
 | --- | --- | --- | --- | --- |
-| S-01 | Tras aprobación registrar P-01…P-06 y actualizar OpenAPI 0.10.0 con los tres paths, esquemas, parámetros, roles/errores y marcación de operaciones aprobadas aún no implementadas. Validar el documento y conservar formas/operaciones 0.9.0. El spec-writer es dueño del contrato; solicitudes de cambio de implementadores vuelven a este rol. | spec-writer | aprobación | AC-09, AC-10, AC-11 |
+| S-01 — Completada 2026-10-12 | Aprobación P-01…P-06 registrada; OpenAPI 0.10.0 con tres paths pending, nueve esquemas, tres parámetros y dos respuestas. YAML sin claves duplicadas, 501 referencias resueltas, operationIds únicos, JSON Schema 2020-12 de nuevas formas/ejemplos y siete patrones ECMAScript verificados con herramientas existentes; 29 paths y todas las formas previas 0.9.0 conservadas. El spec-writer es dueño del contrato; solicitudes de cambio de implementadores vuelven a este rol. | spec-writer | aprobación cumplida | AC-09, AC-10, AC-11 |
 
 ## Pruebas primero — test-writer
 

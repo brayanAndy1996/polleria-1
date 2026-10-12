@@ -1,13 +1,13 @@
 # Spec 013 — Generación automática de comandas con driver file
 
-- Estado: **Borrador; pendiente de aprobación del comportamiento por el usuario**.
+- Estado: **Aprobada por el usuario el 2026-10-12 con las seis recomendaciones P-01…P-06**. La decisión de empezar con `file` fue confirmada antes de esta aprobación.
 - Fase: 3, primera entrega de cocina/impresión.
 - Rama: `feat/013-kitchen-printing`.
 - Fecha: 2026-10-12.
 - Decisión confirmada del usuario: **«Aún no tengo los datos; empezar con archivos»**. Esta entrega usa `file`; marca/modelo y conexión física ESC/POS se posponen.
 - Cubre RF-08 y RF-09 en generación de archivos equivalentes a las comandas; RF-10 en fallos del driver file, aviso y reimpresión. **No declara cumplida la impresión física, la detección de papel ni RNF-03 en hardware**. Aporta a RNF-02, RNF-05 y RNF-09. RF-11 queda para otra entrega.
-- Fuentes: `CLAUDE.md`, `docs/planificacion.md`, specs 002/010/011/012, `docs/PROGRESS.md`, `docs/CONTINUAR.md` y OpenAPI 0.9.0.
-- Autorizado ahora: preparar la propuesta y corregir el baseline existente por sus dueños. No confundir esa autorización con aprobación de esta spec ni iniciar sus tests/producción antes de aprobarla.
+- Fuentes: `CLAUDE.md`, `docs/planificacion.md`, specs 002/010/011/012, `docs/PROGRESS.md`, `docs/CONTINUAR.md` y OpenAPI 0.10.0 (formas previas 0.9.0 conservadas).
+- Autorizado ahora: seguir el desarrollo SDD/TDD de esta spec aprobada, primero contrato y tests, después implementación y verificaciones independientes. La aprobación no autoriza integrar a main ni declara implementadas las operaciones de la 013.
 
 ## 1. Contexto
 
@@ -24,7 +24,7 @@ La 010 registra cada comanda inicial, adicional y anulación aprobada; la 011 pe
 
 ## 3. Decisiones y funcionamiento propuestos
 
-Las decisiones de negocio P-01 a P-06 se someten a aprobación en §13. La elección de `file` ya está confirmada.
+Las decisiones de negocio P-01 a P-06 fueron aprobadas con sus recomendaciones el 2026-10-12 (§13). La elección de `file` fue confirmada antes. Se conservan los términos «propuesto» en el diseño como registro de su origen; el comportamiento descrito es ahora la especificación aprobada.
 
 ### D-013-01. Resolver primero la deuda de la 002
 
@@ -192,19 +192,19 @@ No duplicar el order_id mutable; resolver el actual por kitchen_tickets. No UPDA
 
 No mostrar «Impreso» con file. `PRINTER_OUTPUT_FAILED`, `PRINTER_INVALID_DOCUMENT`, `PRINTER_EMPTY_DOCUMENT`, `PRINT_TIMEOUT`, `PRINT_OUTPUT_UNCERTAIN` se traducen a mensajes fijos. No hay salida de stack, host, ruta o contenido de cause.
 
-## 9. API propuesta; contrato actual separado
+## 9. API aprobada; implementación actual separada
 
-**OpenAPI actual permanece 0.9.0 intacto**, con sus rutas ya implementadas. Esta sección propone 0.10.0; después de aprobación, **spec-writer** actualizará `docs/api/openapi.yaml` en S-01, antes de los tests de contrato. En esa tarea señalará las operaciones aprobadas aún pendientes de implementación; backend-dev implementará y comprobará concordancia, sin editar el contrato por su cuenta. Hoy no se publican rutas propuestas dentro de paths actuales ni se afirma que ya existan. Los 201/200 y esquemas estrictos de la 010/011 no cambian.
+**OpenAPI 0.10.0 contiene el contrato aprobado**, actualizado por **spec-writer** en S-01 antes de los tests de contrato. Las tres operaciones de la 013 se marcan `x-implementation-status: pending` y se describen como aprobadas aún no implementadas; las operaciones/formas previas 0.9.0 se conservan. Backend-dev implementará y comprobará concordancia, sin editar el contrato por su cuenta. Los 201/200 y esquemas estrictos de la 010/011 no cambian. El estado de implementación se actualizará por el dueño del contrato cuando exista evidencia de las tres rutas en producción.
 
 Todas las rutas siguientes son **nuevas y no implementadas**. Base /api, cookie polleria_session, no-store incluso en errores; ids enteros 1–2147483647. GET de pedido usa lectura coherente (REPEATABLE READ) como la 009. Atención pagina por ticketId ascendente de los últimos estados failed/uncertain, sin duplicar por página/intento. Los estados se releen desde la primera página en cada refresco.
 
-| Método/ruta propuesta | Roles | Entrada / salida |
+| Método/ruta aprobada | Roles | Entrada / salida |
 | --- | --- | --- |
 | GET /orders/{orderId}/ticket-prints | cualquier rol con sesión | 200 `{ prints: [KitchenTicketPrintView] }`, una por comanda del pedido actual, id ascendente; incluye not_tracked; 400/401/404 ORDER_NOT_FOUND/500 |
 | GET /kitchen-ticket-prints/attention | waiter, cashier, admin | Query `afterTicketId?` entero positivo; página fija 50, 200 `{ prints: [KitchenTicketPrintView], nextAfterTicketId: integer|null }`; solo failed/uncertain; 400/401/403/500 |
 | POST /kitchen-ticket-prints/{ticketId}/reprint | waiter para initial/additional; cashier/admin todos | JSON estricto `{ reason }` + Idempotency-Key; 202 `{ attempt: KitchenTicketPrintAttemptView }` guardado para replay; 400/401/403/404 KITCHEN_TICKET_NOT_FOUND/409 PRINT_IN_PROGRESS, PRINT_SNAPSHOT_UNAVAILABLE, IDEMPOTENCY_CONFLICT/413/415/500 |
 
-Formas propuestas, todas con claves requeridas y additionalProperties=false:
+Formas aprobadas, todas con claves requeridas y additionalProperties=false:
 
 ```text
 KitchenTicketPrintView = {
@@ -237,7 +237,7 @@ Errores nuevos del formato común `{ error: { code, message, details } }`, detai
 
 Se reutilizan VALIDATION_ERROR, UNAUTHENTICATED, FORBIDDEN, IDEMPOTENCY_CONFLICT y los errores del lector. Un fallo de generación **después** del 202 se consulta como failed/uncertain, no convierte retrospectivamente el 202 en 503. Eventos Socket.IO: ninguno.
 
-OpenAPI al implementar: tag `kitchen-ticket-prints`, tres paths/operationIds `listOrderTicketPrints`, `listKitchenTicketPrintAttention`, `reprintKitchenTicket`; esquemas de las formas anteriores y sus sobres, petición, parámetros TicketId/AfterTicketId y respuestas nuevas; ErrorCode suma únicamente los tres errores HTTP nuevos. Los cinco códigos internos de generación van en el enum del estado, sin hacerlos errores HTTP de POST /items.
+OpenAPI aprobado: tag `kitchen-ticket-prints`, tres paths/operationIds `listOrderTicketPrints`, `listKitchenTicketPrintAttention`, `reprintKitchenTicket`; esquemas de las formas anteriores y sus sobres, petición, parámetros TicketId/AfterTicketId/ReprintIdempotencyKey y respuestas nuevas; ErrorCode documenta únicamente los tres errores HTTP nuevos. Los cinco códigos internos de generación van en su enum propio, sin hacerlos errores HTTP de POST /items.
 
 ## 10. Interfaz propuesta
 
@@ -268,11 +268,11 @@ Verificación de cierre tras implementación: AC→tests, rojo/verde, lint/typec
 - Pantalla cocina, Socket.IO, pedido listo automático, avisos sonoros/push, editor de configuración, limpiezas/retención de archivos y .tmp, exportación por HTTP y auditoría visible completa.
 - Reimprimir automáticamente historia previa, avisos de cambio de mesa impresos, pre-cuenta/cobro/stock/reportes y pedidos para llevar.
 
-## 13. Decisiones abiertas con recomendación
+## 13. Decisiones aprobadas — 2026-10-12
 
-La falta de marca/modelo **no bloquea esta entrega**; el usuario ya confirmó file. La aprobación del comportamiento restante sí precede TDD/implementación de la 013.
+La falta de marca/modelo **no bloquea esta entrega**; el usuario ya había confirmado file. El 2026-10-12 respondió **«está perfecto ... una vez respondido puedes seguir con el desarrollo»** a la solicitud de aprobación de la spec y P-01…P-06: se aceptan las seis recomendaciones. No quedan preguntas abiertas para esta entrega.
 
-| ID | Decisión requerida | Recomendación |
+| ID | Decisión | Recomendación aceptada |
 | --- | --- | --- |
 | P-01 | Número y destino de comanda | id global; un destino file cocina para toda la tanda, bebidas incluidas |
 | P-02 | Reimpresiones de salida exitosa/parcial y auditoría | copia explícita completa, marcada REIMPRESIÓN, confirmación y motivo; salida exitosa desde pedido mozo/admin y fallida/por revisar desde atención de caja |
@@ -281,8 +281,8 @@ La falta de marca/modelo **no bloquea esta entrega**; el usuario ya confirmó fi
 | P-05 | Aviso de fallo de ANULADO al mozo | sí, solo resumen número/mesa/tipo/estado; sin detalle/motivo ni acción de copia |
 | P-06 | Aviso y espera | polling visible cada 5 s en mozo/caja y estado por pedido; sin Socket.IO; aceptar que generación y refresco tienen tiempos distintos |
 
-Supuestos técnicos que se aprueban con la spec: filesystem local regular del servidor, **un proceso API sin réplicas ni reinicios superpuestos**, un destino y un despachador exclusivo; paginación en documentos de 500 líneas; pre-límite de 8 marcas solo para impresión patológica. Si se usa carpeta de red o se requiere fidelidad de ese Unicode excepcional, revisar la reconciliación y el límite antes de implementar.
+Supuestos técnicos aprobados con la spec: filesystem local regular del servidor, **un proceso API sin réplicas ni reinicios superpuestos**, un destino y un despachador exclusivo; paginación en documentos de 500 líneas; pre-límite de 8 marcas solo para impresión patológica. Si se usa carpeta de red o se requiere fidelidad de ese Unicode excepcional, revisar la reconciliación y el límite antes de implementar.
 
 ## 14. Acción posterior a la aprobación
 
-El orquestador registra P-01…P-06 y cualquier ajuste, luego asigna tests primero según tasks.md. La validación file se hace en carpeta temporal; no se migran datos reales ni se cambia .env del usuario durante el desarrollo. Tras implementar, el usuario revisará un archivo de tanda mixta, ADICIONAL, ANULADO y REIMPRESIÓN; la salida física seguirá pendiente de su propia spec.
+P-01…P-06 quedan registradas arriba; el orquestador asigna tests primero según tasks.md después del contrato S-01. La validación file se hace en carpeta temporal; no se migran datos reales ni se cambia .env del usuario durante el desarrollo. Tras implementar, el usuario revisará un archivo de tanda mixta, ADICIONAL, ANULADO y REIMPRESIÓN; la salida física seguirá pendiente de su propia spec.
