@@ -5,6 +5,18 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 
 ## Estado actual
 
+### Trabajo actual en Codex — 2026-10-12
+
+- Fase: preparación de la Fase 3 (cocina/impresión).
+- Funcionalidad: 013-kitchen-printing, propuesta de spec y tareas redactada por spec-writer con 14 AC; aún no aprobada.
+- Rama: feat/013-kitchen-printing, desde 659061d (documentación de modelos publicada en main).
+- Decisión del usuario: iniciar el desarrollo con los roles/modelos de docs/agents/modelos-codex.md; empezar la impresión con archivos porque aún no tiene datos de la impresora física.
+- Paso: propuesta y tareas completadas por spec-writer; revisión documental independiente sin bloqueos materiales pendientes. Esperando aprobación del usuario. Mantenimiento de la base de pruebas completado por sus dueños. Los 29 fallos web de onboarding se localizaron en sincronización de los tests (26 readiness prematura, 2 esperas negativas de logout y 1 referencia DOM obsoleta), sin defecto de producción confirmado. test-writer y adversarial-tester corrigieron solo sus pruebas en archivos disjuntos: 22/22 pruebas normales y 59/59 adversariales pasan; reviewer independiente aprobó el mantenimiento. Verificación del orquestador: suite completa (maxWorkers 2) con 122 archivos aprobados, 2418 pruebas aprobadas, 6 fallos esperados y 2 omitidas; tipos y lint pasan. Corrección de pruebas conservada en un commit test separado, sin producción ni cambios en main. E2E/cobertura no reejecutados en este mantenimiento de sincronización; no se ha cerrado una funcionalidad nueva.
+- Entorno validado: Node 24, pnpm 10.12.1, PostgreSQL 17.11 local en /workspace/.cloud-setup, polleria_dev/polleria_test y conexiones locales protegidas en apps/api/.env; siete migraciones aplicadas, API/proxy saludables, tipos/lint y 546 pruebas de integración aprobadas (+3 fallos esperados, 2 omitidas). E2E pendiente: descarga de Chromium bloqueada en cdn.playwright.dev; dominio guardado en el borrador del entorno. No se presume Docker ni publicación de la configuración en esta sesión.
+- Próximo punto de control: aprobación del usuario de docs/specs/013-kitchen-printing/spec.md (P-01…P-06) antes de actualizar el contrato, escribir sus pruebas e implementar comportamiento nuevo.
+
+### Último cierre previo
+
 - Fase: 2 de 6 CERRADA en código (mesas y pedidos, RF-02 a RF-07) con la integración de la 012 el 2026-10-12. La siguiente es la Fase 3 (cocina/impresión). La Fase 1 quedó completa en código con la integración de la 008 el 2026-10-09 (pendientes manuales documentados: pnpm db:migrate en polleria_dev, pruebas por API y recorrido de /admin/carta).
 - Funcionalidad: 012-tables-admin INTEGRADA a main el 2026-10-12 (merge c26c6c4, --no-ff autorizado por el usuario). Con ella la Fase 2 (mesas y pedidos, RF-02 a RF-07) queda cerrada en código. La 011-waiter-screens se integró el mismo día (merge 66681f8) y la 010-order-items el 2026-10-11 (merge 5110579).
 - Paso: ciclo completo de la 012 — 34 adversariales con 3 hallazgos corregidos en producción (2 medios, 1 bajo — abiertos 0); reviewer APROBADO en 1.ª vuelta sobre 3e293ec. Verificación del orquestador: pnpm test 2418 verdes (única falla la ambiental ADV-002-01), lint/typecheck 0, e2e AC-11 verde en mobile-chrome, cobertura del archivo nuevo 98,96 % de líneas, api/shared/openapi sin diff (0.9.0).
@@ -28,6 +40,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 010 | order-items (ítems del pedido con presentación/parte/cremas/observaciones, envío idempotente, comandas como registro, anulación solicitada por el mozo y ejecutada por admin) | 2 | Cerrada (APROBADO en 2.ª vuelta; 19 AC; 19 adversariales con 7 hallazgos corregidos —2 críticos, 2 altos, 2 medios, 1 bajo—; integrada a main en el merge 5110579; pendientes manuales registrados) | feat/010-order-items | 2026-10-11 |
 | 011 | waiter-screens (pantallas del mozo: tablero de mesas con estados, pedido por mesa con acciones del ciclo y comandas, toma de comanda con carrito y envío idempotente, anulación mozo→admin en pantalla; solo apps/web) | 2 | Cerrada (APROBADO en 2.ª vuelta; 24 AC; 30 adversariales con 12 hallazgos corregidos —3 altos, 4 medios, 5 bajos—; integrada a main en el merge 66681f8) | feat/011-waiter-screens | 2026-10-12 |
 | 012 | tables-admin (pantalla /admin/mesas: lista con estado derivado, alta en línea, renombrar por diálogo, activar/desactivar con confirmación; solo apps/web + E2E, contrato 0.9.0 sin cambios) | 2 | Cerrada (APROBADO en 1.ª vuelta; 11 AC; 34 adversariales con 3 hallazgos corregidos —2 medios, 1 bajo—; integrada a main en el merge c26c6c4; pendientes manuales registrados) | feat/012-tables-admin | 2026-10-12 |
+| 013 | kitchen-printing (generación automática file, errores y copias auditadas; hardware posterior) | 3 | Borrador: 14 AC, pendiente de aprobación del usuario | feat/013-kitchen-printing | — |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec. La de la Fase 2 (009 a 012) la propuso el spec-writer de la 009.
 
