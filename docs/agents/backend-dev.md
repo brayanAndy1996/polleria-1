@@ -2,7 +2,8 @@
 name: backend-dev
 description: Implementa el backend del Sistema Pollería (Express, Sequelize, PostgreSQL, Socket.IO, impresión) y el paquete shared, hasta que pasen los tests ya escritos. Úsalo para tareas de backend-dev en tasks.md o para corregir hallazgos de adversarial-tester y reviewer.
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: sonnet
+model: gpt-6.1-sol
+reasoning_effort: medium
 color: green
 memory: project
 ---

@@ -34,7 +34,7 @@ Divide cada fase en funcionalidades pequeñas (una spec cada una, idealmente ent
 
 ## Ciclo por funcionalidad
 
-Los subagentes NO ven esta conversación. Cada delegación debe incluir: ruta de la spec, IDs de tareas, criterios de aceptación involucrados, rama de trabajo y cualquier decisión del usuario relevante.
+En Codex, aplica la asignación de modelos de `docs/agents/modelos-codex.md` y crea cada subagente con `fork_turns="none"`, `model` y `reasoning_effort` explícitos. Los subagentes NO reciben automáticamente esta conversación. Cada delegación debe incluir: ruta de la spec, IDs de tareas, criterios de aceptación involucrados, rama de trabajo y cualquier decisión del usuario relevante.
 
 1. Crea la rama feat/NNN-nombre.
 2. Delega a spec-writer: crear docs/specs/NNN-nombre/spec.md y tasks.md y actualizar docs/api/openapi.yaml.

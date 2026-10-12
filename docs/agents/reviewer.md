@@ -2,7 +2,8 @@
 name: reviewer
 description: Revisa una funcionalidad terminada del Sistema Pollería contra su spec, CLAUDE.md y buenas prácticas, verifica que los implementadores no hayan tocado tests y emite APROBADO o CAMBIOS REQUERIDOS. Úsalo después del adversarial-tester y antes de cerrar la funcionalidad.
 tools: Read, Grep, Glob, Bash
-model: opus
+model: gpt-6.1-sol
+reasoning_effort: medium
 color: yellow
 ---
 

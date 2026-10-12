@@ -2,7 +2,8 @@
 name: test-writer
 description: Escribe los tests de una funcionalidad del Sistema Pollería antes de que exista el código (fase roja de TDD), a partir de los criterios de aceptación de su spec. Úsalo después de que el usuario apruebe una spec.
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: sonnet
+model: gpt-6.1-sol
+reasoning_effort: medium
 color: red
 memory: project
 ---

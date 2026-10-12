@@ -1,6 +1,8 @@
 # Agentes
 
-Cada subpestaña contiene un archivo listo para copiar en `.claude/agents/` con el nombre indicado. Copia todo el bloque de código, incluida la cabecera entre las líneas `---`: Claude Code ignora el archivo si la primera línea no es `---`.
+Para Codex, las definiciones vigentes están en `docs/agents/` y la asignación aprobada de modelos y razonamiento en `docs/agents/modelos-codex.md`. El orquestador debe pasar esos parámetros al crear cada subagente; los archivos Markdown no seleccionan el modelo automáticamente.
+
+Los perfiles históricos de Claude Code permanecen en `.claude/agents/`. No copies las cabeceras con modelos GPT a esa plataforma: sus nombres de modelo y capacidades son distintos.
 
 | Archivo | Rol |
 | --- | --- |

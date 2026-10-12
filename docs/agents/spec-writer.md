@@ -2,7 +2,8 @@
 name: spec-writer
 description: Escribe la especificación de una funcionalidad del Sistema Pollería (spec.md, tasks.md) y actualiza el contrato OpenAPI. Úsalo al iniciar cada funcionalidad o cuando una spec deba corregirse.
 tools: Read, Write, Edit, Glob, Grep, Bash
-model: opus
+model: gpt-6.1-sol
+reasoning_effort: xhigh
 color: blue
 memory: project
 ---
