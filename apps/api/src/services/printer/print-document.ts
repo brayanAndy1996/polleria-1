@@ -74,6 +74,8 @@ const LINE_BREAK_CODES: ReadonlySet<number> = new Set([LF, CR, 0x85, 0x2028, 0x2
 const UNICODE_SPACE = /^\p{Zs}$/u;
 /** Marcas combinantes (M), controles (Cc) y caracteres de formato (Cf). */
 const STRIPPED_CATEGORIES = /[\p{M}\p{Cc}\p{Cf}]/gu;
+const UNICODE_MARK = /^\p{M}$/u;
+const MAX_CONSECUTIVE_MARKS = 8;
 
 const graphemeSegmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
 
@@ -136,7 +138,7 @@ function trimTrailingSpaces(text: string): string {
 
 /** Pasos 2 a 4: NFC y conversión de cada grafema. */
 function toPrintableText(chunk: string): string {
-  const composed = chunk.normalize('NFC');
+  const composed = limitConsecutiveMarks(chunk).normalize('NFC');
   // Si todo es imprimible no hay marcas combinantes: cada carácter es su propio grafema.
   if (isAllPrintable(composed)) {
     return composed;
@@ -147,6 +149,38 @@ function toPrintableText(chunk: string): string {
     converted += convertGrapheme(segment);
   }
   return converted;
+}
+
+/**
+ * Enmienda D-013-01: acota en una pasada el reordenamiento nativo de marcas, antes de NFC y
+ * de la conversión posterior con NFKD. Cuenta puntos Unicode, incluidas Mn, Mc y Me.
+ */
+function limitConsecutiveMarks(text: string): string {
+  let consecutiveMarks = 0;
+  let offset = 0;
+  let keptStart = 0;
+  const pieces: string[] = [];
+
+  for (const character of text) {
+    if (UNICODE_MARK.test(character)) {
+      consecutiveMarks += 1;
+      if (consecutiveMarks > MAX_CONSECUTIVE_MARKS) {
+        if (keptStart < offset) {
+          pieces.push(text.slice(keptStart, offset));
+        }
+        keptStart = offset + character.length;
+      }
+    } else {
+      consecutiveMarks = 0;
+    }
+    offset += character.length;
+  }
+
+  if (keptStart === 0) {
+    return text;
+  }
+  pieces.push(text.slice(keptStart));
+  return pieces.join('');
 }
 
 function normalizeChunk(chunk: string): string[] {
@@ -171,6 +205,13 @@ function normalizeChunk(chunk: string): string[] {
  */
 export function normalizeDocumentLines(lines: readonly string[]): string[] {
   return lines.flatMap((line) => splitAtLineBreaks(line).flatMap(normalizeChunk));
+}
+
+/** Mismo saneamiento de la 002, antes del ajuste por palabras del formateador de cocina. */
+export function normalizePrintableTextLines(lines: readonly string[]): string[] {
+  return lines.flatMap((line) =>
+    splitAtLineBreaks(line).map((chunk) => trimTrailingSpaces(toPrintableText(chunk))),
+  );
 }
 
 export interface PrintDocument {
