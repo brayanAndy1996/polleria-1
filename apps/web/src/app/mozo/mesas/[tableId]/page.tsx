@@ -113,10 +113,7 @@ function OrderItemRow({
         <ul className="ml-4 space-y-1">
           {item.components.map((component) => (
             <li key={component.productId} className="text-sm text-muted">
-              {component.quantity} ×{' '}
-              {component.portion === null
-                ? component.productName.split(' ').join('\u200b ')
-                : component.productName}
+              {component.quantity} × {component.productName}
               {component.portion !== null
                 ? ` — ${formatPortionCutLabel(component.portion, component.cut)}`
                 : ''}
@@ -186,16 +183,13 @@ function TicketBlock({ ticket }: { ticket: KitchenTicket }) {
           <span className="text-sm text-muted">{`${time.hour}:${time.minute}`}</span>
         </summary>
         <ul className="space-y-1 pt-2">
-          {/* Resumen por presentación: la comanda detalla las partes/porciones de
-              cocina; bebidas y sueltos no llevan corte y no se listan aquí. */}
-          {ticket.items
-            .filter((item) => item.portion !== null)
-            .map((item) => (
-              <li key={item.id} className="text-sm">
-                {item.productName} × {item.quantity}
-                {item.portion !== null ? ` — ${formatPortionCutLabel(item.portion, item.cut)}` : ''}
-              </li>
-            ))}
+          {/* La comanda resume TODOS sus ítems, incluidas las bebidas (ADV-011-04). */}
+          {ticket.items.map((item) => (
+            <li key={item.id} className="text-sm">
+              {item.productName} × {item.quantity}
+              {item.portion !== null ? ` — ${formatPortionCutLabel(item.portion, item.cut)}` : ''}
+            </li>
+          ))}
         </ul>
       </details>
     </li>
@@ -207,8 +201,8 @@ type Panel =
   | { kind: 'join' }
   | { kind: 'separate'; table: TableRef }
   | { kind: 'cancel' }
-  | { kind: 'void'; item: OrderItem; mode: 'request' | 'approve' | 'direct' }
-  | { kind: 'reject'; item: OrderItem };
+  | { kind: 'void'; item: OrderItem; mode: 'request' | 'approve' | 'direct'; key: string }
+  | { kind: 'reject'; item: OrderItem; key: string };
 
 /** La mesa libre: nombre, estado y 'Abrir mesa' con envío único. */
 function FreeTable({
@@ -272,7 +266,7 @@ function FreeTable({
 /** Diálogo de motivo compartido por Solicitar/Anular/Aprobar anulación y Cancelar pedido. */
 function ReasonDialog({
   label,
-  initialValue,
+  value,
   pending,
   localError,
   onValue,
@@ -280,7 +274,7 @@ function ReasonDialog({
   onCancel,
 }: {
   label: string;
-  initialValue: string;
+  value: string;
   pending: boolean;
   localError: string | undefined;
   onValue: (value: string) => void;
@@ -292,7 +286,7 @@ function ReasonDialog({
       {/* El motivo va con aria-label: la etiqueta visible chocaría con el texto del aviso local. */}
       <Input
         aria-label={label}
-        defaultValue={initialValue}
+        value={value}
         fullWidth
         onChange={(event) => onValue(event.target.value)}
       />
@@ -428,8 +422,11 @@ function OccupiedTable({
       mode: 'request' | 'approve' | 'direct' | 'reject';
       item: OrderItem;
       reason: string;
+      // La clave nace al abrir el panel (un intento); el reintento la reusa
+      // (regla 5/6 aplicada al ciclo de anulación — ADV-011-01).
+      key: string;
     }) => {
-      const key = createIdempotencyKey();
+      const key = input.key;
       if (input.mode === 'request')
         return requestVoidItem(orderId, input.item.id, key, input.reason);
       if (input.mode === 'reject') return rejectVoidItem(orderId, input.item.id, key);
@@ -516,7 +513,9 @@ function OccupiedTable({
             order: next,
             tickets:
               voidTicket !== null && voidTicket !== undefined
-                ? [...prevTickets, voidTicket]
+                ? prevTickets.some((known) => known.id === voidTicket.id)
+                  ? prevTickets
+                  : [...prevTickets, voidTicket]
                 : prevTickets,
           };
         });
@@ -531,7 +530,7 @@ function OccupiedTable({
   });
 
   const openVoidPanel = (item: OrderItem, mode: 'request' | 'approve' | 'direct') => {
-    setPanel({ kind: 'void', item, mode });
+    setPanel({ kind: 'void', item, mode, key: createIdempotencyKey() });
     setReason(mode === 'approve' ? (item.voidRequestReason ?? '') : '');
     setLocalError(undefined);
     setActionError(undefined);
@@ -583,7 +582,7 @@ function OccupiedTable({
                 onVoid={(target) => openVoidPanel(target, 'direct')}
                 onApproveVoid={(target) => openVoidPanel(target, 'approve')}
                 onRejectVoid={(target) => {
-                  setPanel({ kind: 'reject', item: target });
+                  setPanel({ kind: 'reject', item: target, key: createIdempotencyKey() });
                   setActionError(undefined);
                 }}
               />
@@ -635,6 +634,8 @@ function OccupiedTable({
             className="min-h-12"
             onPress={() => {
               setPanel({ kind: 'move' });
+              // La primera candidata queda elegida: es la mesa que el select muestra.
+              setMoveTarget(String(moveCandidates[0]?.id ?? ''));
               setActionError(undefined);
             }}
           >
@@ -644,6 +645,7 @@ function OccupiedTable({
             className="min-h-12"
             onPress={() => {
               setPanel({ kind: 'join' });
+              setJoinTarget(String(joinCandidates[0]?.id ?? ''));
               setActionError(undefined);
             }}
           >
@@ -768,7 +770,12 @@ function OccupiedTable({
                   run({
                     isPending: voidCycle.isPending,
                     mutate: () =>
-                      voidCycle.mutate({ mode: 'reject', item: panel.item, reason: '' }),
+                      voidCycle.mutate({
+                        mode: 'reject',
+                        item: panel.item,
+                        reason: '',
+                        key: panel.key,
+                      }),
                   })
                 }
               >
@@ -783,7 +790,7 @@ function OccupiedTable({
         {panel?.kind === 'cancel' && (
           <ReasonDialog
             label="Motivo de la cancelación"
-            initialValue=""
+            value={reason}
             pending={cancel.isPending}
             localError={localError}
             onValue={setReason}
@@ -804,7 +811,7 @@ function OccupiedTable({
         {panel?.kind === 'void' && (
           <ReasonDialog
             label="Motivo de la anulación"
-            initialValue={panel.mode === 'approve' ? (panel.item.voidRequestReason ?? '') : ''}
+            value={reason}
             pending={voidCycle.isPending}
             localError={localError}
             onValue={setReason}
@@ -822,6 +829,7 @@ function OccupiedTable({
                     mode: panel.mode,
                     item: panel.item,
                     reason: parsed.data.reason,
+                    key: panel.key,
                   }),
               });
             }}
