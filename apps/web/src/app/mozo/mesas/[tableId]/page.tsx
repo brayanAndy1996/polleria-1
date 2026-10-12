@@ -145,7 +145,7 @@ function OrderItemRow({
         </div>
       )}
       <div className="flex flex-wrap gap-3">
-        {!isAdmin && item.status === 'sent' && (
+        {item.status === 'sent' && (
           <Button className="min-h-12" onPress={() => onRequestVoid(item)}>
             Solicitar anulación
           </Button>
@@ -386,11 +386,13 @@ function OccupiedTable({
     ...mutationOptions,
   });
   const move = useMutation({
-    mutationFn: (tableId: number) => moveOrder(orderId, tableId),
-    onSuccess: (next) => {
+    mutationFn: (targetId: number) => moveOrder(orderId, targetId),
+    onSuccess: (next, targetId) => {
       afterOrder(next);
       closePanel();
-      router.push(`/mozo/mesas/${moveTarget}`);
+      // Se navega al destino enviado en la mutación, no al del estado (puede
+      // haber cambiado en vuelo).
+      router.push(`/mozo/mesas/${targetId}`);
     },
     ...mutationOptions,
   });
@@ -604,6 +606,7 @@ function OccupiedTable({
           {current.readyAt === null ? (
             <Button
               className="min-h-12"
+              isDisabled={signal.isPending}
               onPress={() =>
                 run({ isPending: signal.isPending, mutate: () => signal.mutate('ready') })
               }
@@ -613,6 +616,7 @@ function OccupiedTable({
           ) : (
             <Button
               className="min-h-12"
+              isDisabled={signal.isPending}
               onPress={() =>
                 run({ isPending: signal.isPending, mutate: () => signal.mutate('served') })
               }
@@ -623,6 +627,7 @@ function OccupiedTable({
           {current.billRequestedAt === null && (
             <Button
               className="min-h-12"
+              isDisabled={signal.isPending}
               onPress={() =>
                 run({ isPending: signal.isPending, mutate: () => signal.mutate('request-bill') })
               }
@@ -632,6 +637,7 @@ function OccupiedTable({
           )}
           <Button
             className="min-h-12"
+            isDisabled={move.isPending}
             onPress={() => {
               setPanel({ kind: 'move' });
               // La primera candidata queda elegida: es la mesa que el select muestra.
@@ -643,6 +649,7 @@ function OccupiedTable({
           </Button>
           <Button
             className="min-h-12"
+            isDisabled={join.isPending}
             onPress={() => {
               setPanel({ kind: 'join' });
               setJoinTarget(String(joinCandidates[0]?.id ?? ''));
@@ -655,6 +662,7 @@ function OccupiedTable({
             <Button
               key={covered.id}
               className="min-h-12"
+              isDisabled={leave.isPending}
               onPress={() => {
                 setPanel({ kind: 'separate', table: covered });
                 setActionError(undefined);
@@ -665,6 +673,7 @@ function OccupiedTable({
           ))}
           <Button
             className="min-h-12"
+            isDisabled={cancel.isPending}
             onPress={() => {
               setPanel({ kind: 'cancel' });
               setReason('');
