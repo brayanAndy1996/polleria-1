@@ -276,6 +276,7 @@ async function renderMesaOcupada(
   mockOrder(order);
   mockTickets(tickets);
   const view = show(<MesaPage />);
+  expect(await screen.findByRole('heading', { name: 'Pedido', level: 2 })).toBeVisible();
   expect(await screen.findByRole('heading', { name: 'Mesa 3', level: 1 })).toBeVisible();
   return view;
 }

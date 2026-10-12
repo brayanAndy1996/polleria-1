@@ -187,6 +187,7 @@ async function renderMesaOcupada(order: JsonValue = ORDER_VACIO, tickets: JsonVa
   mockTickets(tickets);
   const view = show(<MesaPage />);
   expect(await screen.findByRole('heading', { name: 'Mesa 3', level: 1 })).toBeVisible();
+  expect(await screen.findByRole('heading', { name: 'Pedido', level: 2 })).toBeVisible();
   return view;
 }
 function expectNavigatedTo(path: string) {
@@ -254,8 +255,8 @@ describe('011: la mesa y su pedido (/mozo/mesas/[tableId])', () => {
     );
     show(<MesaPage />);
     fireEvent.click(await screen.findByRole('button', { name: 'Abrir mesa' }));
-    expect(await screen.findByText('La mesa ya tiene un pedido abierto.')).toBeVisible();
     await waitFor(() => {
+      expect(screen.getByText('La mesa ya tiene un pedido abierto.')).toBeVisible();
       expect(screen.getByText('Ocupada')).toBeVisible();
     });
   });
@@ -807,6 +808,7 @@ describe('011: la mesa y su pedido (/mozo/mesas/[tableId])', () => {
     mockOrder(makeOrder({ items: [ITEM_CHAUFA_PEDIDA], totalCents: 1400 }));
     show(<MesaPage />);
     await screen.findByRole('heading', { name: 'Mesa 3', level: 1 });
+    await screen.findByRole('heading', { name: 'Pedido', level: 2 });
     const row2 = itemRow('Chaufa');
     fireEvent.click(within(row2).getByRole('button', { name: 'Rechazar solicitud' }));
     expect(await screen.findByText(/¿Rechazar la anulación que pidió Juan\?/)).toBeVisible();
