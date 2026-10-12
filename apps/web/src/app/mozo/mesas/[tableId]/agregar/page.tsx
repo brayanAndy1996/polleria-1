@@ -64,15 +64,23 @@ function offeredPortions(product: MenuProduct): Portion[] {
   return list;
 }
 
-/** Parte ofertada por defecto para una presentación de una sola parte: pierna si está. */
-function defaultCut(product: MenuProduct, portion: Portion): Cut {
-  const cuts = product.portions.filter((row) => row.portion === portion).map((row) => row.cut);
-  if (cuts.includes('leg')) return 'leg';
-  const first = cuts.find((cut): cut is Cut => cut !== null);
-  return first ?? 'leg';
+/** Partes realmente ofertadas para una presentación (en el orden de la carta, ADV-011-11). */
+function offeredCuts(product: MenuProduct, portion: Portion | null): Cut[] {
+  const cuts: Cut[] = [];
+  for (const row of product.portions) {
+    if (row.portion === portion && row.cut !== null && !cuts.includes(row.cut)) cuts.push(row.cut);
+  }
+  return cuts;
 }
 
-/** Precio del ítem: la fila de la grilla de presentaciones o priceCents del producto. */
+/** Parte ofertada por defecto para una presentación de una sola parte: pierna si está. */
+function defaultCut(product: MenuProduct, portion: Portion): Cut {
+  const cuts = offeredCuts(product, portion);
+  if (cuts.includes('leg')) return 'leg';
+  return cuts[0] ?? 'leg';
+}
+
+/** Precio del ítem: la fila de la grilla de presentaciones; sin oferta no hay precio que mostrar. */
 function unitPrice(product: MenuProduct, portion: Portion | null, cut: Cut | null): number {
   if (portion === null) return product.priceCents;
   const single = (SINGLE_CUT_PORTIONS as readonly string[]).includes(portion);
@@ -80,7 +88,7 @@ function unitPrice(product: MenuProduct, portion: Portion | null, cut: Cut | nul
     (candidate) =>
       candidate.portion === portion && (single ? candidate.cut === cut : candidate.cut === null),
   );
-  return row?.priceCents ?? product.priceCents;
+  return row?.priceCents ?? 0;
 }
 
 interface CartSauce {
@@ -224,10 +232,18 @@ function ItemEditor({
           id={`cut-${product.id}`}
           label="Parte"
           value={editor.cut}
-          onChange={(value) => onChange({ ...editor, cut: value as Cut })}
+          onChange={(value) => {
+            // Solo partes realmente ofertadas: un valor ajeno a la grilla no
+            // puede colarse por el DOM (ADV-011-11).
+            if ((offeredCuts(product, editor.portion) as string[]).includes(value))
+              onChange({ ...editor, cut: value as Cut });
+          }}
         >
-          <option value="breast">{CUT_LABELS.breast}</option>
-          <option value="leg">{CUT_LABELS.leg}</option>
+          {offeredCuts(product, editor.portion).map((cut) => (
+            <option key={cut} value={cut}>
+              {CUT_LABELS[cut]}
+            </option>
+          ))}
         </LabeledSelect>
       )}
       {product.category === 'chicken' && editor.portion === 'half' && (
@@ -279,6 +295,8 @@ function ItemEditor({
                       onChange({ ...editor, componentChoices: next });
                     }}
                   >
+                    {/* El componente no trae su grilla de ofertas: son las dos
+                        partes del dominio (la casa decide cuál reemplazar). */}
                     <option value="breast">{CUT_LABELS.breast}</option>
                     <option value="leg">{CUT_LABELS.leg}</option>
                   </LabeledSelect>
@@ -519,6 +537,8 @@ function OrderComposer({
     setSendFailed(false);
     setSendErrors([]);
     setLineErrors(new Map());
+    // El carrito cambió: el aviso de tope (u otro local) ya no corresponde.
+    setCartError(undefined);
   };
 
   const addToCart = (product: MenuProduct) => {
@@ -608,7 +628,7 @@ function OrderComposer({
     onError: (error) => {
       setSendFailed(true);
       const issues = issuesFromApiError(error);
-      const split = splitIssues(issues, 'items');
+      const split = splitIssues(issues, 'items', cart.length);
       setLineErrors(split.byIndex);
       setSendErrors(issues.length > 0 ? uniqueMessages(split.root) : [apiErrorMessage(error)]);
     },
@@ -623,7 +643,7 @@ function OrderComposer({
       const body = { items: cart.map(buildItemBody) };
       const parsed = sendOrderItemsRequestSchema.safeParse(body);
       if (!parsed.success) {
-        const split = splitIssues(issuesFromZod(parsed.error), 'items');
+        const split = splitIssues(issuesFromZod(parsed.error), 'items', cart.length);
         setLineErrors(split.byIndex);
         setSendErrors(uniqueMessages(split.root));
         return;
