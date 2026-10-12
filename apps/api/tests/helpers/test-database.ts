@@ -151,6 +151,8 @@ export async function cleanFixtureTables(sequelize: Sequelize): Promise<void> {
  */
 export async function resetMigrationTables(sequelize: Sequelize): Promise<void> {
   await dropTables(sequelize, [
+    'kitchen_ticket_print_attempts',
+    'kitchen_ticket_prints',
     'order_item_sauces',
     'order_item_components',
     'order_items',
@@ -237,6 +239,8 @@ export async function clearOrderTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
   const existing: string[] = [];
   for (const table of [
+    'kitchen_ticket_print_attempts',
+    'kitchen_ticket_prints',
     'order_item_sauces',
     'order_item_components',
     'order_items',
