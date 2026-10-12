@@ -76,6 +76,14 @@ function sentItems(page: Page) {
     .locator('section')
     .filter({ has: page.getByRole('heading', { name: 'Pedido', exact: true, level: 2 }) });
 }
+/** Listitem de un ítem suelto del pedido: su línea lleva ' · S/'. Los
+ * componentes de un combo (en un <ul> anidado) no traen precio, así el ítem
+ * 'E2E Chaufa' no confunde con el componente de 'E2E Mostrito'. */
+function sentItem(page: Page, name: string) {
+  return sentItems(page)
+    .getByRole('listitem')
+    .filter({ hasText: new RegExp(`${name} · S/`) });
+}
 
 test.describe('011: pantallas del mozo en el celular', () => {
   test('AC-22: abrir la mesa, enviar una tanda mixta y las señales listo/servido/cuenta', async ({
@@ -105,8 +113,8 @@ test.describe('011: pantallas del mozo en el celular', () => {
     await page.getByRole('button', { name: 'Enviar a cocina (2)' }).click();
     // De vuelta en la mesa: aviso, ítems y total (1700 + 0 + 400).
     await expect(page.getByText('Pedido enviado a cocina.')).toBeVisible();
-    await expect(page.getByText(/E2E Pollo — Cuarto — pierna/)).toBeVisible();
-    await expect(page.getByText(/E2E Gaseosa/)).toBeVisible();
+    await expect(sentItems(page).getByText(/E2E Pollo — Cuarto — pierna/)).toBeVisible();
+    await expect(sentItems(page).getByText(/E2E Gaseosa/)).toBeVisible();
     await expect(page.getByText('Total S/ 21.00')).toBeVisible();
     await expect(page.getByText('Comanda inicial')).toBeVisible();
     await expectNoOverflow(page);
@@ -144,9 +152,7 @@ test.describe('011: pantallas del mozo en el celular', () => {
     await expect(page.getByText('Adición')).toBeVisible();
     await expectNoOverflow(page);
     // Solicita la anulación de la gaseosa con motivo.
-    await sentItems(page)
-      .getByText(/E2E Gaseosa/)
-      .locator('xpath=ancestor::*[.//button[contains(., "Solicitar")]][1]')
+    await sentItem(page, 'E2E Gaseosa')
       .getByRole('button', { name: 'Solicitar anulación' })
       .click();
     await page.getByLabel('Motivo de la anulación').fill('El cliente se equivocó');
@@ -170,11 +176,7 @@ test.describe('011: pantallas del mozo en el celular', () => {
     await page.getByRole('button', { name: /^E2E Chaufa/ }).click();
     await page.getByRole('button', { name: 'Agregar al pedido' }).click();
     await page.getByRole('button', { name: 'Enviar a cocina (1)' }).click();
-    await sentItems(page)
-      .getByText(/E2E Chaufa/)
-      .locator('xpath=ancestor::*[.//button[contains(., "Solicitar")]][1]')
-      .getByRole('button', { name: 'Solicitar anulación' })
-      .click();
+    await sentItem(page, 'E2E Chaufa').getByRole('button', { name: 'Solicitar anulación' }).click();
     await page.getByLabel('Motivo de la anulación').fill('Se pidió dos veces');
     await page.getByRole('button', { name: 'Aceptar' }).click();
     await expect(page.getByText('Anulación pedida')).toBeVisible();
@@ -185,10 +187,7 @@ test.describe('011: pantallas del mozo en el celular', () => {
     // El ítem vuelve a 'Enviado': sin marca y con 'Anular' otra vez disponible.
     await expect(admin.getByRole('button', { name: 'Rechazar solicitud' })).toHaveCount(0);
     await expect(
-      sentItems(admin)
-        .getByText(/E2E Chaufa/)
-        .locator('xpath=ancestor::*[.//button[contains(., "Anular")]][1]')
-        .getByRole('button', { name: 'Anular', exact: true }),
+      sentItem(admin, 'E2E Chaufa').getByRole('button', { name: 'Anular', exact: true }),
     ).toBeVisible();
     await adminContext.close();
     void sendItems; // la tanda de preparación ya se envió arriba
