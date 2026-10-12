@@ -139,13 +139,22 @@ export async function cleanFixtureTables(sequelize: Sequelize): Promise<void> {
  * La lista crece con cada spec que agrega una migración: sin borrar las tablas de dominio, volver
  * a migrar fallaría con "la tabla ya existe". La spec 005 autorizó limpiar `products` igual que
  * `users` y `sessions` (D-005-10 y sección 12); la 006 autorizó `product_portions` (D-006-10);
- * la 007 autorizó `combo_items` (D-007-14); la 009 autorizó `tables` y `orders` (D-009-15).
- * Las tablas de la carta van antes que `products` porque la referencian con una FK (combo_items
- * la referencia dos veces). `tables` va antes que `orders` por la FK tables.current_order_id,
- * y ambas antes que `users` por las FK orders→users (D-009-15).
+ * la 007 autorizó `combo_items` (D-007-14); la 009 autorizó `tables` y `orders` (D-009-15); la
+ * 010 autorizó `order_item_sauces`, `order_item_components`, `order_items`, `idempotency_keys` y
+ * `kitchen_tickets` (D-010-19).
+ * Las cinco tablas de la 010 van primero porque referencian con FK a `order_items`,
+ * `kitchen_tickets`, `orders`, `tables`, `products` y `users` (D-010-19). Las tablas de la carta
+ * van antes que `products` porque la referencian con una FK (combo_items la referencia dos veces).
+ * `tables` va antes que `orders` por la FK tables.current_order_id, y ambas antes que `users` por
+ * las FK orders→users (D-009-15).
  */
 export async function resetMigrationTables(sequelize: Sequelize): Promise<void> {
   await dropTables(sequelize, [
+    'order_item_sauces',
+    'order_item_components',
+    'order_items',
+    'idempotency_keys',
+    'kitchen_tickets',
     'tables',
     'orders',
     'combo_items',
@@ -161,7 +170,9 @@ export async function resetMigrationTables(sequelize: Sequelize): Promise<void> 
  * Vacía usuarios y sesiones. El CASCADE también alcanza `orders` y `tables` desde la spec 009
  * (FK orders→users y tables→orders): truncar usuarios vacía pedidos y mesas — efecto buscado
  * en las pruebas de auth, que igual llaman a `clearOrderTables` de forma explícita (D-009-15:
- * se documenta, no se depende del CASCADE).
+ * se documenta, no se depende del CASCADE). Desde la spec 010 el mismo CASCADE alcanza
+ * `kitchen_tickets`, `order_items`, `order_item_components`, `order_item_sauces` e
+ * `idempotency_keys`, que cuelgan de pedidos y usuarios por FK (D-010-19/§12).
  */
 export async function clearAuthTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
@@ -183,7 +194,9 @@ export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<v
  * `combo_id` y `product_id`) y PostgreSQL bloquea `TRUNCATE` sobre una tabla referenciada, aunque
  * esté vacía: por eso todas las que existen se truncan en UN solo comando (un TRUNCATE por tabla
  * falla con "cannot truncate a table referenced in a foreign key constraint"). Ninguna puede
- * existir sin `products` por esa misma FK.
+ * existir sin `products` por esa misma FK. Desde la spec 010, `order_items`, `order_item_components`
+ * y `order_item_sauces` también referencian `products` (D-010-02/D-010-06): entran al mismo
+ * TRUNCATE para que la carta pueda vaciarse con ítems históricos presentes.
  *
  * Cada tabla va detrás de su `tableExists`: en la fase roja, cuando la migración de la tabla aún
  * no está escrita, se trunca solo lo que hay; si ninguna existe no hace nada: así la prueba falla
@@ -192,7 +205,14 @@ export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<v
 export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
   const tables: string[] = [];
-  for (const table of ['combo_items', 'product_portions', 'products']) {
+  for (const table of [
+    'order_item_sauces',
+    'order_item_components',
+    'order_items',
+    'combo_items',
+    'product_portions',
+    'products',
+  ]) {
     if (await tableExists(sequelize, table)) tables.push(table);
   }
   if (tables.length > 0) {
@@ -201,13 +221,16 @@ export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
 }
 
 /**
- * Vacía las tablas del salón: `orders` y `tables` (spec 009, D-009-15), autorizadas a la
- * limpieza de pruebas igual que `products` y `combo_items`. Llamar después de migrateUp (o
- * de migrateAndClearAuthTables).
+ * Vacía las tablas del salón: `orders` y `tables` (spec 009, D-009-15) más las cinco de la spec
+ * 010 —`order_item_sauces`, `order_item_components`, `order_items`, `idempotency_keys` y
+ * `kitchen_tickets` (D-010-19)—, autorizadas a la limpieza de pruebas igual que las demás.
+ * Llamar después de migrateUp (o de migrateAndClearAuthTables).
  *
  * `tables` referencia `orders` con una FK (current_order_id) y PostgreSQL bloquea `TRUNCATE`
  * sobre una tabla referenciada aunque esté vacía: por eso las que existen se truncan en UN
- * solo comando (mismo criterio que clearMenuTables).
+ * solo comando (mismo criterio que clearMenuTables). El orden del comando es el de D-010-19
+ * (hijas de ítem, ítems, claves, comandas, pedidos, mesas); en un TRUNCATE conjunto el orden
+ * físico lo resuelve PostgreSQL, la lista documenta la dependencia.
  *
  * Cada tabla va detrás de su `tableExists`: en la fase roja, cuando la migración aún no está
  * escrita, se trunca solo lo que hay; si ninguna existe no hace nada.
@@ -215,7 +238,15 @@ export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
 export async function clearOrderTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
   const existing: string[] = [];
-  for (const table of ['orders', 'tables']) {
+  for (const table of [
+    'order_item_sauces',
+    'order_item_components',
+    'order_items',
+    'idempotency_keys',
+    'kitchen_tickets',
+    'orders',
+    'tables',
+  ]) {
     if (await tableExists(sequelize, table)) existing.push(table);
   }
   if (existing.length > 0) {

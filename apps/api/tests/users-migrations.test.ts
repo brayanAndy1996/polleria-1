@@ -13,8 +13,8 @@ import {
 
 // La lista completa del migrador crece con cada spec que agrega una migración
 // (la 005 sumó create-products, la 006 create-product-portions, la 007
-// create-combo-items y la 009 create-tables-orders): AC-07 verifica que todo
-// corre en orden, no un recorte.
+// create-combo-items, la 009 create-tables-orders y la 010 create-order-items):
+// AC-07 verifica que todo corre en orden, no un recorte.
 const MIGRATIONS = [
   '20261008120000-create-users.ts',
   '20261008120100-create-sessions.ts',
@@ -22,6 +22,7 @@ const MIGRATIONS = [
   '20261009120000-create-product-portions.ts',
   '20261009180000-create-combo-items.ts',
   '20261010120000-create-tables-orders.ts',
+  '20261011120000-create-order-items.ts',
 ];
 
 describe('003: migraciones de usuarios y sesiones', () => {
@@ -254,9 +255,22 @@ describe('003: migraciones de usuarios y sesiones', () => {
     expect(await tableExists(sequelize, 'combo_items')).toBe(true);
     expect(await tableExists(sequelize, 'orders')).toBe(true);
     expect(await tableExists(sequelize, 'tables')).toBe(true);
+    expect(await tableExists(sequelize, 'kitchen_tickets')).toBe(true);
+    expect(await tableExists(sequelize, 'order_items')).toBe(true);
+    expect(await tableExists(sequelize, 'order_item_components')).toBe(true);
+    expect(await tableExists(sequelize, 'order_item_sauces')).toBe(true);
+    expect(await tableExists(sequelize, 'idempotency_keys')).toBe(true);
     // migrateDown revierte una migración por llamada: el down encadenado baja la lista
-    // completa en orden inverso (tables/orders de la 009, combo_items, product_portions,
-    // products, sessions, users).
+    // completa en orden inverso (order_items de la 010, tables/orders de la 009,
+    // combo_items, product_portions, products, sessions, users).
+    await assertConnectedToTestDatabase(sequelize);
+    expect(await migrateDown(sequelize)).toEqual([MIGRATIONS[6]]);
+    expect(await tableExists(sequelize, 'kitchen_tickets')).toBe(false);
+    expect(await tableExists(sequelize, 'order_items')).toBe(false);
+    expect(await tableExists(sequelize, 'order_item_components')).toBe(false);
+    expect(await tableExists(sequelize, 'order_item_sauces')).toBe(false);
+    expect(await tableExists(sequelize, 'idempotency_keys')).toBe(false);
+    expect(await tableExists(sequelize, 'orders')).toBe(true);
     await assertConnectedToTestDatabase(sequelize);
     expect(await migrateDown(sequelize)).toEqual([MIGRATIONS[5]]);
     expect(await tableExists(sequelize, 'tables')).toBe(false);
@@ -289,5 +303,10 @@ describe('003: migraciones de usuarios y sesiones', () => {
     expect(await tableExists(sequelize, 'combo_items')).toBe(true);
     expect(await tableExists(sequelize, 'orders')).toBe(true);
     expect(await tableExists(sequelize, 'tables')).toBe(true);
+    expect(await tableExists(sequelize, 'kitchen_tickets')).toBe(true);
+    expect(await tableExists(sequelize, 'order_items')).toBe(true);
+    expect(await tableExists(sequelize, 'order_item_components')).toBe(true);
+    expect(await tableExists(sequelize, 'order_item_sauces')).toBe(true);
+    expect(await tableExists(sequelize, 'idempotency_keys')).toBe(true);
   });
 });
