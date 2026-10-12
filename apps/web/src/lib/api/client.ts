@@ -20,6 +20,8 @@ export interface ApiRequestOptions {
   body?: unknown;
   skipAuthRedirect?: boolean;
   expectedStatus?: number;
+  /** Clave del envío idempotente (regla 5): viaja en la cabecera Idempotency-Key. */
+  idempotencyKey?: string;
 }
 export function unexpectedResponse(status: number): ApiError {
   return new ApiError(
@@ -60,6 +62,9 @@ export function createApiClient(
         headers: {
           Accept: 'application/json',
           ...(requestOptions.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(requestOptions.idempotencyKey === undefined
+            ? {}
+            : { 'Idempotency-Key': requestOptions.idempotencyKey }),
         },
         ...(requestOptions.body === undefined ? {} : { body: JSON.stringify(requestOptions.body) }),
         signal: controller.signal,

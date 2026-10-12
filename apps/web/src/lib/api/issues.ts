@@ -57,8 +57,14 @@ export function uniqueMessages(messages: readonly string[]): string[] {
  * Reparte los issues de un PUT de conjunto ('items' o 'portions') entre fila y sección
  * (D-008-12, S-008-12): 'items.2.productId' va a la fila 2 del envío; 'items', 'items.5'
  * (repetidas, sin campo) o cualquier otro path va como mensaje de la sección.
+ * `count` acota las filas visibles: un índice fuera de rango sube a la sección en
+ * lugar de perderse en silencio (ADV-011-06).
  */
-export function splitIssues(issues: FlatIssue[], collection: 'items' | 'portions'): SplitIssues {
+export function splitIssues(
+  issues: FlatIssue[],
+  collection: 'items' | 'portions',
+  count?: number,
+): SplitIssues {
   const byIndex = new Map<number, string[]>();
   const root: string[] = [];
   // Ojo: en un template literal '\d' colapsa a 'd'; hace falta '\\d' para que el RegExp vea \d.
@@ -67,12 +73,14 @@ export function splitIssues(issues: FlatIssue[], collection: 'items' | 'portions
     const match = rowPattern.exec(issue.path);
     if (match) {
       const index = Number(match[1]);
-      const list = byIndex.get(index) ?? [];
-      list.push(issue.message);
-      byIndex.set(index, list);
-    } else {
-      root.push(issue.message);
+      if (count === undefined || (index >= 0 && index < count)) {
+        const list = byIndex.get(index) ?? [];
+        list.push(issue.message);
+        byIndex.set(index, list);
+        continue;
+      }
     }
+    root.push(issue.message);
   }
   return { byIndex, root };
 }

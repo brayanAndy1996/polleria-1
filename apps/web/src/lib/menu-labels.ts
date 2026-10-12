@@ -1,4 +1,11 @@
-import type { Cut, Portion, ProductCategory } from '@polleria/shared';
+import type {
+  Cut,
+  KitchenTicketKind,
+  OrderItemStatus,
+  Portion,
+  ProductCategory,
+  TableState,
+} from '@polleria/shared';
 
 /**
  * Etiquetas de la carta en español (D-008-11): son interfaz, por eso viven en la web
@@ -35,3 +42,26 @@ export function formatPortionCutLabel(portion: Portion, cut: Cut | null): string
   if (cut === null) return PORTION_LABELS[portion];
   return `${PORTION_LABELS[portion]} — ${CUT_LABELS[cut].toLowerCase()}`;
 }
+
+/**
+ * Etiquetas del salón (spec 011, §11): mismo criterio que las de la carta — la
+ * interfaz habla en español indexado por los enums de shared.
+ */
+export const TABLE_STATE_LABELS: Readonly<Record<TableState, string>> = {
+  free: 'Libre',
+  occupied: 'Ocupada',
+  ready: 'Pedido listo',
+  bill_requested: 'Pidió la cuenta',
+};
+
+export const ORDER_ITEM_STATUS_LABELS: Readonly<Record<OrderItemStatus, string>> = {
+  sent: 'Enviado',
+  void_requested: 'Anulación pedida',
+  voided: 'Anulado',
+};
+
+export const KITCHEN_TICKET_KIND_LABELS: Readonly<Record<KitchenTicketKind, string>> = {
+  initial: 'Comanda inicial',
+  additional: 'Adición',
+  void: 'Anulación',
+};
