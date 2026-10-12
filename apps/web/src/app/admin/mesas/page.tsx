@@ -26,6 +26,24 @@ const TABLE_STATE_TEXT_CLASSES: Readonly<Record<string, string>> = {
 type Applied = (updated: Table) => void;
 
 /**
+ * Mesa confirmada por la API junto al valor que la releída traía justo antes de
+ * escribir (baseline): permite distinguir una releída con lag —que todavía no
+ * ve el PATCH— de una que ya trae verdad nueva.
+ */
+type AppliedEntry = { table: Table; baseline: Table | undefined };
+
+/** Dos mesas idénticas campo a campo (el orden de claves viene del mismo esquema). */
+const sameTable = (a: Table, b: Table) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * La copia confirmada solo manda mientras la releída siga trayendo exactamente
+ * el valor previo a la escritura (lag de lectura). Si trae lo confirmado o un
+ * cambio ajeno, la verdad del servidor vuelve a mandar (ADV-012-02).
+ */
+const overlayWins = (entry: AppliedEntry, row: Table) =>
+  entry.baseline !== undefined && sameTable(row, entry.baseline) && !sameTable(row, entry.table);
+
+/**
  * Alta en línea (D-012-03): 'Nombre de la mesa' + 'Agregar mesa'. El nombre se
  * valida en local con tableNameSchema antes de salir el POST y el mensaje (local
  * o del servidor) aparece junto al campo; el borrador solo se limpia con el 201.
@@ -66,6 +84,10 @@ function CreateTableForm({ onApplied }: { onApplied: Applied }) {
         value={draft}
         onChange={(event) => {
           setDraft(event.target.value);
+          // Al corregir el campo el mensaje anterior ya no aplica (ADV-012-03):
+          // limpia tanto el error local como el que trajo el servidor.
+          setLocalError(undefined);
+          if (create.isError) create.reset();
         }}
       />
       {message && (
@@ -132,6 +154,9 @@ function RenamePanel({
         value={draft}
         onChange={(event) => {
           setDraft(event.target.value);
+          // Al corregir el campo el mensaje anterior ya no aplica (ADV-012-03).
+          setLocalError(undefined);
+          if (rename.isError) rename.reset();
         }}
       />
       {message && (
@@ -300,18 +325,31 @@ function TablesAdmin() {
   const queryClient = useQueryClient();
   const tables = useQuery({ queryKey: TABLES_KEY, queryFn: getTables, retry: false });
   const [renaming, setRenaming] = useState<Table | null>(null);
-  const [applied, setApplied] = useState<Table[]>([]);
+  const [applied, setApplied] = useState<AppliedEntry[]>([]);
   const applyTable: Applied = (updated) => {
-    setApplied((previous) => [...previous.filter((table) => table.id !== updated.id), updated]);
+    // El baseline es lo que el servidor decía por última vez, leído del cache en
+    // el momento de confirmar (no lo que la fila muestra, que puede ser copia).
+    const current = queryClient.getQueryData<Table[]>(TABLES_KEY) ?? [];
+    setApplied((previous) => [
+      ...previous.filter((entry) => entry.table.id !== updated.id),
+      { table: updated, baseline: current.find((table) => table.id === updated.id) },
+    ]);
     void queryClient.invalidateQueries({ queryKey: TABLES_KEY });
   };
+  // Reconciliación del overlay (ADV-012-02): no hace falta estado derivado —
+  // `overlayWins` decide en cada render si la copia o la releída mandan. La
+  // lista `applied` está acotada por diseño: una entrada por id de mesa, y las
+  // cubiertas por la releída simplemente dejan de ganar (quedan inertes).
   if (tables.isPending)
     return (
       <p role="status" className="p-6 text-center">
         Cargando mesas...
       </p>
     );
-  if (tables.isError)
+  // La vista de error completa solo cuando no hay datos (fallo de la consulta
+  // inicial): con datos en caché, una releída que falla muestra el aviso en
+  // línea y conserva la lista y el borrador del alta (ADV-012-01).
+  if (tables.isError && tables.data === undefined)
     return (
       <div className="space-y-4 p-6 text-center">
         <p role="alert">No se pudo cargar la lista de mesas.</p>
@@ -326,16 +364,34 @@ function TablesAdmin() {
       </div>
     );
   const fetched = tables.data ?? [];
-  // Las confirmadas por la API reemplazan su fila en cuanto llega la respuesta;
-  // la que aún no figura en la releída (el alta nueva) va al final hasta que la
-  // lista oficial la traiga ya en su orden por nombre.
-  const list = fetched.map((table) => applied.find((updated) => updated.id === table.id) ?? table);
-  for (const updated of applied) {
-    if (!fetched.some((table) => table.id === updated.id)) list.push(updated);
+  // Las confirmadas por la API reemplazan su fila en cuanto llega la respuesta
+  // y mientras la releída siga sin ver la escritura; la que aún no figura en la
+  // releída (el alta nueva) va al final hasta que la lista oficial la traiga ya
+  // en su orden por nombre.
+  const list = fetched.map((row) => {
+    const entry = applied.find((candidate) => candidate.table.id === row.id);
+    return entry !== undefined && overlayWins(entry, row) ? entry.table : row;
+  });
+  for (const entry of applied) {
+    if (!fetched.some((row) => row.id === entry.table.id)) list.push(entry.table);
   }
   return (
     <>
       <h1 className="text-3xl font-bold">Mesas</h1>
+      {tables.isError && (
+        <div className="space-y-3">
+          <p role="alert">No se pudo actualizar la lista de mesas.</p>
+          <Button
+            variant="secondary"
+            className="min-h-12"
+            onPress={() => {
+              void tables.refetch();
+            }}
+          >
+            Reintentar
+          </Button>
+        </div>
+      )}
       <CreateTableForm onApplied={applyTable} />
       {renaming !== null && (
         <RenamePanel
