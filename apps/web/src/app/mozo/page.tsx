@@ -9,6 +9,14 @@ import Link from 'next/link';
 import { RoleGuard } from '../../components/auth/role-guard.tsx';
 import { ApiError, apiClient, parseResponse } from '../../lib/api/client.ts';
 import { TABLE_STATE_LABELS } from '../../lib/menu-labels.ts';
+
+/** Color por estado del salón (spec §59/D-011-04): verde, ámbar, azul, morado. */
+const TABLE_STATE_TEXT_CLASSES: Readonly<Record<string, string>> = {
+  free: 'text-success',
+  occupied: 'text-warning',
+  ready: 'text-blue-600',
+  bill_requested: 'text-purple-600',
+};
 /**
  * Lectura laxa del salón para el tablero (D-011-03): la tarjeta solo necesita el
  * estado del ítem para la marca 'Anulación pedida'; un ítem parcial no debe
@@ -68,7 +76,9 @@ function TableCard({ table }: { table: BoardTable }) {
         className="flex min-h-16 flex-col justify-center gap-1 rounded-2xl border border-separator bg-surface px-4 py-3 transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
       >
         <span className="text-lg font-semibold wrap-anywhere">{table.name}</span>
-        <span className="text-sm">{TABLE_STATE_LABELS[table.state]}</span>
+        <span className={`text-sm font-semibold ${TABLE_STATE_TEXT_CLASSES[table.state] ?? ''}`}>
+          {TABLE_STATE_LABELS[table.state]}
+        </span>
         {order !== null && (
           <span className="text-sm">
             {order.openedBy.displayName} · {formatSoles(order.totalCents)}
@@ -95,7 +105,7 @@ function WaiterBoard({ tables }: { tables: BoardTable[] }) {
       {active.length === 0 ? (
         <p>No hay mesas activas.</p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="grid grid-cols-2 gap-3">
           {active.map((table) => (
             <TableCard key={table.id} table={table} />
           ))}
