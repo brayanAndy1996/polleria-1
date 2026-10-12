@@ -1,9 +1,10 @@
-// AC-01. Spec 011 — archivo nuevo: va EN ROJO hasta que T-09 cree
-// apps/web/src/lib/api/tables.ts con getTables, openTableOrder, joinTable y
-// leaveTable. MSW intercepta /api/... del mismo origen y verifica método, ruta,
-// cuerpo y que los ApiError propaguen code, message y details.
+// AC-01 de la spec 011 (verde) y AC-01 de la spec 012 (en rojo por ausencia: la
+// T-06 suma createTable y updateTable a lib/api/tables.ts). MSW intercepta
+// /api/... del mismo origen y verifica método, ruta, cuerpo y que los ApiError
+// propaguen code, message y details.
 import { HttpResponse, http } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Table, UpdateTableRequest } from '@polleria/shared';
 import { server } from '../../../tests/msw-server.ts';
 import { getTables, joinTable, leaveTable, openTableOrder } from './tables.ts';
 
@@ -213,4 +214,156 @@ describe('011: funciones de la API de mesas', () => {
       message: 'Tu sesión venció.',
     });
   });
+});
+
+const TABLE_CREATED = { id: 12, name: 'Balcón 1', isActive: true, state: 'free', order: null };
+const TABLE_RENAMED = { ...TABLE_BUSY, name: 'Balcón 1' };
+
+describe('012: funciones de administración de mesas', () => {
+  // AC-01 de la spec 012: createTable y updateTable todavía no existen en
+  // lib/api/tables.ts (rojo por ausencia). Se resuelven con import dinámico para
+  // que el describe de la 011 siga verde aunque el módulo no exporte aún los
+  // nombres nuevos — las firmas que la T-06 debe cumplir son estas.
+  let createTable: (name: string) => Promise<Table>;
+  let updateTable: (tableId: number, changes: UpdateTableRequest) => Promise<Table>;
+
+  beforeEach(async () => {
+    ({ createTable, updateTable } = await import('./tables.ts'));
+  });
+
+  it('AC-01: createTable hace POST /tables con { name } y exige 201 con Table', async () => {
+    const seen = vi.fn();
+    server.use(
+      http.post('*/api/tables', async ({ request }) => {
+        expect(request.method).toBe('POST');
+        expect(request.url).toBe(`${window.location.origin}/api/tables`);
+        seen(await request.json());
+        return HttpResponse.json(TABLE_CREATED, { status: 201 });
+      }),
+    );
+    await expect(createTable('Balcón 1')).resolves.toEqual(TABLE_CREATED);
+    expect(seen).toHaveBeenCalledExactlyOnceWith({ name: 'Balcón 1' });
+  });
+
+  it.each<[string, UpdateTableRequest, typeof TABLE_RENAMED | typeof TABLE_INACTIVE]>([
+    ['{ name }', { name: 'Balcón 1' }, TABLE_RENAMED],
+    ['{ isActive: false }', { isActive: false }, { ...TABLE_BUSY, isActive: false }],
+    ['{ isActive: true }', { isActive: true }, TABLE_INACTIVE],
+  ])('AC-01: updateTable hace PATCH /tables/<id> con %s y exige 200 con Table', async (
+    _body,
+    changes,
+    response,
+  ) => {
+    const seen = vi.fn();
+    server.use(
+      http.patch('*/api/tables/3', async ({ request }) => {
+        expect(request.method).toBe('PATCH');
+        expect(request.url).toBe(`${window.location.origin}/api/tables/3`);
+        seen(await request.json());
+        return HttpResponse.json(response);
+      }),
+    );
+    await expect(updateTable(3, changes)).resolves.toEqual(response);
+    expect(seen).toHaveBeenCalledExactlyOnceWith(changes);
+  });
+
+  it('AC-01: createTable rechaza otro 2xx o un 201 sin Table conservando el status real', async () => {
+    server.use(http.post('*/api/tables', () => HttpResponse.json(TABLE_CREATED)));
+    await expect(createTable('Balcón 1')).rejects.toMatchObject({
+      code: 'UNEXPECTED_RESPONSE',
+      status: 200,
+    });
+    server.use(
+      http.post('*/api/tables', () =>
+        HttpResponse.json({ ...TABLE_CREATED, name: 5 }, { status: 201 }),
+      ),
+    );
+    await expect(createTable('Balcón 1')).rejects.toMatchObject({
+      code: 'UNEXPECTED_RESPONSE',
+      status: 201,
+    });
+  });
+
+  it('AC-01: updateTable rechaza otro 2xx o un 200 sin Table conservando el status real', async () => {
+    server.use(http.patch('*/api/tables/3', () => HttpResponse.json(TABLE_BUSY, { status: 201 })));
+    await expect(updateTable(3, { name: 'Balcón 1' })).rejects.toMatchObject({
+      code: 'UNEXPECTED_RESPONSE',
+      status: 201,
+    });
+    server.use(http.patch('*/api/tables/3', () => HttpResponse.json({ tables: [TABLE_BUSY] })));
+    await expect(updateTable(3, { name: 'Balcón 1' })).rejects.toMatchObject({
+      code: 'UNEXPECTED_RESPONSE',
+      status: 200,
+    });
+  });
+
+  it.each<
+    [string, () => Promise<unknown>, typeof http.post, string, number, string, string, unknown]
+  >([
+    [
+      'createTable',
+      () => createTable('Mesa 3'),
+      http.post,
+      '*/api/tables',
+      409,
+      'TABLE_NAME_TAKEN',
+      'Ya existe una mesa con ese nombre.',
+      null,
+    ],
+    [
+      'createTable',
+      () => createTable('Mesa 3'),
+      http.post,
+      '*/api/tables',
+      400,
+      'VALIDATION_ERROR',
+      'Los datos enviados no son válidos.',
+      {
+        issues: [
+          {
+            path: 'name',
+            message: 'El nombre de la mesa no puede pasar de 40 caracteres.',
+          },
+        ],
+      },
+    ],
+    [
+      'updateTable',
+      () => updateTable(3, { name: 'Mesa 2' }),
+      http.patch,
+      '*/api/tables/3',
+      409,
+      'TABLE_NAME_TAKEN',
+      'Ya existe una mesa con ese nombre.',
+      null,
+    ],
+    [
+      'updateTable',
+      () => updateTable(3, { isActive: false }),
+      http.patch,
+      '*/api/tables/3',
+      409,
+      'TABLE_HAS_OPEN_ORDER',
+      'La mesa tiene un pedido abierto; ciérralo o muévelo antes de desactivarla.',
+      null,
+    ],
+    [
+      'updateTable',
+      () => updateTable(99, { name: 'Balcón 1' }),
+      http.patch,
+      '*/api/tables/99',
+      404,
+      'TABLE_NOT_FOUND',
+      'Esa mesa no existe.',
+      null,
+    ],
+  ])(
+    'AC-01: %s conserva code, message y details del error %s de la API',
+    async (_name, call, method, path, status, code, message, details) => {
+      server.use(
+        method(path, () => HttpResponse.json(errorBody(code, message, details), { status })),
+      );
+      await expect(call()).rejects.toMatchObject({ status, code, message, details });
+    },
+  );
 });
