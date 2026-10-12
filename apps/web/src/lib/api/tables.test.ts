@@ -249,23 +249,22 @@ describe('012: funciones de administración de mesas', () => {
     ['{ name }', { name: 'Balcón 1' }, TABLE_RENAMED],
     ['{ isActive: false }', { isActive: false }, { ...TABLE_BUSY, isActive: false }],
     ['{ isActive: true }', { isActive: true }, TABLE_INACTIVE],
-  ])('AC-01: updateTable hace PATCH /tables/<id> con %s y exige 200 con Table', async (
-    _body,
-    changes,
-    response,
-  ) => {
-    const seen = vi.fn();
-    server.use(
-      http.patch('*/api/tables/3', async ({ request }) => {
-        expect(request.method).toBe('PATCH');
-        expect(request.url).toBe(`${window.location.origin}/api/tables/3`);
-        seen(await request.json());
-        return HttpResponse.json(response);
-      }),
-    );
-    await expect(updateTable(3, changes)).resolves.toEqual(response);
-    expect(seen).toHaveBeenCalledExactlyOnceWith(changes);
-  });
+  ])(
+    'AC-01: updateTable hace PATCH /tables/<id> con %s y exige 200 con Table',
+    async (_body, changes, response) => {
+      const seen = vi.fn();
+      server.use(
+        http.patch('*/api/tables/3', async ({ request }) => {
+          expect(request.method).toBe('PATCH');
+          expect(request.url).toBe(`${window.location.origin}/api/tables/3`);
+          seen(await request.json());
+          return HttpResponse.json(response);
+        }),
+      );
+      await expect(updateTable(3, changes)).resolves.toEqual(response);
+      expect(seen).toHaveBeenCalledExactlyOnceWith(changes);
+    },
+  );
 
   it('AC-01: createTable rechaza otro 2xx o un 201 sin Table conservando el status real', async () => {
     server.use(http.post('*/api/tables', () => HttpResponse.json(TABLE_CREATED)));

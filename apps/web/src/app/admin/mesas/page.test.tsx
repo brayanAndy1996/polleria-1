@@ -121,9 +121,7 @@ describe('012: lista, navegación y guardia de /admin/mesas', () => {
     await waitFor(() => {
       expect(mocks.replace).toHaveBeenCalledWith('/mozo');
     });
-    expect(
-      screen.queryByRole('heading', { name: 'Mesas', level: 1 }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Mesas', level: 1 })).not.toBeInTheDocument();
     mocks.replace.mockClear();
     server.use(
       http.get('*/api/auth/me', () =>
@@ -134,9 +132,7 @@ describe('012: lista, navegación y guardia de /admin/mesas', () => {
     await waitFor(() => {
       expect(hardNavigate).toHaveBeenCalledWith('/login');
     });
-    expect(
-      screen.queryByRole('heading', { name: 'Mesas', level: 1 }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Mesas', level: 1 })).not.toBeInTheDocument();
   });
 
   it('AC-02: una fila por mesa —activas e inactivas en el orden recibido— con estado y acciones', async () => {
@@ -298,7 +294,11 @@ describe('012: alta en línea y renombrado en /admin/mesas', () => {
     ['vacío', '', NAME_PATTERN_MESSAGE],
     ['con caracteres fuera de la clase', 'Mesa <3>', NAME_PATTERN_MESSAGE],
     ['con emoji', 'Mesa 😀', NAME_PATTERN_MESSAGE],
-    ['de más de 40 caracteres', 'Un nombre de mesa que se pasa de los cuarenta', NAME_TOO_LONG_MESSAGE],
+    [
+      'de más de 40 caracteres',
+      'Un nombre de mesa que se pasa de los cuarenta',
+      NAME_TOO_LONG_MESSAGE,
+    ],
   ])(
     'AC-06: el nombre %s se corta en local con el mensaje del esquema junto al campo y no llama a la API',
     async (_case, name, message) => {
