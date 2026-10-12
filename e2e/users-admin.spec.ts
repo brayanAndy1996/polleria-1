@@ -55,7 +55,7 @@ test.describe('004: gestión de usuarios desde la web', () => {
     await page.getByRole('button', { name: /^Gesti\u00F3n E2E(?! Dos)/ }).click();
     await enterPin(page, '3968');
     await expect(page).toHaveURL(/\/mozo$/, { timeout: 10000 });
-    await expect(page.getByRole('heading', { name: 'Mozo', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mesas', exact: true })).toBeVisible();
   });
 
   test('AC-27: desactivar quita al mozo de /login y reactivar lo devuelve', async ({
@@ -86,6 +86,6 @@ test.describe('004: gestión de usuarios desde la web', () => {
     await gestion2.click();
     await enterPin(page, '5926');
     await expect(page).toHaveURL(/\/mozo$/, { timeout: 10000 });
-    await expect(page.getByRole('heading', { name: 'Mozo', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mesas', exact: true })).toBeVisible();
   });
 });
