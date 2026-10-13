@@ -42,3 +42,7 @@ Home, login/PIN, selector de áreas, shell autorizado, salón/mozo, pedido por m
 Principal documenta/revisa y aplica web-design-guidelines actualizadas. Test-writer Luna medium añade únicamente regresiones significativas de navegación/accesibilidad y mantiene las existentes; implementer Luna medium cubre toda la web y no modifica tests. No rondas independientes ni agentes adicionales. Skills instalados en .agents/skills con skills-lock.json; conservar origen y archivos originales.
 
 Integrar y publicar el resultado en dev para que el usuario pueda probar esta nueva interfaz; main y 014 conservan sus ramas. Revisar visualmente antes de terminar y entregar capturas.
+
+## Cierre
+
+Implementado y verificado con TDD en navegación, SSR y teclado del PIN. Pruebas web: 734/734; E2E: 28 aprobados y 12 omitidos por aplicabilidad desktop/móvil. Build de producción, tipos, lint y formato aprobados. Capturas y revisión del principal en [galería](../../ui-redesign/README.md). Sin cambios de API o base de datos y sin cobertura global nueva. Publicación en dev; spec 014 permanece separada.

@@ -3,6 +3,15 @@
 Documento de traspaso para retomar el trabajo en una conversación nueva. Lo mantiene el orquestador.
 Corte: 2026-10-13. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 
+## Rediseño de interfaz — dev, 2026-10-13
+
+- Prioridad solicitada por el usuario tras probar dev. Instalados y versionados frontend-design, web-design-guidelines y ui-ux-pro-max en .agents/skills/ con skills-lock.json. Alcance: docs/specs/dev-ui-redesign/spec.md; comparación visual: docs/ui-redesign/README.md.
+- Interfaz renovada: acceso/PIN, navegación por áreas, salón, pedido/carrito, administración y estados de caja/cocina. Navegación lateral en PC, cabecera compacta en móvil, mesas legibles, controles táctiles, foco visible y salto al contenido. Sin dependencias nuevas ni cambios de API/BD/dinero; caja/cocina conservan el alcance funcional existente.
+- TDD con los dos roles Luna medium; revisión del principal con las tres skills, capturas reales a 360/768/1440 px, sin desbordamiento horizontal ni errores de página en el recorrido. Se verificaron acceso por teclado y contraste de acciones. Sin auditoría independiente ni nueva cobertura global/API.
+- Build de producción corregido: primary-instance proporciona getServerSnapshot determinista. La deuda SSR documentada en los cortes históricos de abajo queda resuelta por esta entrega.
+- La spec 014 sigue aprobada en feat/014-cashier-payments (62e0243), pendiente de contrato/tests/implementación. UI siempre en soles con decimales; cálculos internos en enteros de céntimos. Retomar ese bloque después de revisar el diseño; no está incluido en dev.
+- Entrega integrada en dev; main permanece sin integrar este rediseño. Verificación final: 734/734 pruebas web (41 archivos), 28 E2E aprobados/12 omitidos, build de producción, tipos, lint y formato aprobados. Evidencia y capturas: docs/ui-redesign/README.md.
+
 ## Preparación de demo — rama dev, 2026-10-13
 
 - Solicitada por el usuario para probar una BD local vacía; rama dev creada desde main c3021d2. Guía: docs/PROBAR-DEMO.md; requisitos: docs/specs/dev-demo/spec.md. No integra Caja ni altera main.
@@ -23,11 +32,11 @@ Corte: 2026-10-13. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 
 ## Próxima entrega y pendientes
 
-- Próximo paso: redactar la spec 014 de Caja y cobro (Fase 4), con una propuesta de primer bloque de pre-cuenta y pago completo. Aprobar sus reglas antes de pruebas/implementación; no hay spec 014 aprobada todavía.
+- Próximo paso funcional: retomar la spec 014 ya aprobada en feat/014-cashier-payments; contrato y pruebas del primer bloque de pre-cuenta/pago completo aún pendientes.
 - Caja restante: pagos por efectivo/Yape/Plin/tarjeta, vuelto, pagos mixtos, división de cuenta, apertura/cierre y cuadre, ticket de venta (RF-13…17). Dividir en specs pequeñas para el flujo reducido.
 - Después: inventario de pollo por parte/octavos y bebidas, entradas/consumo, agotados y alertas (Fase 5); reportes, auditoría y datos de demostración (Fase 6).
 - Cocina: 013 completa para archivos; impresión física ESC/POS y detección de fallos/papel requieren marca, modelo y conexión. Barra separada (RF-11) es posterior. RF-12 para llevar/delivery sigue pendiente de asignación a una spec.
-- Preparación de uso real: migración de polleria_dev, recorrido manual y resolver deuda de build por getServerSnapshot. Las regresiones conocidas esperadas/omitidas continúan visibles; ADV-002-01/02 ya están resueltas por 013.
+- Preparación de uso real: preparar polleria_dev según PROBAR-DEMO.md y realizar el recorrido manual. La deuda de build por getServerSnapshot se resolvió en el rediseño de dev. Las regresiones conocidas esperadas/omitidas continúan visibles; ADV-002-01/02 ya están resueltas por 013.
 
 ## Cambio de metodología — 2026-10-12 (histórico)
 
