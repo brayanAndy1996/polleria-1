@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.8.0
+  version: 0.9.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -143,7 +143,9 @@ tags:
   - name: tables
     description: Mesas del salón, su estado derivado y las operaciones de mesa sobre pedidos (spec 009).
   - name: orders
-    description: Ciclo del pedido — la cuenta de una o más mesas — y sus señales (spec 009).
+    description: Ciclo del pedido — la cuenta de una o más mesas —, sus señales (spec 009) y los ítems enviados a cocina con su anulación (spec 010).
+  - name: menu
+    description: La carta para armar pedidos — productos activos con presentaciones y componentes (spec 010).
 paths:
   /health:
     get:
@@ -1312,7 +1314,9 @@ paths:
         está libre, simplemente queda cubierta por esa cuenta; si tiene su propia
         cuenta abierta, las dos cuentas se fusionan: el pedido de la mesa de la ruta
         queda 'merged' con su auditoría (quién y cuándo) y todas sus mesas pasan a la
-        cuenta destino, que conserva sus marcas de listo y de cuenta. Unir es sumarse
+        cuenta destino, que conserva sus marcas de listo y de cuenta; los ítems y
+        las comandas del pedido absorbido se re-etiquetan a esa cuenta (spec 010).
+        Unir es sumarse
         a una cuenta existente: la mesa destino debe existir y estar activa (sus
         problemas de dato van como issues en intoTableId; los de estado responden 409
         TABLE_INACTIVE o TABLE_HAS_NO_ORDER) y tener un pedido abierto — para crear
@@ -1682,7 +1686,13 @@ paths:
         anuló y cuándo, y libera todas las mesas que cubría en la misma transacción.
         El pedido nunca se borra: sigue leyéndose con su status y su auditoría. El
         pedido debe existir (404 ORDER_NOT_FOUND) y estar abierto (409
-        ORDER_NOT_OPEN). Cabecera Cache-Control: no-store.
+        ORDER_NOT_OPEN). Desde la spec 010: un pedido con ítems 'sent' o con
+        anulaciones pendientes ('void_requested') no se cancela — responde 409
+        ORDER_HAS_ACTIVE_ITEMS para cualquier rol, hasta anular cada ítem y
+        resolver cada solicitud; y un pedido que alguna vez tuvo ítems solo lo
+        cancela un administrador (los demás roles reciben 403 FORBIDDEN). Un
+        pedido que nunca tuvo ítems se cancela como en la spec 009. Cabecera
+        Cache-Control: no-store.
       security:
         - sessionCookie: []
       parameters:
@@ -1714,9 +1724,522 @@ paths:
         '404':
           $ref: '#/components/responses/OrderNotFound'
         '409':
-          $ref: '#/components/responses/OrderNotOpen'
+          description: >-
+            Conflicto de estado: el pedido ya está cerrado (ORDER_NOT_OPEN) o
+            tiene ítems sin anular o anulaciones pendientes
+            (ORDER_HAS_ACTIVE_ITEMS). El pedido queda sin cambios.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                pedido-cerrado:
+                  value:
+                    error:
+                      code: ORDER_NOT_OPEN
+                      message: El pedido ya está cerrado.
+                      details: null
+                items-activos:
+                  value:
+                    error:
+                      code: ORDER_HAS_ACTIVE_ITEMS
+                      message: >-
+                        El pedido tiene ítems sin anular; un administrador debe
+                        anularlos primero.
+                      details: null
         '500':
           $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/items:
+    post:
+      operationId: sendOrderItems
+      tags:
+        - orders
+      summary: Envía una tanda de ítems a cocina
+      description: >-
+        Roles permitidos: waiter, admin. Registra de 1 a 20 ítems del pedido
+        abierto, los agrupa en UNA comanda ('initial' el primer envío,
+        'additional' los siguientes) y congela nombre, categoría y precio de la
+        carta al momento del envío. Idempotente por la cabecera
+        Idempotency-Key: reenviar la misma clave con los mismos datos devuelve
+        la respuesta guardada sin duplicar ítems ni comandas; con otros datos u
+        otro pedido responde 409 IDEMPOTENCY_CONFLICT. El pedido debe existir
+        (404 ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN); el envío no
+        puede dejar más de 99 ítems sin anular (409 ORDER_ITEMS_LIMIT). Los
+        datos de cada ítem se validan por línea — producto activo y en la
+        carta, presentación y parte, octavos del medio, componentes del combo —
+        y cualquier problema se devuelve acumulado en issues con path items.N
+        (400 VALIDATION_ERROR) sin escribir nada. Cabecera Cache-Control:
+        no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendOrderItemsRequest'
+      responses:
+        '201':
+          description: El pedido ya con sus ítems y totalCents, y la comanda creada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendOrderItemsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          description: >-
+            Conflicto de estado: el pedido ya está cerrado
+            ([OrderNotOpen](#/components/responses/OrderNotOpen)), el envío
+            superaría el límite de 99 ítems sin anular
+            ([OrderItemsLimit](#/components/responses/OrderItemsLimit)) o la
+            clave de idempotencia ya se usó con otros datos u otro pedido
+            ([IdempotencyConflict](#/components/responses/IdempotencyConflict)).
+            Nada quedó escrito.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                cerrado:
+                  value:
+                    error:
+                      code: ORDER_NOT_OPEN
+                      message: El pedido ya está cerrado.
+                      details: null
+                limite:
+                  value:
+                    error:
+                      code: ORDER_ITEMS_LIMIT
+                      message: El pedido llegó al límite de ítems.
+                      details: null
+                conflicto-idempotencia:
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: Esa clave de envío ya se usó con otros datos.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/items/{itemId}/request-void:
+    post:
+      operationId: requestVoidOrderItem
+      tags:
+        - orders
+      summary: Solicita la anulación de un ítem enviado
+      description: >-
+        Roles permitidos: waiter, admin. Sobre un ítem 'sent' lo pasa a
+        'void_requested' con quién pidió, cuándo y por qué (reason de 1 a 200
+        caracteres tras el recorte). La solicitud NO emite comanda: el plato
+        sigue en cocina hasta que el administrador apruebe o rechace, y el
+        ítem sigue contando en totalCents y en el tope. Sobre 'void_requested'
+        responde 409 ORDER_ITEM_VOID_REQUESTED; sobre 'voided', 409
+        ORDER_ITEM_ALREADY_VOIDED. El pedido debe existir (404
+        ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN); el ítem debe
+        pertenecer a ese pedido (404 ORDER_ITEM_NOT_FOUND). Idempotente por la
+        cabecera Idempotency-Key, igual que el envío. Cabecera Cache-Control:
+        no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoidOrderItemRequest'
+            example:
+              reason: Se equivocó el cliente.
+      responses:
+        '200':
+          description: El pedido con el ítem ya en 'void_requested'.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            El pedido no existe
+            ([OrderNotFound](#/components/responses/OrderNotFound)) o el ítem
+            no existe en ese pedido
+            ([OrderItemNotFound](#/components/responses/OrderItemNotFound)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                pedido:
+                  value:
+                    error:
+                      code: ORDER_NOT_FOUND
+                      message: Ese pedido no existe.
+                      details: null
+                item:
+                  value:
+                    error:
+                      code: ORDER_ITEM_NOT_FOUND
+                      message: Ese ítem no existe en este pedido.
+                      details: null
+        '409':
+          description: >-
+            Conflicto de estado: el pedido ya está cerrado
+            ([OrderNotOpen](#/components/responses/OrderNotOpen)), el ítem ya
+            fue anulado
+            ([OrderItemAlreadyVoided](#/components/responses/OrderItemAlreadyVoided)),
+            ya tiene una anulación pendiente
+            ([OrderItemVoidRequested](#/components/responses/OrderItemVoidRequested))
+            o la clave de idempotencia ya se usó con otros datos u otro ítem
+            ([IdempotencyConflict](#/components/responses/IdempotencyConflict)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                cerrado:
+                  value:
+                    error:
+                      code: ORDER_NOT_OPEN
+                      message: El pedido ya está cerrado.
+                      details: null
+                anulado:
+                  value:
+                    error:
+                      code: ORDER_ITEM_ALREADY_VOIDED
+                      message: Ese ítem ya fue anulado.
+                      details: null
+                pendiente:
+                  value:
+                    error:
+                      code: ORDER_ITEM_VOID_REQUESTED
+                      message: Ese ítem ya tiene una anulación pendiente.
+                      details: null
+                conflicto-idempotencia:
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: Esa clave de envío ya se usó con otros datos.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/items/{itemId}/void:
+    post:
+      operationId: voidOrderItem
+      tags:
+        - orders
+      summary: Anula un ítem (aprueba la solicitud o lo anula directo)
+      description: >-
+        Roles permitidos: admin (regla 6). Aprueba una solicitud pendiente o
+        anula directo un ítem 'sent': el ítem queda 'voided' con el motivo
+        FINAL del administrador, quién aprobó, cuándo y su comanda 'void'. Si
+        vino por solicitud, se conserva el triple void_requested_* como
+        auditoría del mozo. El ítem ya no cuenta en totalCents ni en el tope,
+        y se limpia billRequestedAt del pedido. Re-anular un ítem 'voided' con
+        otra clave responde 409 ORDER_ITEM_ALREADY_VOIDED; con la misma clave y
+        los mismos datos es replay. El pedido debe existir (404
+        ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN); el ítem debe
+        pertenecer a ese pedido (404 ORDER_ITEM_NOT_FOUND). Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoidOrderItemRequest'
+            example:
+              reason: Confirmado, error del cliente.
+      responses:
+        '200':
+          description: El pedido con el ítem 'voided' y la comanda 'void' creada.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendOrderItemsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            El pedido no existe
+            ([OrderNotFound](#/components/responses/OrderNotFound)) o el ítem
+            no existe en ese pedido
+            ([OrderItemNotFound](#/components/responses/OrderItemNotFound)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                pedido:
+                  value:
+                    error:
+                      code: ORDER_NOT_FOUND
+                      message: Ese pedido no existe.
+                      details: null
+                item:
+                  value:
+                    error:
+                      code: ORDER_ITEM_NOT_FOUND
+                      message: Ese ítem no existe en este pedido.
+                      details: null
+        '409':
+          description: >-
+            Conflicto de estado: el pedido ya está cerrado
+            ([OrderNotOpen](#/components/responses/OrderNotOpen)), el ítem ya
+            fue anulado
+            ([OrderItemAlreadyVoided](#/components/responses/OrderItemAlreadyVoided))
+            o la clave de idempotencia ya se usó con otros datos u otro ítem
+            ([IdempotencyConflict](#/components/responses/IdempotencyConflict)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                cerrado:
+                  value:
+                    error:
+                      code: ORDER_NOT_OPEN
+                      message: El pedido ya está cerrado.
+                      details: null
+                anulado:
+                  value:
+                    error:
+                      code: ORDER_ITEM_ALREADY_VOIDED
+                      message: Ese ítem ya fue anulado.
+                      details: null
+                conflicto-idempotencia:
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: Esa clave de envío ya se usó con otros datos.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/items/{itemId}/reject-void:
+    post:
+      operationId: rejectVoidOrderItem
+      tags:
+        - orders
+      summary: Rechaza la solicitud de anulación de un ítem
+      description: >-
+        Roles permitidos: admin. Devuelve el ítem 'void_requested' a 'sent' y
+        limpia el triple de la solicitud (quién pidió, cuándo y por qué): el
+        ítem sigue contando y cocina lo termina normal. La auditoría de
+        solicitudes rechazadas no se conserva. Sobre un ítem 'sent' responde
+        409 ORDER_ITEM_NOT_REQUESTED; sobre 'voided', 409
+        ORDER_ITEM_ALREADY_VOIDED. El pedido debe existir (404
+        ORDER_NOT_FOUND) y estar abierto (409 ORDER_NOT_OPEN); el ítem debe
+        pertenecer a ese pedido (404 ORDER_ITEM_NOT_FOUND). No lleva cuerpo,
+        pero la cabecera Idempotency-Key sigue siendo obligatoria. Cabecera
+        Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/ItemId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: El pedido con el ítem de vuelta a 'sent'.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: >-
+            El pedido no existe
+            ([OrderNotFound](#/components/responses/OrderNotFound)) o el ítem
+            no existe en ese pedido
+            ([OrderItemNotFound](#/components/responses/OrderItemNotFound)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                pedido:
+                  value:
+                    error:
+                      code: ORDER_NOT_FOUND
+                      message: Ese pedido no existe.
+                      details: null
+                item:
+                  value:
+                    error:
+                      code: ORDER_ITEM_NOT_FOUND
+                      message: Ese ítem no existe en este pedido.
+                      details: null
+        '409':
+          description: >-
+            Conflicto de estado: el pedido ya está cerrado
+            ([OrderNotOpen](#/components/responses/OrderNotOpen)), el ítem no
+            tiene una anulación pendiente
+            ([OrderItemNotRequested](#/components/responses/OrderItemNotRequested)),
+            ya fue anulado
+            ([OrderItemAlreadyVoided](#/components/responses/OrderItemAlreadyVoided))
+            o la clave de idempotencia ya se usó con otros datos u otro ítem
+            ([IdempotencyConflict](#/components/responses/IdempotencyConflict)).
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                cerrado:
+                  value:
+                    error:
+                      code: ORDER_NOT_OPEN
+                      message: El pedido ya está cerrado.
+                      details: null
+                sin-solicitud:
+                  value:
+                    error:
+                      code: ORDER_ITEM_NOT_REQUESTED
+                      message: Ese ítem no tiene una anulación pendiente.
+                      details: null
+                anulado:
+                  value:
+                    error:
+                      code: ORDER_ITEM_ALREADY_VOIDED
+                      message: Ese ítem ya fue anulado.
+                      details: null
+                conflicto-idempotencia:
+                  value:
+                    error:
+                      code: IDEMPOTENCY_CONFLICT
+                      message: Esa clave de envío ya se usó con otros datos.
+                      details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/tickets:
+    get:
+      operationId: listOrderTickets
+      tags:
+        - orders
+      summary: Las comandas del pedido, en orden de emisión
+      description: >-
+        Roles permitidos: cualquier rol con sesión. Devuelve las comandas del
+        pedido ordenadas por id: las 'initial' y 'additional' con sus ítems
+        (cada uno con sus cremas y componentes) y las 'void' con el ítem
+        anulado que las originó. Un pedido sin envíos responde { tickets: [] }.
+        Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Las comandas del pedido, ordenadas por id.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenTicketsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /menu:
+    get:
+      operationId: getMenu
+      tags:
+        - menu
+      summary: La carta armada para tomar pedidos
+      description: >-
+        Roles permitidos: cualquier rol con sesión. Devuelve solo los productos
+        ACTIVOS en el orden de la carta (categoría, luego nombre con collator
+        'es', luego id): cada producto con sus presentaciones y precios
+        (pollos) y sus componentes ya resueltos con el producto embebido
+        (combos). La carta se valida otra vez al enviar: lo que aquí se muestra
+        es solo la referencia del mozo. Cabecera Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Los productos activos de la carta, en orden.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -2248,12 +2771,16 @@ components:
         - closedBy
         - cancelReason
         - mergedIntoOrderId
+        - items
+        - totalCents
       description: |
-        Un pedido del salón (spec 009): exactamente estas once claves. tables son
-        las mesas que lo cubren ahora — las que lo apuntan con current_order_id — y
-        sale vacía cuando el pedido terminó. readyAt y billRequestedAt son las dos
-        marcas de señal, en ISO o null; closedBy, cancelReason y mergedIntoOrderId
-        cuentan cómo terminó (null mientras está abierto).
+        Un pedido del salón: las once claves de la spec 009 más items y totalCents
+        (spec 010, trece claves en total). tables son las mesas que lo cubren ahora
+        — las que lo apuntan con current_order_id — y sale vacía cuando el pedido
+        terminó. readyAt y billRequestedAt son las dos marcas de señal, en ISO o
+        null; closedBy, cancelReason y mergedIntoOrderId cuentan cómo terminó (null
+        mientras está abierto). items trae TODOS los ítems del pedido — enviados y
+        anulados — por id; totalCents suma solo los que cuentan.
       properties:
         id:
           type: integer
@@ -2306,6 +2833,446 @@ components:
               minimum: 1
             - type: 'null'
           description: Id de la cuenta que la absorbió al fusionarse; null si no fue fusionada.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          description: >-
+            Todos los ítems del pedido — 'sent', 'void_requested' y 'voided' —
+            ordenados por id. Los anulados nunca se borran (spec 010).
+        totalCents:
+          type: integer
+          minimum: 0
+          description: >-
+            Total del pedido en céntimos: la suma de quantity × priceCents de los
+            ítems 'sent' y 'void_requested' más sus cremas; los 'voided' no
+            cuentan (spec 010).
+    OrderItemStatus:
+      type: string
+      enum: [sent, void_requested, voided]
+      description: >-
+        Estado del ítem (spec 010): enviado a cocina, con anulación solicitada
+        pendiente del administrador, o anulado — nunca se borra.
+    KitchenTicketKind:
+      type: string
+      enum: [initial, additional, void]
+      description: >-
+        Tipo de comanda (spec 010): primer envío del pedido, envío siguiente o
+        comanda de anulación autorizada.
+    OrderItemSauce:
+      type: object
+      additionalProperties: false
+      required: [productId, productName, quantity, priceCents]
+      description: Crema registrada en un ítem, con su precio congelado al envío.
+      properties:
+        productId:
+          type: integer
+          minimum: 1
+        productName:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        priceCents:
+          $ref: '#/components/schemas/PriceCents'
+    OrderItemComponent:
+      type: object
+      additionalProperties: false
+      required: [productId, productName, quantity, portion, cut, breastEighths, legEighths]
+      description: >-
+        Componente resuelto de un ítem combo: la fila de la carta con la
+        presentación, la parte y la distribución elegidas (o las del combo).
+      properties:
+        productId:
+          type: integer
+          minimum: 1
+        productName:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        portion:
+          oneOf:
+            - $ref: '#/components/schemas/Portion'
+            - type: 'null'
+        cut:
+          oneOf:
+            - $ref: '#/components/schemas/Cut'
+            - type: 'null'
+        breastEighths:
+          type: integer
+          minimum: 0
+        legEighths:
+          type: integer
+          minimum: 0
+    OrderItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - productId
+        - productName
+        - productCategory
+        - quantity
+        - priceCents
+        - portion
+        - cut
+        - breastEighths
+        - legEighths
+        - notes
+        - sauces
+        - components
+        - status
+        - kitchenTicketId
+        - voidTicketId
+        - voidedBy
+        - voidedAt
+        - voidReason
+        - voidRequestedBy
+        - voidRequestedAt
+        - voidRequestReason
+        - orderedAtTable
+        - createdBy
+        - createdAt
+      description: >-
+        Un ítem del pedido (spec 010): exactamente estas claves. Precio, nombre y
+        categoría quedan congelados al envío (regla 4); las partes de pollo van
+        resueltas en octavos (regla 1) y la traza de anulación completa la
+        auditoría de la regla 6. orderedAtTable es la primera mesa del pedido al
+        momento del envío; kitchenTicketId es la comanda del envío y voidTicketId
+        la de su anulación.
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        productId:
+          type: integer
+          minimum: 1
+        productName:
+          type: string
+          description: Nombre del producto, copiado al envío.
+        productCategory:
+          $ref: '#/components/schemas/ProductCategory'
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        priceCents:
+          $ref: '#/components/schemas/PriceCents'
+        portion:
+          oneOf:
+            - $ref: '#/components/schemas/Portion'
+            - type: 'null'
+        cut:
+          oneOf:
+            - $ref: '#/components/schemas/Cut'
+            - type: 'null'
+        breastEighths:
+          type: integer
+          minimum: 0
+        legEighths:
+          type: integer
+          minimum: 0
+        notes:
+          oneOf:
+            - type: string
+              maxLength: 200
+            - type: 'null'
+        sauces:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemSauce'
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemComponent'
+        status:
+          $ref: '#/components/schemas/OrderItemStatus'
+        kitchenTicketId:
+          type: integer
+          minimum: 1
+        voidTicketId:
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        voidedBy:
+          oneOf:
+            - $ref: '#/components/schemas/UserRef'
+            - type: 'null'
+        voidedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        voidReason:
+          oneOf:
+            - type: string
+            - type: 'null'
+        voidRequestedBy:
+          oneOf:
+            - $ref: '#/components/schemas/UserRef'
+            - type: 'null'
+        voidRequestedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        voidRequestReason:
+          oneOf:
+            - type: string
+            - type: 'null'
+        orderedAtTable:
+          oneOf:
+            - $ref: '#/components/schemas/TableRef'
+            - type: 'null'
+        createdBy:
+          $ref: '#/components/schemas/UserRef'
+        createdAt:
+          type: string
+          format: date-time
+    KitchenTicket:
+      type: object
+      additionalProperties: false
+      required: [id, orderId, kind, items, createdBy, createdAt]
+      description: >-
+        Una comanda de cocina (spec 010): 'initial'/'additional' llevan los ítems
+        de ese envío; 'void' lista los ítems anulados en esa autorización.
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        orderId:
+          type: integer
+          minimum: 1
+        kind:
+          $ref: '#/components/schemas/KitchenTicketKind'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        createdBy:
+          $ref: '#/components/schemas/UserRef'
+        createdAt:
+          type: string
+          format: date-time
+    KitchenTicketsResponse:
+      type: object
+      additionalProperties: false
+      required: [tickets]
+      description: Respuesta de GET /orders/{orderId}/tickets (spec 010).
+      properties:
+        tickets:
+          type: array
+          items:
+            $ref: '#/components/schemas/KitchenTicket'
+    OrderItemSauceInput:
+      type: object
+      additionalProperties: false
+      required: [productId]
+      description: Una crema del envío; quantity de 1 a 99 (1 por omisión).
+      properties:
+        productId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+          default: 1
+    OrderItemComponentInput:
+      type: object
+      additionalProperties: false
+      required: [productId, quantity]
+      description: >-
+        Componente elegido dentro de un ítem combo: la fila del combo con su
+        posible ajuste de parte o de distribución (los mismos límites y la misma
+        correspondencia presentación-parte que OrderItemInput).
+      properties:
+        productId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        portion:
+          $ref: '#/components/schemas/Portion'
+        cut:
+          $ref: '#/components/schemas/Cut'
+        breastEighths:
+          type: integer
+          minimum: 0
+          maximum: 8
+        legEighths:
+          type: integer
+          minimum: 0
+          maximum: 8
+    OrderItemInput:
+      type: object
+      additionalProperties: false
+      required: [productId]
+      description: >-
+        Un ítem del envío: producto, unidades (1 por omisión, hasta 99) y
+        opcionalmente presentación/parte/distribución para pollos, observación de
+        hasta 200 caracteres en una sola línea, hasta 6 cremas sin repetir y los
+        componentes para combos. Las claves opcionales quedan ausentes, no null.
+      properties:
+        productId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+          default: 1
+        portion:
+          $ref: '#/components/schemas/Portion'
+        cut:
+          $ref: '#/components/schemas/Cut'
+        breastEighths:
+          type: integer
+          minimum: 0
+          maximum: 8
+        legEighths:
+          type: integer
+          minimum: 0
+          maximum: 8
+        notes:
+          type: string
+          maxLength: 200
+        sauces:
+          type: array
+          maxItems: 6
+          items:
+            $ref: '#/components/schemas/OrderItemSauceInput'
+        components:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/OrderItemComponentInput'
+    SendOrderItemsRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      description: >-
+        Cuerpo de POST /orders/{orderId}/items: de 1 a 20 ítems.
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/OrderItemInput'
+    SendOrderItemsResponse:
+      type: object
+      additionalProperties: false
+      required: [order, ticket]
+      description: >-
+        Respuesta de POST /orders/{orderId}/items (201) y de POST
+        /orders/{orderId}/items/{itemId}/void (200): el pedido ya con ítems y
+        totalCents, y la comanda creada.
+      properties:
+        order:
+          $ref: '#/components/schemas/Order'
+        ticket:
+          $ref: '#/components/schemas/KitchenTicket'
+    OrderResponse:
+      type: object
+      additionalProperties: false
+      required: [order]
+      description: >-
+        Envoltura { order } de las operaciones que responden solo el pedido —
+        request-void y reject-void (spec 010).
+      properties:
+        order:
+          $ref: '#/components/schemas/Order'
+    VoidOrderItemRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      description: >-
+        Motivo de la anulación (o de su solicitud), de 1 a 200 caracteres
+        después del recorte. Misma forma que CancelOrderRequest.
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+    MenuPortion:
+      type: object
+      additionalProperties: false
+      required: [portion, cut, priceCents]
+      description: Presentación ofrecida en la carta con su precio.
+      properties:
+        portion:
+          $ref: '#/components/schemas/Portion'
+        cut:
+          oneOf:
+            - $ref: '#/components/schemas/Cut'
+            - type: 'null'
+        priceCents:
+          $ref: '#/components/schemas/PriceCents'
+    MenuComboItem:
+      type: object
+      additionalProperties: false
+      required: [product, quantity, portion, cut]
+      description: Componente de un combo en la carta, con el producto embebido.
+      properties:
+        product:
+          $ref: '#/components/schemas/Product'
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        portion:
+          oneOf:
+            - $ref: '#/components/schemas/Portion'
+            - type: 'null'
+        cut:
+          oneOf:
+            - $ref: '#/components/schemas/Cut'
+            - type: 'null'
+    MenuProduct:
+      type: object
+      additionalProperties: false
+      required: [id, name, category, priceCents, portions, items]
+      description: >-
+        Producto activo de la carta (GET /menu): el producto con sus
+        presentaciones (pollos) y sus componentes (combos) resueltos.
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        category:
+          $ref: '#/components/schemas/ProductCategory'
+        priceCents:
+          $ref: '#/components/schemas/PriceCents'
+        portions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuPortion'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuComboItem'
+    MenuResponse:
+      type: object
+      additionalProperties: false
+      required: [products]
+      description: Respuesta de GET /menu (spec 010).
+      properties:
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuProduct'
     Table:
       type: object
       additionalProperties: false
@@ -2452,6 +3419,20 @@ components:
           fusionado) y la operación solo corre sobre pedidos abiertos.
         - ORDER_NEEDS_TABLE (409, spec 009): la operación dejaría el pedido sin ninguna
           mesa; al separar la última que lo cubre.
+        - ORDER_ITEM_NOT_FOUND (404, spec 010): el itemId de la ruta no existe o no
+          pertenece a ese pedido. Lo usan las tres rutas de anulación de ítems.
+        - ORDER_ITEM_ALREADY_VOIDED (409, spec 010): el ítem ya fue anulado; solicitar,
+          aprobar o rechazar con una clave distinta de la original.
+        - ORDER_ITEM_VOID_REQUESTED (409, spec 010): el ítem ya tiene una anulación
+          pendiente; re-solicitarla con una clave distinta.
+        - ORDER_ITEM_NOT_REQUESTED (409, spec 010): rechazar la anulación de un ítem
+          que no la tenía pedida.
+        - ORDER_HAS_ACTIVE_ITEMS (409, spec 010): el pedido tiene ítems 'sent' o
+          solicitudes 'void_requested' y no puede cancelarse.
+        - ORDER_ITEMS_LIMIT (409, spec 010): el envío dejaría al pedido con más de
+          99 ítems sin anular.
+        - IDEMPOTENCY_CONFLICT (409, spec 010): la misma (scope, key) de
+          Idempotency-Key ya se usó con otro order_id u otro request_hash.
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
       examples: [NOT_FOUND]
     ValidationIssue:
@@ -2582,6 +3563,36 @@ components:
         minimum: 1
         maximum: 2147483647
       example: 12
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      description: |
+        Identificador del ítem del pedido: solo dígitos, entero entre 1 y
+        2147483647 (entero de la base). Si no cumple, la ruta responde 400
+        VALIDATION_ERROR con un issue en 'itemId' (mensaje 'El identificador del
+        ítem no es válido.').
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      example: 34
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Clave única del envío (spec 010, regla 5): de 1 a 128 caracteres ASCII
+        imprimibles. Reenviar con la misma clave y el mismo cuerpo devuelve la
+        respuesta guardada sin duplicar; usarla con otros datos u otro pedido
+        responde 409 IDEMPOTENCY_CONFLICT. Su ausencia o un valor fuera del
+        patrón responde 400 VALIDATION_ERROR con un issue en 'idempotencyKey'.
+        En POST /orders/{orderId}/items/{itemId}/reject-void también es
+        obligatoria aunque la ruta no lleva cuerpo.
+      schema:
+        type: string
+        pattern: '^[\x21-\x7E]{1,128}$'
+      example: envio-mesa3-2026-10-11-001
   responses:
     InvalidJson:
       description: El cuerpo de la solicitud no es un JSON válido. Aplica a cualquier ruta que reciba cuerpo.
@@ -3040,4 +4051,118 @@ components:
             error:
               code: ORDER_NEEDS_TABLE
               message: El pedido necesita al menos una mesa; cancélalo o ciérralo.
+              details: null
+    OrderItemNotFound:
+      description: |
+        El itemId de la ruta no existe o no pertenece a ese pedido (spec 010).
+        Lo usan las tres rutas de anulación de ítems.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ORDER_ITEM_NOT_FOUND
+              message: Ese ítem no existe en este pedido.
+              details: null
+    OrderItemAlreadyVoided:
+      description: |
+        El ítem ya fue anulado (spec 010): solicitar, aprobar o rechazar su
+        anulación con una clave distinta de la original. Nada quedó cambiado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ORDER_ITEM_ALREADY_VOIDED
+              message: Ese ítem ya fue anulado.
+              details: null
+    OrderItemVoidRequested:
+      description: |
+        El ítem ya tiene una anulación pendiente (spec 010): re-solicitarla con
+        una clave distinta de la original. Nada quedó cambiado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ORDER_ITEM_VOID_REQUESTED
+              message: Ese ítem ya tiene una anulación pendiente.
+              details: null
+    OrderItemNotRequested:
+      description: |
+        El ítem no tiene una anulación pendiente (spec 010): rechazar sobre un
+        ítem 'sent'. Nada quedó cambiado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ORDER_ITEM_NOT_REQUESTED
+              message: Ese ítem no tiene una anulación pendiente.
+              details: null
+    OrderHasActiveItems:
+      description: |
+        El pedido tiene ítems sin anular — 'sent' — o anulaciones pendientes —
+        'void_requested' — y no puede cancelarse (spec 010): un administrador
+        debe anular cada ítem y resolver cada solicitud primero.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ORDER_HAS_ACTIVE_ITEMS
+              message: El pedido tiene ítems sin anular; un administrador debe anularlos primero.
+              details: null
+    OrderItemsLimit:
+      description: |
+        El envío dejaría al pedido con más de 99 ítems sin anular — 'sent' más
+        'void_requested' — (spec 010). Nada quedó creado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: ORDER_ITEMS_LIMIT
+              message: El pedido llegó al límite de ítems.
+              details: null
+    IdempotencyConflict:
+      description: |
+        La misma (scope, key) de la cabecera Idempotency-Key ya se usó con otro
+        order_id u otro request_hash (spec 010): es un error del cliente, no un
+        reenvío. Nada quedó creado ni modificado.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: IDEMPOTENCY_CONFLICT
+              message: Esa clave de envío ya se usó con otros datos.
               details: null

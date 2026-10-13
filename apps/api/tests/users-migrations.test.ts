@@ -261,16 +261,16 @@ describe('003: migraciones de usuarios y sesiones', () => {
     expect(await tableExists(sequelize, 'order_item_sauces')).toBe(true);
     expect(await tableExists(sequelize, 'idempotency_keys')).toBe(true);
     // migrateDown revierte una migración por llamada: el down encadenado baja la lista
-    // completa en orden inverso (order_items de la 010, tables/orders de la 009,
-    // combo_items, product_portions, products, sessions, users).
+    // completa en orden inverso (ítems de la 010, tables/orders de la 009, combo_items,
+    // product_portions, products, sessions, users).
     await assertConnectedToTestDatabase(sequelize);
     expect(await migrateDown(sequelize)).toEqual([MIGRATIONS[6]]);
-    expect(await tableExists(sequelize, 'kitchen_tickets')).toBe(false);
-    expect(await tableExists(sequelize, 'order_items')).toBe(false);
-    expect(await tableExists(sequelize, 'order_item_components')).toBe(false);
     expect(await tableExists(sequelize, 'order_item_sauces')).toBe(false);
+    expect(await tableExists(sequelize, 'order_item_components')).toBe(false);
+    expect(await tableExists(sequelize, 'order_items')).toBe(false);
     expect(await tableExists(sequelize, 'idempotency_keys')).toBe(false);
-    expect(await tableExists(sequelize, 'orders')).toBe(true);
+    expect(await tableExists(sequelize, 'kitchen_tickets')).toBe(false);
+    expect(await tableExists(sequelize, 'tables')).toBe(true);
     await assertConnectedToTestDatabase(sequelize);
     expect(await migrateDown(sequelize)).toEqual([MIGRATIONS[5]]);
     expect(await tableExists(sequelize, 'tables')).toBe(false);

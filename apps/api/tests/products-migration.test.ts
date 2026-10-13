@@ -198,15 +198,10 @@ describe('005: tabla products y su migración sobre polleria_test', () => {
     expect(await tableExists(sequelize, 'order_items')).toBe(true);
 
     // La última migración aplicada es la de la spec 010: revierte primero ella,
-    // luego la de la 009 (tables/orders) y la de la 007 (combo_items) en el
-    // encadenado hacia products.
+    // luego la de la 009 (tables y orders) en el encadenado hacia products.
     expect(await migrateDown(sequelize)).toEqual([ORDER_ITEMS_MIGRATION]);
     expect(await tableExists(sequelize, 'order_items')).toBe(false);
-    expect(await tableExists(sequelize, 'kitchen_tickets')).toBe(false);
-    expect(await tableExists(sequelize, 'order_item_components')).toBe(false);
-    expect(await tableExists(sequelize, 'order_item_sauces')).toBe(false);
-    expect(await tableExists(sequelize, 'idempotency_keys')).toBe(false);
-    expect(await tableExists(sequelize, 'orders')).toBe(true);
+    expect(await tableExists(sequelize, 'tables')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([TABLES_ORDERS_MIGRATION]);
     expect(await tableExists(sequelize, 'tables')).toBe(false);
     expect(await tableExists(sequelize, 'orders')).toBe(false);

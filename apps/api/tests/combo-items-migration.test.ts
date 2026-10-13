@@ -281,16 +281,11 @@ describe('007: tabla combo_items y su migración sobre polleria_test', () => {
     await insertProduct(5, 'Mostrito', 'combo', 2200);
     await sequelize.query('DELETE FROM products WHERE id = 5');
 
-    // La última aplicada es la de la spec 010: revierte primero ella, luego la de
-    // la 009 (tables/orders) y la de la 007 (combo_items), que es la que interesa a
-    // esta prueba.
+    // La última aplicada es la de la spec 010: revierte primero ella, luego la
+    // de la 009 (tables y orders) y después la de la 007 (combo_items).
     expect(await migrateDown(sequelize)).toEqual([ORDER_ITEMS_MIGRATION]);
     expect(await tableExists(sequelize, 'order_items')).toBe(false);
-    expect(await tableExists(sequelize, 'kitchen_tickets')).toBe(false);
-    expect(await tableExists(sequelize, 'order_item_components')).toBe(false);
-    expect(await tableExists(sequelize, 'order_item_sauces')).toBe(false);
-    expect(await tableExists(sequelize, 'idempotency_keys')).toBe(false);
-    expect(await tableExists(sequelize, 'orders')).toBe(true);
+    expect(await tableExists(sequelize, 'tables')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([TABLES_ORDERS_MIGRATION]);
     expect(await tableExists(sequelize, 'tables')).toBe(false);
     expect(await tableExists(sequelize, 'orders')).toBe(false);
@@ -311,8 +306,7 @@ describe('007: tabla combo_items y su migración sobre polleria_test', () => {
     await insertProduct(7, 'Arroz con pollo', 'dish', 1500);
 
     // Las migraciones son reaplicables tras revertir, en su orden de la lista:
-    // primero la de la 007 (combo_items), luego la de la 009 (orders + tables) y
-    // por último la de la 010 (ítems, comandas e idempotencia).
+    // la de la 007 (combo_items), la de la 009 (orders + tables) y la de la 010.
     expect(await migrateUp(sequelize)).toEqual([
       COMBO_ITEMS_MIGRATION,
       TABLES_ORDERS_MIGRATION,

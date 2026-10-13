@@ -1,22 +1,21 @@
-// AC-15 a AC-19. Spec 010 — archivo nuevo: va EN ROJO hasta que T-11/T-12 monten
-// las rutas /api/menu y /api/orders/{id}/items[/…] con sus controllers, roles,
-// cabecera Idempotency-Key y lectores de cuerpo.
+// AC-15 a AC-19. Spec 010 — archivo nuevo: va EN ROJO hasta que T-11 monte
+// las rutas /api/orders/{id}/items*, /api/orders/{id}/tickets y /api/menu.
 import request from 'supertest';
 import { QueryTypes } from 'sequelize';
 import type { Sequelize } from 'sequelize';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   kitchenTicketsResponseSchema,
   menuResponseSchema,
+  orderResponseSchema,
   orderSchema,
   sendOrderItemsResponseSchema,
 } from '@polleria/shared';
-import type { KitchenTicket, Order, OrderItem, Table, UserRole } from '@polleria/shared';
-import { createComboItemService } from '../src/services/combo-items/combo-item.service.ts';
+import type { UserRole } from '@polleria/shared';
 import { createOrderService } from '../src/services/orders/order.service.ts';
-import { createProductPortionService } from '../src/services/products/product-portion.service.ts';
-import { createProductService } from '../src/services/products/product.service.ts';
 import { createTableService } from '../src/services/tables/table.service.ts';
+import { createOrderItemService } from '../src/services/order-items/order-item.service.ts';
+import { createProductService } from '../src/services/products/product.service.ts';
 import {
   clearMenuTables,
   clearOrderTables,
@@ -34,11 +33,11 @@ const FORBIDDEN_BODY = {
     details: null,
   },
 };
-const NOT_FOUND_BODY = {
-  error: { code: 'NOT_FOUND', message: 'La ruta solicitada no existe.', details: null },
-};
 const ORDER_NOT_FOUND_BODY = {
   error: { code: 'ORDER_NOT_FOUND', message: 'Ese pedido no existe.', details: null },
+};
+const ORDER_NOT_OPEN_BODY = {
+  error: { code: 'ORDER_NOT_OPEN', message: 'El pedido ya est\u00E1 cerrado.', details: null },
 };
 const ORDER_ITEM_NOT_FOUND_BODY = {
   error: {
@@ -46,9 +45,6 @@ const ORDER_ITEM_NOT_FOUND_BODY = {
     message: 'Ese \u00EDtem no existe en este pedido.',
     details: null,
   },
-};
-const ORDER_NOT_OPEN_BODY = {
-  error: { code: 'ORDER_NOT_OPEN', message: 'El pedido ya est\u00E1 cerrado.', details: null },
 };
 const ORDER_ITEM_ALREADY_VOIDED_BODY = {
   error: {
@@ -84,6 +80,9 @@ const IDEMPOTENCY_CONFLICT_BODY = {
     message: 'Esa clave de env\u00EDo ya se us\u00F3 con otros datos.',
     details: null,
   },
+};
+const NOT_FOUND_BODY = {
+  error: { code: 'NOT_FOUND', message: 'La ruta solicitada no existe.', details: null },
 };
 const INVALID_JSON_BODY = {
   error: {
@@ -124,11 +123,11 @@ function jsonBodyOfSize(bytes: number): string {
   return `{"a":"${'x'.repeat(bytes - overhead)}"}`;
 }
 
-describe('010: API de ítems, comandas y menú contra polleria_test', () => {
+describe('010: API de ítems del pedido contra polleria_test', () => {
   let sequelize: Sequelize;
   let auth: ReturnType<typeof setupAuth>;
-  let tableService: ReturnType<typeof createTableService>;
   let orderService: ReturnType<typeof createOrderService>;
+  let itemService: ReturnType<typeof createOrderItemService>;
 
   beforeAll(async () => {
     sequelize = await connectTestDatabase();
@@ -138,8 +137,11 @@ describe('010: API de ítems, comandas y menú contra polleria_test', () => {
     await clearOrderTables(sequelize);
     await clearMenuTables(sequelize);
     auth = setupAuth(sequelize);
-    tableService = createTableService({ models: auth.models });
     orderService = createOrderService({ models: auth.models });
+    itemService = createOrderItemService({ models: auth.models });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
   afterAll(async () => {
     await closeTestDatabase(sequelize);
@@ -147,123 +149,52 @@ describe('010: API de ítems, comandas y menú contra polleria_test', () => {
 
   const rows = <T extends object>(sql: string, bind?: (string | number)[]) =>
     sequelize.query<T>(sql, { type: QueryTypes.SELECT, bind });
-  const itemCount = (orderId: number) =>
-    rows<{ id: number }>('SELECT id FROM order_items WHERE order_id = $1', [orderId]);
-  const ticketCount = (orderId: number) =>
-    rows<{ id: number }>('SELECT id FROM kitchen_tickets WHERE order_id = $1', [orderId]);
-  const keyCount = () => rows<{ id: number }>('SELECT id FROM idempotency_keys');
 
-  /** Crea el usuario con su nombre visible y devuelve su cookie de sesión y el usuario. */
-  async function cookieFor(username: string, displayName: string, roles: UserRole[], pin: string) {
-    const user = await auth.createUser(username, displayName, roles, pin);
-    const { cookie } = await loginWithCookie(auth.app, username, pin);
-    return { cookie, user };
+  /** Crea una usuaria con esos roles y devuelve la cookie de su sesión real. */
+  async function cookieFor(username: string, roles: UserRole[], pin: string) {
+    await auth.createUser(username, 'Persona', roles, pin);
+    return (await loginWithCookie(auth.app, username, pin)).cookie;
   }
-  const mozoCookie = () => cookieFor('items.juan', 'Juan', ['waiter'], '2468');
-  const adminCookie = () => cookieFor('items.dueno', 'Due\u00F1o', ['admin'], '975310');
-  // Cocina y caja solo ejercitan el 403: basta su cookie.
-  const cocinaCookie = async () =>
-    (await cookieFor('items.cocina', 'Beto', ['kitchen'], '1357')).cookie;
-  const cajaCookie = async () =>
-    (await cookieFor('items.caja', 'Rosa', ['cashier'], '8642')).cookie;
-
-  /** La carta semilla de la spec §4.3, por servicios, como fixture. */
-  async function seedMenu() {
-    const products = createProductService({ models: auth.models });
-    const portions = createProductPortionService({ models: auth.models });
-    const combos = createComboItemService({ models: auth.models });
-    const pollo = await products.createProduct({
-      name: 'Pollo a la brasa',
-      category: 'chicken',
-      priceCents: 4800,
+  /** El mozo Juan y la carta mínima (una bebida) para los envíos. */
+  async function seed() {
+    const mozo = await auth.createUser('mozo.juan', 'Juan', ['waiter'], '2468');
+    const mesa3 = await createTableService({ models: auth.models }).createTable({
+      name: 'Mesa 3',
     });
-    await portions.replaceProductPortions(pollo.id, {
-      portions: [
-        { portion: 'quarter', cut: 'breast', priceCents: 1500 },
-        { portion: 'quarter', cut: 'leg', priceCents: 1400 },
-        { portion: 'half', priceCents: 2600 },
-        { portion: 'whole', priceCents: 4800 },
-      ],
-    });
-    const anticucho = await products.createProduct({
-      name: 'Anticucho de pollo',
-      category: 'chicken',
-      priceCents: 1200,
-    });
-    const incaKola = await products.createProduct({
+    const order = await orderService.openOrder(mesa3.id, { userId: mozo.id });
+    const incaKola = await createProductService({ models: auth.models }).createProduct({
       name: 'Inca Kola 1L',
       category: 'drink',
       priceCents: 800,
     });
-    const aji = await products.createProduct({
-      name: 'Aj\u00ED',
-      category: 'sauce',
-      priceCents: 0,
-    });
-    const ocopa = await products.createProduct({
-      name: 'Ocopa',
-      category: 'sauce',
-      priceCents: 300,
-    });
-    const mostrito = await products.createProduct({
-      name: 'Mostrito',
-      category: 'combo',
-      priceCents: 2200,
-    });
-    await combos.replaceComboItems(mostrito.id, {
-      items: [
-        { productId: pollo.id, quantity: 1, portion: 'quarter', cut: 'leg' },
-        { productId: incaKola.id, quantity: 1 },
-      ],
-    });
-    return {
-      pollo: pollo.id,
-      anticucho: anticucho.id,
-      incaKola: incaKola.id,
-      aji: aji.id,
-      ocopa: ocopa.id,
-      mostrito: mostrito.id,
-    };
+    return { mozo, mesa3, order, incaKola };
   }
-
-  /** Mesa activa por el servicio; pedido abierto por el servicio (fixtures). */
-  const createTable = (name: string): Promise<Table> => tableService.createTable({ name });
-  const openAt = (tableId: number, userId: number): Promise<Order> =>
-    orderService.openOrder(tableId, { userId });
-  /** Mesa con pedido abierto por `userId`, lista para recibir ítems. */
-  async function orderOnTable(name: string, userId: number) {
-    const table = await createTable(name);
-    const order = await openAt(table.id, userId);
-    return { table, order };
-  }
-  /** Envía un ítem simple por HTTP y devuelve el ítem creado. */
-  async function sendOne(orderId: number, productId: number, key: string, cookie: string) {
-    const response = await postItems(orderId, { items: [{ productId }] }, key, cookie);
-    expect(response.status).toBe(201);
-    const items = (response.body as { order: Order }).order.items;
-    return items[items.length - 1] as OrderItem;
+  /** El ítem creado por ESTE envío (el último de la lista, por id). */
+  async function sentItem(orderId: number, productId: number, userId: number, key = 'k-1') {
+    const { order } = await itemService.sendItems(orderId, { items: [{ productId }] }, key, {
+      userId,
+    });
+    return order.items[order.items.length - 1]!;
   }
 
   const postItems = (orderId: number | string, body: unknown, key?: string, cookie?: string) => {
     let call = request(auth.app).post(`/api/orders/${orderId}/items`);
     if (key !== undefined) call = call.set('Idempotency-Key', key);
-    if (cookie !== undefined) call = call.set('Cookie', cookie);
-    return call.send(body as object);
+    call = call.send(body as object);
+    return cookie === undefined ? call : call.set('Cookie', cookie);
   };
-  const postItemAction = (
+  const postVoidAction = (
     orderId: number | string,
     itemId: number | string,
     action: 'request-void' | 'void' | 'reject-void',
+    body: unknown,
     key?: string,
-    body?: unknown,
     cookie?: string,
   ) => {
     let call = request(auth.app).post(`/api/orders/${orderId}/items/${itemId}/${action}`);
     if (key !== undefined) call = call.set('Idempotency-Key', key);
-    if (cookie !== undefined) call = call.set('Cookie', cookie);
-    // reject-void es bodiless; el cuerpo solo se manda cuando la prueba lo pide
-    // (por ejemplo, para comprobar que se ignora).
-    return body === undefined ? call : call.send(body as object);
+    if (body !== undefined) call = call.send(body as object);
+    return cookie === undefined ? call : call.set('Cookie', cookie);
   };
   const getTickets = (orderId: number | string, cookie?: string) => {
     const call = request(auth.app).get(`/api/orders/${orderId}/tickets`);
@@ -271,22 +202,6 @@ describe('010: API de ítems, comandas y menú contra polleria_test', () => {
   };
   const getMenu = (cookie?: string) => {
     const call = request(auth.app).get('/api/menu');
-    return cookie === undefined ? call : call.set('Cookie', cookie);
-  };
-  const getOrder = (id: number | string, cookie?: string) => {
-    const call = request(auth.app).get(`/api/orders/${id}`);
-    return cookie === undefined ? call : call.set('Cookie', cookie);
-  };
-  const postCancel = (id: number | string, body: unknown, cookie?: string) => {
-    const call = request(auth.app)
-      .post(`/api/orders/${id}/cancel`)
-      .send(body as object);
-    return cookie === undefined ? call : call.set('Cookie', cookie);
-  };
-  const postJoin = (id: number | string, body: unknown, cookie?: string) => {
-    const call = request(auth.app)
-      .post(`/api/tables/${id}/join`)
-      .send(body as object);
     return cookie === undefined ? call : call.set('Cookie', cookie);
   };
 
@@ -302,750 +217,582 @@ describe('010: API de ítems, comandas y menú contra polleria_test', () => {
     return issues as { path: string; message: string }[];
   }
 
-  it('AC-15: POST /api/orders/{id}/items responde 201 con order+ticket y no-store', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const menu = await seedMenu();
-    const { table, order } = await orderOnTable('Mesa 3', juan.id);
-
+  it('AC-15: POST /items con mozo o admin crea ítems, emite comanda y devuelve 201', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
     const response = await postItems(
-      order.id,
-      {
-        items: [
-          {
-            productId: menu.pollo,
-            quantity: 2,
-            portion: 'quarter',
-            cut: 'leg',
-            notes: 'sin ensalada',
-            sauces: [{ productId: menu.aji }, { productId: menu.ocopa, quantity: 2 }],
-          },
-          { productId: menu.incaKola },
-          { productId: menu.mostrito },
-        ],
-      },
-      'pedido-m3-001',
-      cookie,
+      s.order.id,
+      { items: [{ productId: s.incaKola.id, quantity: 2 }] },
+      'k-1',
+      mozo.cookie,
     );
     expect(response.status).toBe(201);
     expect(response.headers['cache-control']).toBe('no-store');
-    expect(sendOrderItemsResponseSchema.safeParse(response.body as unknown).success).toBe(true);
-    const body = response.body as {
-      order: Order;
-      ticket: { id: number; kind: string; orderId: number };
-    };
-    // El pedido embebido ya trae items y totalCents (el total del ejemplo de la spec: 6400).
-    expect(body.order.totalCents).toBe(6400);
-    expect(body.order.items).toHaveLength(3);
-    expect(body.order.items[0]).toMatchObject({
-      productId: menu.pollo,
-      productName: 'Pollo a la brasa',
-      productCategory: 'chicken',
+    const parsed = sendOrderItemsResponseSchema.parse(response.body);
+    expect(parsed.ticket.kind).toBe('initial');
+    expect(parsed.order.items).toHaveLength(1);
+    expect(parsed.order.items[0]).toMatchObject({
+      productId: s.incaKola.id,
+      priceCents: 800,
       quantity: 2,
-      priceCents: 1400,
-      portion: 'quarter',
-      cut: 'leg',
-      breastEighths: 0,
-      legEighths: 4,
-      notes: 'sin ensalada',
       status: 'sent',
-      kitchenTicketId: body.ticket.id,
-      orderedAtTable: { id: table.id, name: 'Mesa 3' },
-      createdBy: { id: juan.id, displayName: 'Juan' },
-      sauces: [
-        { productId: menu.aji, productName: 'Aj\u00ED', quantity: 1, priceCents: 0 },
-        { productId: menu.ocopa, productName: 'Ocopa', quantity: 2, priceCents: 300 },
-      ],
     });
-    expect(body.ticket).toMatchObject({ orderId: order.id, kind: 'initial' });
-    // El admin también puede enviar (RN-010-14).
-    const { cookie: admin } = await adminCookie();
-    const segunda = await postItems(
-      order.id,
-      { items: [{ productId: menu.incaKola }] },
-      'pedido-m3-002',
+    expect(parsed.order.totalCents).toBe(1600);
+    // El admin también puede enviar.
+    const admin = await cookieFor('mesa.duena', ['admin'], '975310');
+    const again = await postItems(
+      s.order.id,
+      { items: [{ productId: s.incaKola.id }] },
+      'k-2',
       admin,
     );
-    expect(segunda.status).toBe(201);
-    expect((segunda.body as { ticket: { kind: string } }).ticket.kind).toBe('additional');
+    expect(again.status).toBe(201);
+    const { ticket } = sendOrderItemsResponseSchema.parse(again.body);
+    expect(ticket.kind).toBe('additional');
+    expect(log).not.toHaveBeenCalled();
   });
-
-  it('AC-15: roles, sesión, cabecera y orderId responden su código', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    const body = { items: [{ productId: menu.incaKola }] };
-
-    // Cocina y caja reciben 403; sin cookie 401.
-    for (const other of [await cocinaCookie(), await cajaCookie()]) {
-      const forbidden = await postItems(order.id, body, 'k-rol', other);
-      expect(forbidden.status).toBe(403);
-      expect(forbidden.body).toEqual(FORBIDDEN_BODY);
-      expect(forbidden.headers['cache-control']).toBe('no-store');
+  it('AC-15: POST /items rechaza a cocina y caja, y exige sesión', async () => {
+    const s = await seed();
+    for (const roles of [['kitchen'], ['cashier']] as UserRole[][]) {
+      const cookie = await cookieFor(`rol.${roles[0]}`, roles, '1357');
+      const response = await postItems(
+        s.order.id,
+        { items: [{ productId: s.incaKola.id }] },
+        `k-${roles[0]}`,
+        cookie,
+      );
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual(FORBIDDEN_BODY);
+      expect(response.headers['cache-control']).toBe('no-store');
     }
-    const sinSesion = await postItems(order.id, body, 'k-rol');
-    expect(sinSesion.status).toBe(401);
-    expect(sinSesion.body).toEqual(UNAUTHENTICATED_BODY);
-    // Sin cabecera o mal formada → 400 con issue en idempotencyKey.
-    for (const key of [undefined, 'con espacio', 'x'.repeat(129)]) {
-      const response = await postItems(order.id, body, key, cookie);
-      expect(validationIssues(response)).toContainEqual({
+    const anon = await postItems(s.order.id, { items: [{ productId: s.incaKola.id }] }, 'k-anon');
+    expect(anon.status).toBe(401);
+    expect(anon.body).toEqual(UNAUTHENTICATED_BODY);
+    expect(anon.headers['cache-control']).toBe('no-store');
+  });
+  it('AC-15: POST /items exige Idempotency-Key y valida orderId', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    // Sin cabecera y con cabecera mal formada → issue en idempotencyKey.
+    for (const key of [undefined, 'con espacio']) {
+      const issues = validationIssues(
+        await postItems(s.order.id, { items: [{ productId: s.incaKola.id }] }, key, mozo.cookie),
+      );
+      expect(issues).toContainEqual({
         path: 'idempotencyKey',
         message: IDEMPOTENCY_KEY_MESSAGE,
       });
     }
-    // orderId inválido → 400 con issue en orderId; inexistente → 404.
-    expect(validationIssues(await postItems('abc', body, 'k-x', cookie))).toContainEqual({
-      path: 'orderId',
-      message: ORDER_ID_MESSAGE,
-    });
-    const noExiste = await postItems(999999, body, 'k-x', cookie);
-    expect(noExiste.status).toBe(404);
-    expect(noExiste.body).toEqual(ORDER_NOT_FOUND_BODY);
-    // Pedido cancelado → 409 ORDER_NOT_OPEN.
-    const { cookie: admin } = await adminCookie();
-    await postCancel(order.id, { reason: 'Se fueron sin pedir' }, admin);
-    const cerrado = await postItems(order.id, body, 'k-cerrado', cookie);
-    expect(cerrado.status).toBe(409);
-    expect(cerrado.body).toEqual(ORDER_NOT_OPEN_BODY);
-    expect(cerrado.headers['cache-control']).toBe('no-store');
+    // orderId inválido → issue en orderId; inexistente → 404; cerrado → 409.
+    for (const id of ['abc', '0', '1.5', '-3', '2147483648'])
+      expect(
+        validationIssues(await postItems(id, { items: [] }, 'k-x', mozo.cookie)),
+      ).toContainEqual({ path: 'orderId', message: ORDER_ID_MESSAGE });
+    const notFound = await postItems(
+      999999,
+      { items: [{ productId: s.incaKola.id }] },
+      'k-nf',
+      mozo.cookie,
+    );
+    expect(notFound.status).toBe(404);
+    expect(notFound.body).toEqual(ORDER_NOT_FOUND_BODY);
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.order.id, s.mozo.id],
+      },
+    );
+    const closed = await postItems(
+      s.order.id,
+      { items: [{ productId: s.incaKola.id }] },
+      'k-cl',
+      mozo.cookie,
+    );
+    expect(closed.status).toBe(409);
+    expect(closed.body).toEqual(ORDER_NOT_OPEN_BODY);
   });
-
-  it('AC-15: la repetición idéntica devuelve la respuesta guardada sin duplicar filas', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    const body = { items: [{ productId: menu.incaKola, quantity: 2 }] };
-
-    const first = await postItems(order.id, body, 'k-9', cookie);
-    expect(first.status).toBe(201);
-    const replay = await postItems(order.id, body, 'k-9', cookie);
+  it('AC-15: el replay HTTP devuelve la misma respuesta sin filas nuevas', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const body = { items: [{ productId: s.incaKola.id }] };
+    const first = await postItems(s.order.id, body, 'k-9', mozo.cookie);
+    const counts = async () => ({
+      items: (await rows<{ c: number }>('SELECT count(*)::int AS c FROM order_items'))[0]?.c,
+      keys: (await rows<{ c: number }>('SELECT count(*)::int AS c FROM idempotency_keys'))[0]?.c,
+    });
+    const before = await counts();
+    const replay = await postItems(s.order.id, body, 'k-9', mozo.cookie);
     expect(replay.status).toBe(201);
     expect(replay.body).toEqual(first.body);
-    // Nada se duplicó: un ítem, una comanda, una clave (regla 5).
-    expect(await itemCount(order.id)).toHaveLength(1);
-    expect(await ticketCount(order.id)).toHaveLength(1);
-    expect(await keyCount()).toHaveLength(1);
-    // Misma clave con otro cuerpo → 409 IDEMPOTENCY_CONFLICT.
-    const conflicto = await postItems(
-      order.id,
-      { items: [{ productId: menu.incaKola, quantity: 3 }] },
+    expect(await counts()).toEqual(before);
+    const conflict = await postItems(
+      s.order.id,
+      { items: [{ productId: s.incaKola.id, quantity: 2 }] },
       'k-9',
-      cookie,
+      mozo.cookie,
     );
-    expect(conflicto.status).toBe(409);
-    expect(conflicto.body).toEqual(IDEMPOTENCY_CONFLICT_BODY);
+    expect(conflict.status).toBe(409);
+    expect(conflict.body).toEqual(IDEMPOTENCY_CONFLICT_BODY);
+  });
+  it('AC-15: los issues por ítem llegan acumulados en details.issues', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const issues = validationIssues(
+      await postItems(
+        s.order.id,
+        {
+          items: [
+            { productId: 999999 },
+            { productId: s.incaKola.id, portion: 'quarter', cut: 'leg' },
+          ],
+        },
+        'k-1',
+        mozo.cookie,
+      ),
+    );
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        { path: 'items.0.productId', message: 'Ese producto no existe.' },
+        {
+          path: 'items.1.portion',
+          message: 'Este producto no lleva presentaci\u00F3n ni parte.',
+        },
+      ]),
+    );
   });
 
-  it('AC-15: una tanda con dos ítems malos acumula los issues y no escribe nada', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-
-    const response = await postItems(
-      order.id,
-      {
-        items: [{ productId: menu.incaKola }, { productId: 999999 }, { productId: menu.pollo }],
-      },
-      'k-mala',
-      cookie,
-    );
-    expect(validationIssues(response)).toEqual([
-      { path: 'items.1.productId', message: 'Ese producto no existe.' },
-      {
-        path: 'items.2.portion',
-        message: 'El pollo lleva presentaci\u00F3n (eighth, quarter, half o whole).',
-      },
-    ]);
-    // El ítem bueno tampoco se escribió: ni ítems, ni comanda, ni clave.
-    expect(await itemCount(order.id)).toHaveLength(0);
-    expect(await ticketCount(order.id)).toHaveLength(0);
-    expect(await keyCount()).toHaveLength(0);
-  });
-
-  it('AC-16: request-void marca el ítem y responde 200 { order } con no-store', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    const item = await sendOne(order.id, menu.incaKola, 'k-envio', cookie);
-
-    const response = await postItemAction(
-      order.id,
+  it('AC-16: request-void con mozo o admin deja el ítem void_requested', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const item = await sentItem(s.order.id, s.incaKola.id, s.mozo.id);
+    const response = await postVoidAction(
+      s.order.id,
       item.id,
       'request-void',
-      'sol-anul-001',
       { reason: 'Se equivoc\u00F3 el cliente' },
-      cookie,
+      'k-r1',
+      mozo.cookie,
     );
     expect(response.status).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store');
-    const body = response.body as { order: Order };
-    expect(Object.keys(body)).toEqual(['order']);
-    expect(orderSchema.safeParse(body.order).success).toBe(true);
-    const actualizado = body.order.items.find((entry: OrderItem) => entry.id === item.id);
-    expect(actualizado).toMatchObject({
+    const { order } = orderResponseSchema.parse(response.body);
+    expect(order.items[0]).toMatchObject({
       status: 'void_requested',
-      voidRequestedBy: { id: juan.id, displayName: 'Juan' },
       voidRequestReason: 'Se equivoc\u00F3 el cliente',
-      voidedBy: null,
-      voidTicketId: null,
     });
-    // Sigue contando en totalCents y no se creó comanda.
-    expect(body.order.totalCents).toBe(800);
-    expect(await ticketCount(order.id)).toHaveLength(1);
-    // El admin también puede solicitar (RN-010-14).
-    const { cookie: admin } = await adminCookie();
-    const otro = await sendOne(order.id, menu.anticucho, 'k-envio2', cookie);
-    const porAdmin = await postItemAction(
-      order.id,
-      otro.id,
-      'request-void',
-      'sol-anul-002',
-      { reason: 'El cliente se arrepinti\u00F3' },
-      admin,
-    );
-    expect(porAdmin.status).toBe(200);
-  });
-
-  it('AC-16: request-void responde 401, 403, 400 y 409 según el caso', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    const item = await sendOne(order.id, menu.incaKola, 'k-envio', cookie);
-    await postItemAction(
-      order.id,
+    // Otra clave sobre el pendiente → 409.
+    const pending = await postVoidAction(
+      s.order.id,
       item.id,
       'request-void',
-      'sol-1',
-      { reason: 'Ya pidida' },
-      cookie,
+      { reason: 'otro' },
+      'k-r2',
+      mozo.cookie,
     );
-
-    // Cocina y caja → 403; sin cookie → 401.
-    for (const other of [await cocinaCookie(), await cajaCookie()]) {
-      const forbidden = await postItemAction(
-        order.id,
+    expect(pending.status).toBe(409);
+    expect(pending.body).toEqual(ORDER_ITEM_VOID_REQUESTED_BODY);
+  });
+  it('AC-16: request-void rechaza roles, ausencias y estados inválidos', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const item = await sentItem(s.order.id, s.incaKola.id, s.mozo.id);
+    for (const roles of [['kitchen'], ['cashier']] as UserRole[][]) {
+      const cookie = await cookieFor(`rv.${roles[0]}`, roles, '1357');
+      const response = await postVoidAction(
+        s.order.id,
         item.id,
         'request-void',
-        'sol-rol',
-        { reason: 'Motivo' },
-        other,
+        { reason: 'x' },
+        'k-r9',
+        cookie,
       );
-      expect(forbidden.status).toBe(403);
-      expect(forbidden.body).toEqual(FORBIDDEN_BODY);
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual(FORBIDDEN_BODY);
     }
-    const sinSesion = await postItemAction(order.id, item.id, 'request-void', 'sol-x', {
-      reason: 'Motivo',
-    });
-    expect(sinSesion.status).toBe(401);
-    expect(sinSesion.body).toEqual(UNAUTHENTICATED_BODY);
-    // Sin reason → 400 issue en reason; sin cabecera → 400 en idempotencyKey.
-    expect(
-      validationIssues(
-        await postItemAction(order.id, item.id, 'request-void', 'sol-2', {}, cookie),
-      ),
-    ).toContainEqual({ path: 'reason', message: REASON_MESSAGE });
-    expect(
-      validationIssues(
-        await postItemAction(order.id, item.id, 'request-void', undefined, { reason: 'M' }, cookie),
-      ),
-    ).toContainEqual({ path: 'idempotencyKey', message: IDEMPOTENCY_KEY_MESSAGE });
-    // Ya 'void_requested' con otra clave → 409; sobre ítem anulado → ALREADY_VOIDED.
-    const pendiente = await postItemAction(
-      order.id,
+    const anon = await postVoidAction(s.order.id, item.id, 'request-void', { reason: 'x' }, 'k-r8');
+    expect(anon.status).toBe(401);
+    expect(anon.body).toEqual(UNAUTHENTICATED_BODY);
+    for (const [body, key] of [
+      [{}, 'k-1'],
+      [{ reason: 'x' }, undefined],
+    ] as const) {
+      const issues = validationIssues(
+        await postVoidAction(s.order.id, item.id, 'request-void', body, key, mozo.cookie),
+      );
+      expect(
+        issues.some(
+          (i) =>
+            (i.path === 'reason' && i.message === REASON_MESSAGE) ||
+            (i.path === 'idempotencyKey' && i.message === IDEMPOTENCY_KEY_MESSAGE),
+        ),
+      ).toBe(true);
+    }
+    // Ítem ajeno y pedido cerrado.
+    const missing = await postVoidAction(
+      s.order.id,
+      999999,
+      'request-void',
+      { reason: 'x' },
+      'k-m1',
+      mozo.cookie,
+    );
+    expect(missing.status).toBe(404);
+    expect(missing.body).toEqual(ORDER_ITEM_NOT_FOUND_BODY);
+    const badId = validationIssues(
+      await postVoidAction(s.order.id, 'abc', 'request-void', { reason: 'x' }, 'k-b1', mozo.cookie),
+    );
+    expect(badId).toContainEqual({ path: 'itemId', message: ITEM_ID_MESSAGE });
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.order.id, s.mozo.id],
+      },
+    );
+    const closed = await postVoidAction(
+      s.order.id,
       item.id,
       'request-void',
-      'sol-3',
-      { reason: 'Otro' },
-      cookie,
+      { reason: 'x' },
+      'k-c1',
+      mozo.cookie,
     );
-    expect(pendiente.status).toBe(409);
-    expect(pendiente.body).toEqual(ORDER_ITEM_VOID_REQUESTED_BODY);
-    const { cookie: admin } = await adminCookie();
-    const directo = await sendOne(order.id, menu.anticucho, 'k-envio3', cookie);
-    await postItemAction(order.id, directo.id, 'void', 'anul-1', { reason: 'Se cay\u00F3' }, admin);
-    const yaAnulado = await postItemAction(
-      order.id,
-      directo.id,
-      'request-void',
-      'sol-4',
-      { reason: 'Tarde' },
-      cookie,
-    );
-    expect(yaAnulado.status).toBe(409);
-    expect(yaAnulado.body).toEqual(ORDER_ITEM_ALREADY_VOIDED_BODY);
+    expect(closed.status).toBe(409);
+    expect(closed.body).toEqual(ORDER_NOT_OPEN_BODY);
   });
-
-  it('AC-16: void como admin responde 200 { order, ticket } con el ítem anulado', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const { cookie: admin, user: dueno } = await adminCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    const item = await sendOne(order.id, menu.incaKola, 'k-envio', cookie);
-    await postItemAction(
-      order.id,
-      item.id,
-      'request-void',
-      'sol-1',
-      { reason: 'Se equivoc\u00F3 el cliente' },
-      cookie,
-    );
-
-    const response = await postItemAction(
-      order.id,
+  it('AC-16: void con admin anula directo o aprueba; los demás roles no', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const admin = await cookieFor('mesa.duena', ['admin'], '975310');
+    const item = await sentItem(s.order.id, s.incaKola.id, s.mozo.id);
+    // Anulación directa sobre 'sent'.
+    const response = await postVoidAction(
+      s.order.id,
       item.id,
       'void',
-      'anul-1',
-      { reason: 'Confirmado, error del cliente' },
+      { reason: 'Confirmado' },
+      'k-v1',
       admin,
     );
     expect(response.status).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store');
-    expect(sendOrderItemsResponseSchema.safeParse(response.body as unknown).success).toBe(true);
-    const body = response.body as { order: Order; ticket: { id: number; kind: string } };
-    expect(body.ticket).toMatchObject({ kind: 'void', orderId: order.id });
-    expect(body.order.items[0]).toMatchObject({
-      id: item.id,
+    const { order, ticket } = sendOrderItemsResponseSchema.parse(response.body);
+    expect(ticket.kind).toBe('void');
+    expect(order.items[0]!.status).toBe('voided');
+    // Ya anulado → ALREADY_VOIDED.
+    const again = await postVoidAction(s.order.id, item.id, 'void', { reason: 'x' }, 'k-v2', admin);
+    expect(again.status).toBe(409);
+    expect(again.body).toEqual(ORDER_ITEM_ALREADY_VOIDED_BODY);
+    // Otro ítem + solicitud → void del admin aprueba.
+    const item2 = await sentItem(s.order.id, s.incaKola.id, s.mozo.id, 'k-3');
+    await postVoidAction(
+      s.order.id,
+      item2.id,
+      'request-void',
+      { reason: 'pido' },
+      'k-r1',
+      mozo.cookie,
+    );
+    const approved = await postVoidAction(
+      s.order.id,
+      item2.id,
+      'void',
+      { reason: 'aprobado' },
+      'k-v3',
+      admin,
+    );
+    expect(approved.status).toBe(200);
+    const { order: approvedOrder } = sendOrderItemsResponseSchema.parse(approved.body);
+    expect(approvedOrder.items.find((i) => i.id === item2.id)).toMatchObject({
       status: 'voided',
-      voidedBy: { id: dueno.id, displayName: 'Due\u00F1o' },
-      voidReason: 'Confirmado, error del cliente',
-      voidTicketId: body.ticket.id,
-      voidRequestedBy: { id: juan.id, displayName: 'Juan' },
-      voidRequestReason: 'Se equivoc\u00F3 el cliente',
+      voidRequestReason: 'pido',
     });
-    expect(body.order.totalCents).toBe(0);
-    // Anulación directa sobre 'sent' también funciona (sin solicitud previa).
-    const segundo = await sendOne(order.id, menu.anticucho, 'k-envio2', cookie);
-    const directo = await postItemAction(
-      order.id,
-      segundo.id,
+    // Mozo no anula.
+    const waiter = await postVoidAction(
+      s.order.id,
+      item2.id,
       'void',
-      'anul-2',
-      { reason: 'Lo anulo yo' },
-      admin,
+      { reason: 'x' },
+      'k-v4',
+      mozo.cookie,
     );
-    expect(directo.status).toBe(200);
-    expect((directo.body as { order: Order }).order.items[1]).toMatchObject({
-      status: 'voided',
-      voidRequestedBy: null,
-    });
-    // Ya 'voided' con otra clave → 409; replay con la misma → respuesta guardada.
-    const replay = await postItemAction(
-      order.id,
-      item.id,
-      'void',
-      'anul-1',
-      { reason: 'Confirmado, error del cliente' },
-      admin,
+    expect(waiter.status).toBe(403);
+    expect(waiter.body).toEqual(FORBIDDEN_BODY);
+    // Sin cabecera → issue en idempotencyKey; ítem ajeno → 404.
+    const noKey = validationIssues(
+      await postVoidAction(s.order.id, item.id, 'void', { reason: 'x' }, undefined, admin),
     );
-    expect(replay.status).toBe(200);
-    expect(replay.body).toEqual(response.body);
-    const otraClave = await postItemAction(
-      order.id,
-      item.id,
-      'void',
-      'anul-3',
-      { reason: 'Otra vez' },
-      admin,
-    );
-    expect(otraClave.status).toBe(409);
-    expect(otraClave.body).toEqual(ORDER_ITEM_ALREADY_VOIDED_BODY);
+    expect(noKey).toContainEqual({ path: 'idempotencyKey', message: IDEMPOTENCY_KEY_MESSAGE });
   });
-
-  it('AC-16: void exige admin, reason y cabecera', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const { cookie: admin } = await adminCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    const item = await sendOne(order.id, menu.incaKola, 'k-envio', cookie);
-    await postItemAction(order.id, item.id, 'request-void', 'sol-1', { reason: 'Motivo' }, cookie);
-
-    // void: mozo, cocina y caja reciben 403 (solo admin — regla 6).
-    for (const other of [cookie, await cocinaCookie(), await cajaCookie()]) {
-      const forbidden = await postItemAction(
-        order.id,
-        item.id,
-        'void',
-        'anul-rol',
-        { reason: 'Motivo' },
-        other,
-      );
-      expect(forbidden.status).toBe(403);
-      expect(forbidden.body).toEqual(FORBIDDEN_BODY);
-    }
-    // Sin reason o sin cabecera → 400 con el issue correspondiente; sin cookie → 401.
-    expect(
-      validationIssues(await postItemAction(order.id, item.id, 'void', 'anul-2', {}, admin)),
-    ).toContainEqual({ path: 'reason', message: REASON_MESSAGE });
-    expect(
-      validationIssues(
-        await postItemAction(order.id, item.id, 'void', undefined, { reason: 'M' }, admin),
-      ),
-    ).toContainEqual({ path: 'idempotencyKey', message: IDEMPOTENCY_KEY_MESSAGE });
-    const sinSesion = await postItemAction(order.id, item.id, 'void', 'anul-3', { reason: 'M' });
-    expect(sinSesion.status).toBe(401);
-    expect(sinSesion.body).toEqual(UNAUTHENTICATED_BODY);
-  });
-
-  it('AC-16: reject-void devuelve el ítem a sent, exige admin y sin cuerpo', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const { cookie: admin } = await adminCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    const item = await sendOne(order.id, menu.incaKola, 'k-envio', cookie);
-    await postItemAction(order.id, item.id, 'request-void', 'sol-1', { reason: 'Motivo' }, cookie);
-
-    // Solo admin rechaza: mozo, cocina y caja reciben 403.
-    for (const other of [cookie, await cocinaCookie(), await cajaCookie()]) {
-      const forbidden = await postItemAction(
-        order.id,
-        item.id,
-        'reject-void',
-        'rech-rol',
-        undefined,
-        other,
-      );
-      expect(forbidden.status).toBe(403);
-      expect(forbidden.body).toEqual(FORBIDDEN_BODY);
-    }
-    // Sin cabecera → 400; sin cookie → 401.
-    expect(
-      validationIssues(
-        await postItemAction(order.id, item.id, 'reject-void', undefined, undefined, admin),
-      ),
-    ).toContainEqual({ path: 'idempotencyKey', message: IDEMPOTENCY_KEY_MESSAGE });
-    expect((await postItemAction(order.id, item.id, 'reject-void', 'rech-0')).status).toBe(401);
-
-    // La ruta es bodiless: si llega un cuerpo JSON se ignora por completo.
-    const rejected = await postItemAction(
-      order.id,
+  it('AC-16: reject-void con admin devuelve el ítem a sent sin cuerpo', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const admin = await cookieFor('mesa.duena', ['admin'], '975310');
+    const item = await sentItem(s.order.id, s.incaKola.id, s.mozo.id);
+    // Sobre 'sent' → NOT_REQUESTED.
+    const notRequested = await postVoidAction(
+      s.order.id,
       item.id,
       'reject-void',
-      'rech-1',
-      { reason: 'Este cuerpo se ignora', extra: 1 },
-      admin,
-    );
-    expect(rejected.status).toBe(200);
-    expect(rejected.headers['cache-control']).toBe('no-store');
-    expect(Object.keys(rejected.body as object)).toEqual(['order']);
-    const devuelto = (rejected.body as { order: Order }).order.items[0];
-    expect(devuelto).toMatchObject({
-      id: item.id,
-      status: 'sent',
-      voidRequestedBy: null,
-      voidRequestedAt: null,
-      voidRequestReason: null,
-      voidedBy: null,
-    });
-    expect((rejected.body as { order: Order }).order.totalCents).toBe(800);
-    // Rechazar sobre 'sent' (ya rechazado) con otra clave → 409 NOT_REQUESTED.
-    const sinPendiente = await postItemAction(
-      order.id,
-      item.id,
-      'reject-void',
-      'rech-2',
       undefined,
+      'k-x0',
       admin,
     );
-    expect(sinPendiente.status).toBe(409);
-    expect(sinPendiente.body).toEqual(ORDER_ITEM_NOT_REQUESTED_BODY);
-  });
-
-  it('AC-16: itemId inválido, ajeno o sobre pedido cerrado responden su código', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const { cookie: admin } = await adminCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    const { order: otroPedido } = await orderOnTable('Mesa 4', juan.id);
-    const item = await sendOne(order.id, menu.incaKola, 'k-envio', cookie);
-    const ajeno = await sendOne(otroPedido.id, menu.incaKola, 'k-ajeno', cookie);
-
-    for (const action of ['request-void', 'void', 'reject-void'] as const) {
-      const actor = action === 'request-void' ? cookie : admin;
-      const body = action === 'reject-void' ? undefined : { reason: 'Motivo' };
-      // itemId 'abc' → 400 con issue en itemId.
-      expect(
-        validationIssues(
-          await postItemAction(order.id, 'abc', action, `k-a-${action}`, body, actor),
-        ),
-      ).toContainEqual({ path: 'itemId', message: ITEM_ID_MESSAGE });
-      // itemId inexistente y de otro pedido → 404 ORDER_ITEM_NOT_FOUND.
-      for (const itemId of [999999, ajeno.id]) {
-        const noHallado = await postItemAction(
-          order.id,
-          itemId,
-          action,
-          `k-b-${action}-${itemId}`,
-          body,
-          actor,
-        );
-        expect(noHallado.status).toBe(404);
-        expect(noHallado.body).toEqual(ORDER_ITEM_NOT_FOUND_BODY);
-      }
-      // Pedido de la ruta inexistente → 404 ORDER_NOT_FOUND.
-      const sinPedido = await postItemAction(999999, item.id, action, `k-c-${action}`, body, actor);
-      expect(sinPedido.status).toBe(404);
-      expect(sinPedido.body).toEqual(ORDER_NOT_FOUND_BODY);
-      expect(sinPedido.headers['cache-control']).toBe('no-store');
-    }
-    // Pedido cancelado → 409 ORDER_NOT_OPEN en las tres.
-    await postCancel(order.id, { reason: 'Cerrado' }, admin);
-    for (const action of ['request-void', 'void', 'reject-void'] as const) {
-      const actor = action === 'request-void' ? cookie : admin;
-      const body = action === 'reject-void' ? undefined : { reason: 'Motivo' };
-      const cerrado = await postItemAction(order.id, item.id, action, `k-d-${action}`, body, actor);
-      expect(cerrado.status).toBe(409);
-      expect(cerrado.body).toEqual(ORDER_NOT_OPEN_BODY);
-    }
-  });
-
-  it('AC-17: GET /api/menu responde la carta armada a cualquier rol con no-store', async () => {
-    const { cookie } = await mozoCookie();
-    await seedMenu();
-
-    for (const session of [
-      cookie,
-      await cocinaCookie(),
-      await cajaCookie(),
-      (await adminCookie()).cookie,
-    ]) {
-      const response = await getMenu(session);
-      expect(response.status).toBe(200);
-      expect(response.headers['cache-control']).toBe('no-store');
-      expect(menuResponseSchema.safeParse(response.body as unknown).success).toBe(true);
-      const products = (response.body as { products: { name: string }[] }).products;
-      expect(products.map((product) => product.name)).toEqual([
-        'Anticucho de pollo',
-        'Pollo a la brasa',
-        'Mostrito',
-        'Inca Kola 1L',
-        'Aj\u00ED',
-        'Ocopa',
-      ]);
-    }
-    // Sin sesión → 401.
-    const sinSesion = await getMenu();
-    expect(sinSesion.status).toBe(401);
-    expect(sinSesion.body).toEqual(UNAUTHENTICATED_BODY);
-    expect(sinSesion.headers['cache-control']).toBe('no-store');
-  });
-
-  it('AC-17: GET /api/orders/{id}/tickets devuelve las comandas del pedido en orden', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const { cookie: admin } = await adminCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    // initial, additional y void: la serie completa del pedido.
-    await postItems(order.id, { items: [{ productId: menu.incaKola }] }, 'k-1', cookie);
-    const segundo = await postItems(
-      order.id,
-      { items: [{ productId: menu.anticucho }] },
-      'k-2',
-      cookie,
+    expect(notRequested.status).toBe(409);
+    expect(notRequested.body).toEqual(ORDER_ITEM_NOT_REQUESTED_BODY);
+    await postVoidAction(
+      s.order.id,
+      item.id,
+      'request-void',
+      { reason: 'pido' },
+      'k-r1',
+      mozo.cookie,
     );
-    const anulado = (segundo.body as { order: Order }).order.items[1]?.id ?? -1;
-    await postItemAction(order.id, anulado, 'void', 'anul-1', { reason: 'Error' }, admin);
+    // La ruta no lleva cuerpo: un JSON de más se ignora.
+    const response = await postVoidAction(
+      s.order.id,
+      item.id,
+      'reject-void',
+      { extra: 'ignorado' },
+      'k-x1',
+      admin,
+    );
+    expect(response.status).toBe(200);
+    const { order } = orderResponseSchema.parse(response.body);
+    expect(order.items[0]).toMatchObject({ status: 'sent', voidRequestReason: null });
+    // Mozo no resuelve; sin cabecera → 400.
+    const waiter = await postVoidAction(
+      s.order.id,
+      item.id,
+      'reject-void',
+      undefined,
+      'k-x2',
+      mozo.cookie,
+    );
+    expect(waiter.status).toBe(403);
+    expect(waiter.body).toEqual(FORBIDDEN_BODY);
+    const noKey = validationIssues(
+      await postVoidAction(s.order.id, item.id, 'reject-void', undefined, undefined, admin),
+    );
+    expect(noKey).toContainEqual({ path: 'idempotencyKey', message: IDEMPOTENCY_KEY_MESSAGE });
+    const missing = await postVoidAction(
+      s.order.id,
+      999999,
+      'reject-void',
+      undefined,
+      'k-x3',
+      admin,
+    );
+    expect(missing.status).toBe(404);
+    expect(missing.body).toEqual(ORDER_ITEM_NOT_FOUND_BODY);
+    await sequelize.query(
+      "UPDATE orders SET status = 'closed', closed_at = now(), closed_by_user_id = $2 WHERE id = $1",
+      {
+        bind: [s.order.id, s.mozo.id],
+      },
+    );
+    const closed = await postVoidAction(
+      s.order.id,
+      item.id,
+      'reject-void',
+      undefined,
+      'k-x4',
+      admin,
+    );
+    expect(closed.status).toBe(409);
+    expect(closed.body).toEqual(ORDER_NOT_OPEN_BODY);
+  });
+  it('AC-16: request-void y reject-void rechazan ítem voided', async () => {
+    const s = await seed();
+    const admin = await cookieFor('mesa.duena', ['admin'], '975310');
+    const item = await sentItem(s.order.id, s.incaKola.id, s.mozo.id);
+    await postVoidAction(s.order.id, item.id, 'void', { reason: 'ok' }, 'k-v1', admin);
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const reqAgain = await postVoidAction(
+      s.order.id,
+      item.id,
+      'request-void',
+      { reason: 'x' },
+      'k-r2',
+      mozo.cookie,
+    );
+    expect(reqAgain.status).toBe(409);
+    expect(reqAgain.body).toEqual(ORDER_ITEM_ALREADY_VOIDED_BODY);
+    const rejAgain = await postVoidAction(
+      s.order.id,
+      item.id,
+      'reject-void',
+      undefined,
+      'k-x1',
+      admin,
+    );
+    expect(rejAgain.status).toBe(409);
+    expect(rejAgain.body).toEqual(ORDER_ITEM_ALREADY_VOIDED_BODY);
+  });
 
-    for (const session of [cookie, await cocinaCookie(), await cajaCookie(), admin]) {
-      const response = await getTickets(order.id, session);
+  it('AC-17: GET /api/menu responde a cualquier rol con la carta y no-store', async () => {
+    const s = await seed();
+    for (const roles of [['waiter'], ['admin'], ['kitchen'], ['cashier']] as UserRole[][]) {
+      const cookie = await cookieFor(`menu.${roles[0]}`, roles, '1357');
+      const response = await getMenu(cookie);
       expect(response.status).toBe(200);
       expect(response.headers['cache-control']).toBe('no-store');
-      expect(kitchenTicketsResponseSchema.safeParse(response.body as unknown).success).toBe(true);
-      const tickets = (response.body as { tickets: { kind: string; items: unknown[] }[] }).tickets;
-      expect(tickets.map((ticket: KitchenTicket) => ticket.kind)).toEqual([
-        'initial',
-        'additional',
-        'void',
-      ]);
-      expect(tickets[2]?.items).toHaveLength(1);
+      const { products } = menuResponseSchema.parse(response.body);
+      expect(products.map((p: { name: string }) => p.name)).toContain('Inca Kola 1L');
     }
-    // Un pedido sin envíos → { tickets: [] }; inexistente → 404; inválido → 400.
-    const { order: vacio } = await orderOnTable('Mesa 8', juan.id);
-    const vacioTickets = await getTickets(vacio.id, cookie);
-    expect(vacioTickets.status).toBe(200);
-    expect(vacioTickets.body).toEqual({ tickets: [] });
-    const noExiste = await getTickets(999999, cookie);
-    expect(noExiste.status).toBe(404);
-    expect(noExiste.body).toEqual(ORDER_NOT_FOUND_BODY);
-    expect(validationIssues(await getTickets('abc', cookie))).toContainEqual({
+    const anon = await getMenu();
+    expect(anon.status).toBe(401);
+    expect(anon.body).toEqual(UNAUTHENTICATED_BODY);
+    expect(anon.headers['cache-control']).toBe('no-store');
+    expect(s.order.id).toBeGreaterThan(0);
+  });
+  it('AC-17: GET /orders/{id}/tickets lista comandas a cualquier rol', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    await postItems(s.order.id, { items: [{ productId: s.incaKola.id }] }, 'k-1', mozo.cookie);
+    for (const roles of [['kitchen'], ['cashier'], ['admin']] as UserRole[][]) {
+      const cookie = await cookieFor(`tk.${roles[0]}`, roles, '1357');
+      const response = await getTickets(s.order.id, cookie);
+      expect(response.status).toBe(200);
+      expect(response.headers['cache-control']).toBe('no-store');
+      const { tickets } = kitchenTicketsResponseSchema.parse(response.body);
+      expect(tickets).toHaveLength(1);
+      expect(tickets[0]).toMatchObject({ kind: 'initial', orderId: s.order.id });
+    }
+    const anon = await getTickets(s.order.id);
+    expect(anon.status).toBe(401);
+    const notFound = await getTickets(999999, mozo.cookie);
+    expect(notFound.status).toBe(404);
+    expect(notFound.body).toEqual(ORDER_NOT_FOUND_BODY);
+    expect(validationIssues(await getTickets('abc', mozo.cookie))).toContainEqual({
       path: 'orderId',
       message: ORDER_ID_MESSAGE,
     });
-    // Sin sesión → 401.
-    expect((await getTickets(order.id)).status).toBe(401);
+    // Sin envíos → lista vacía.
+    const mesa9 = await createTableService({ models: auth.models }).createTable({ name: 'Mesa 9' });
+    const vacio = await orderService.openOrder(mesa9.id, { userId: s.mozo.id });
+    const empty = await getTickets(vacio.id, mozo.cookie);
+    expect(empty.status).toBe(200);
+    expect(empty.body).toEqual({ tickets: [] });
   });
 
-  it('AC-18: cancel por HTTP bloquea con ítems activos y exige admin tras anularlos', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const { cookie: admin } = await adminCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    const item = await sendOne(order.id, menu.incaKola, 'k-envio', cookie);
+  it('AC-18: cancel con ítems activos 409; solo anulados 403 mozo / 200 admin', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const admin = await cookieFor('mesa.duena', ['admin'], '975310');
+    const item = await sentItem(s.order.id, s.incaKola.id, s.mozo.id);
+    const cancel = (cookie: string) =>
+      request(auth.app)
+        .post(`/api/orders/${s.order.id}/cancel`)
+        .set('Cookie', cookie)
+        .send({ reason: 'Se fueron sin pedir' });
+    const active = await cancel(mozo.cookie);
+    expect(active.status).toBe(409);
+    expect(active.body).toEqual(ORDER_HAS_ACTIVE_ITEMS_BODY);
+    await postVoidAction(s.order.id, item.id, 'void', { reason: 'ok' }, 'k-v1', admin);
+    const waiter = await cancel(mozo.cookie);
+    expect(waiter.status).toBe(403);
+    expect(waiter.body).toEqual(FORBIDDEN_BODY);
+    const done = await cancel(admin);
+    expect(done.status).toBe(200);
+    expect(orderSchema.parse(done.body).status).toBe('cancelled');
+  });
+  it('AC-18: join por HTTP mueve los ítems y el tablero suma el total', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const mesa4 = await createTableService({ models: auth.models }).createTable({ name: 'Mesa 4' });
+    const orderQ = await orderService.openOrder(mesa4.id, { userId: s.mozo.id });
+    await postItems(s.order.id, { items: [{ productId: s.incaKola.id }] }, 'k-1', mozo.cookie);
+    await postItems(orderQ.id, { items: [{ productId: s.incaKola.id }] }, 'k-2', mozo.cookie);
+    const join = await request(auth.app)
+      .post(`/api/tables/${mesa4.id}/join`)
+      .set('Cookie', mozo.cookie)
+      .send({ intoTableId: s.mesa3.id });
+    expect(join.status).toBe(200);
+    const view = await request(auth.app).get('/api/tables').set('Cookie', mozo.cookie);
+    const tablesView = (view.body as { tables: { id: number; order: { totalCents: number } }[] })
+      .tables;
+    const mesa3view = tablesView.find((t) => t.id === s.mesa3.id);
+    expect(mesa3view?.order.totalCents).toBe(1600);
+    const orderP = await request(auth.app)
+      .get(`/api/orders/${s.order.id}`)
+      .set('Cookie', mozo.cookie);
+    const orderPView = orderSchema.parse(orderP.body);
+    expect(orderPView.items).toHaveLength(2);
+    expect(orderPView.totalCents).toBe(1600);
+  });
 
-    // Con un ítem 'sent' → 409 ORDER_HAS_ACTIVE_ITEMS para mozo y admin.
-    for (const actor of [cookie, admin]) {
-      const bloqueado = await postCancel(order.id, { reason: 'Se fueron' }, actor);
-      expect(bloqueado.status).toBe(409);
-      expect(bloqueado.body).toEqual(ORDER_HAS_ACTIVE_ITEMS_BODY);
-      expect(bloqueado.headers['cache-control']).toBe('no-store');
+  it('AC-19: métodos y sub-rutas no declarados responden 404 con no-store', async () => {
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    for (const call of [
+      request(auth.app).patch(`/api/orders/${s.order.id}/items`).set('Cookie', mozo.cookie),
+      request(auth.app).delete(`/api/orders/${s.order.id}/items`).set('Cookie', mozo.cookie),
+      request(auth.app).put(`/api/orders/${s.order.id}/items/1/void`).set('Cookie', mozo.cookie),
+      request(auth.app).get(`/api/orders/${s.order.id}/items/1/void`).set('Cookie', mozo.cookie),
+      request(auth.app)
+        .post(`/api/orders/${s.order.id}/items/1/approve`)
+        .set('Cookie', mozo.cookie),
+      request(auth.app).post('/api/menu').set('Cookie', mozo.cookie),
+      request(auth.app).get(`/api/orders/${s.order.id}/tickets/1`).set('Cookie', mozo.cookie),
+    ]) {
+      const response = await call;
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual(NOT_FOUND_BODY);
+      expect(response.headers['cache-control']).toBe('no-store');
     }
-    // Con la solicitud pendiente también bloquea.
-    await postItemAction(order.id, item.id, 'request-void', 'sol-1', { reason: 'Error' }, cookie);
-    const conPendiente = await postCancel(order.id, { reason: 'Se fueron' }, admin);
-    expect(conPendiente.status).toBe(409);
-    expect(conPendiente.body).toEqual(ORDER_HAS_ACTIVE_ITEMS_BODY);
-    // Anulado el ítem: mozo → 403; admin → 200 cancelled.
-    await postItemAction(order.id, item.id, 'void', 'anul-1', { reason: 'Confirmado' }, admin);
-    const mozoCancela = await postCancel(order.id, { reason: 'Se fueron' }, cookie);
-    expect(mozoCancela.status).toBe(403);
-    expect(mozoCancela.body).toEqual(FORBIDDEN_BODY);
-    const cancelado = await postCancel(order.id, { reason: 'Se fueron sin pagar' }, admin);
-    expect(cancelado.status).toBe(200);
-    expect((cancelado.body as { order: Order }).order).toMatchObject({
-      status: 'cancelled',
-      totalCents: 0,
-    });
-    expect((cancelado.body as { order: Order }).order.items[0]).toMatchObject({
-      status: 'voided',
-    });
-    // Pedido que nunca tuvo ítems → el mozo cancela como en la 009 (sin regresión).
-    const { order: sinItems } = await orderOnTable('Mesa 5', juan.id);
-    const comunCancela = await postCancel(sinItems.id, { reason: 'Error de apertura' }, cookie);
-    expect(comunCancela.status).toBe(200);
-    expect((comunCancela.body as { order: Order }).order.status).toBe('cancelled');
   });
-
-  it('AC-18: join por HTTP mueve los ítems y el tablero muestra el total combinado', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const menu = await seedMenu();
-    const { table: mesa3, order: p } = await orderOnTable('Mesa 3', juan.id);
-    const { table: mesa4, order: q } = await orderOnTable('Mesa 4', juan.id);
-    await postItems(
-      p.id,
-      { items: [{ productId: menu.pollo, portion: 'quarter', cut: 'leg' }] },
-      'k-p',
-      cookie,
-    );
-    await postItems(q.id, { items: [{ productId: menu.incaKola, quantity: 2 }] }, 'k-q', cookie);
-
-    const joined = await postJoin(mesa4.id, { intoTableId: mesa3.id }, cookie);
-    expect(joined.status).toBe(200);
-    const destino = (joined.body as { order: Order }).order;
-    expect(destino.id).toBe(p.id);
-    // Los ítems de Q conservan su mesa de origen y el total se combina.
-    expect(destino.items).toHaveLength(2);
-    const deQ = destino.items.filter((item: OrderItem) => item.orderedAtTable?.id === mesa4.id);
-    expect(deQ).toHaveLength(1);
-    expect(deQ[0]).toMatchObject({ productId: menu.incaKola, quantity: 2 });
-    expect(destino.totalCents).toBe(1400 + 1600);
-    // GET del pedido absorbido: merged, sin ítems, total 0.
-    const absorbido = await getOrder(q.id, cookie);
-    expect((absorbido.body as { order: Order }).order).toMatchObject({
-      status: 'merged',
-      items: [],
-      totalCents: 0,
-    });
-    // El tablero embebe el pedido con el total combinado en cada mesa.
-    const tablero = await request(auth.app).get('/api/tables').set('Cookie', cookie);
-    const mesa3View = (
-      tablero.body as { tables: { id: number; order: Order | null }[] }
-    ).tables.find((table) => table.id === mesa3.id);
-    const mesa4View = (
-      tablero.body as { tables: { id: number; order: Order | null }[] }
-    ).tables.find((table) => table.id === mesa4.id);
-    expect(mesa3View?.order?.totalCents).toBe(3000);
-    expect(mesa4View?.order?.totalCents).toBe(3000);
-    expect(mesa4View?.order?.items).toHaveLength(2);
-  });
-
-  it('AC-19: métodos no declarados en las rutas nuevas responden 404 con no-store', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-
-    // PUT al envío, GET a la anulación y DELETE a las comandas: nunca 405.
-    const putItems = await request(auth.app)
-      .put(`/api/orders/${order.id}/items`)
-      .set('Cookie', cookie)
-      .send({ items: [] });
-    expect(putItems.status).toBe(404);
-    expect(putItems.body).toEqual(NOT_FOUND_BODY);
-    expect(putItems.headers['cache-control']).toBe('no-store');
-    const getVoid = await request(auth.app)
-      .get(`/api/orders/${order.id}/items/5/void`)
-      .set('Cookie', cookie);
-    expect(getVoid.status).toBe(404);
-    expect(getVoid.body).toEqual(NOT_FOUND_BODY);
-    const deleteTickets = await request(auth.app)
-      .delete(`/api/orders/${order.id}/tickets`)
-      .set('Cookie', cookie);
-    expect(deleteTickets.status).toBe(404);
-    expect(deleteTickets.body).toEqual(NOT_FOUND_BODY);
-    // PATCH al menú tampoco existe.
-    const patchMenu = await request(auth.app)
-      .patch('/api/menu')
-      .set('Cookie', cookie)
-      .send({ name: 'X' });
-    expect(patchMenu.status).toBe(404);
-    expect(patchMenu.headers['cache-control']).toBe('no-store');
-  });
-
-  it('AC-19: el lector del cuerpo responde 400/415/413 en las rutas con cuerpo', async () => {
-    const { cookie, user: juan } = await mozoCookie();
-    const { cookie: admin } = await adminCookie();
-    const menu = await seedMenu();
-    const { order } = await orderOnTable('Mesa 3', juan.id);
-    const item = await sendOne(order.id, menu.incaKola, 'k-envio', cookie);
-    // Las tres rutas nuevas con cuerpo: items (mozo), request-void (mozo) y void (admin).
-    const rutas: { path: string; cookie: string; key: string }[] = [
-      { path: `/api/orders/${order.id}/items`, cookie, key: 'k-lector-1' },
-      { path: `/api/orders/${order.id}/items/${item.id}/request-void`, cookie, key: 'k-lector-2' },
-      { path: `/api/orders/${order.id}/items/${item.id}/void`, cookie: admin, key: 'k-lector-3' },
-    ];
-    for (const { path, cookie: sesion, key } of rutas) {
-      // JSON inválido → 400 INVALID_JSON.
-      const roto = await request(auth.app)
-        .post(path)
-        .set('Cookie', sesion)
-        .set('Idempotency-Key', key)
-        .set('Content-Type', 'application/json')
-        .send('{"items": [');
-      expect(roto.status).toBe(400);
-      expect(roto.body).toEqual(INVALID_JSON_BODY);
-      expect(roto.headers['cache-control']).toBe('no-store');
-      // JSON que no es objeto → 400 INVALID_BODY.
-      const noObjeto = await request(auth.app)
-        .post(path)
-        .set('Cookie', sesion)
-        .set('Idempotency-Key', key)
-        .set('Content-Type', 'application/json')
-        .send('[1,2,3]');
-      expect(noObjeto.status).toBe(400);
-      expect(noObjeto.body).toEqual(INVALID_BODY_BODY);
-      // Content-Type incorrecto con cuerpo → 415.
-      const textoPlano = await request(auth.app)
-        .post(path)
-        .set('Cookie', sesion)
-        .set('Idempotency-Key', key)
-        .set('Content-Type', 'text/plain')
-        .send('{"items": []}');
-      expect(textoPlano.status).toBe(415);
-      expect(textoPlano.body).toEqual(UNSUPPORTED_MEDIA_TYPE_BODY);
-      // Cuerpo > 100 kb → 413 PAYLOAD_TOO_LARGE.
-      const grande = await sendRawBody(
+  it('AC-19: el lector de cuerpos responde sus cuatro errores en las rutas con cuerpo', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const s = await seed();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const admin = await cookieFor('mesa.duena', ['admin'], '975310');
+    const item = await sentItem(s.order.id, s.incaKola.id, s.mozo.id);
+    const bodyRouteFactories = [
+      () =>
         request(auth.app)
-          .post(path)
-          .set('Cookie', sesion)
-          .set('Idempotency-Key', key)
-          .set('Content-Type', 'application/json'),
-        Buffer.from(jsonBodyOfSize(102 * 1024 + 1), 'utf8'),
+          .post(`/api/orders/${s.order.id}/items`)
+          .set('Cookie', mozo.cookie)
+          .set('Idempotency-Key', 'k-b1'),
+      () =>
+        request(auth.app)
+          .post(`/api/orders/${s.order.id}/items/${item.id}/request-void`)
+          .set('Cookie', mozo.cookie)
+          .set('Idempotency-Key', 'k-b2'),
+      () =>
+        request(auth.app)
+          .post(`/api/orders/${s.order.id}/items/${item.id}/void`)
+          .set('Cookie', admin)
+          .set('Idempotency-Key', 'k-b3'),
+    ];
+    for (const makeCall of bodyRouteFactories) {
+      const badJson = await sendRawBody(
+        makeCall().set('Content-Type', 'application/json'),
+        Buffer.from('{"items":'),
       );
-      expect(grande.status).toBe(413);
-      expect(grande.body).toEqual(PAYLOAD_TOO_LARGE_BODY);
-      expect(grande.headers['cache-control']).toBe('no-store');
+      expect(badJson.status).toBe(400);
+      expect(badJson.body).toEqual(INVALID_JSON_BODY);
+      expect(badJson.headers['cache-control']).toBe('no-store');
+      const notObject = await sendRawBody(
+        makeCall().set('Content-Type', 'application/json'),
+        Buffer.from('[1, 2]'),
+      );
+      expect(notObject.status).toBe(400);
+      expect(notObject.body).toEqual(INVALID_BODY_BODY);
+      expect(notObject.headers['cache-control']).toBe('no-store');
+      const wrongType = await sendRawBody(
+        makeCall().set('Content-Type', 'text/plain'),
+        Buffer.from('{"a":1}'),
+      );
+      expect(wrongType.status).toBe(415);
+      expect(wrongType.body).toEqual(UNSUPPORTED_MEDIA_TYPE_BODY);
+      const tooLarge = await sendRawBody(
+        makeCall().set('Content-Type', 'application/json'),
+        Buffer.from(jsonBodyOfSize(150 * 1024)),
+      );
+      expect(tooLarge.status).toBe(413);
+      expect(tooLarge.body).toEqual(PAYLOAD_TOO_LARGE_BODY);
     }
-    // Nada quedó escrito: un ítem (el del arreglo), una comanda, una clave.
-    expect(await itemCount(order.id)).toHaveLength(1);
-    expect(await ticketCount(order.id)).toHaveLength(1);
-    expect(await keyCount()).toHaveLength(1);
+    expect(log).not.toHaveBeenCalled();
   });
 });

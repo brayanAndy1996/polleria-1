@@ -28,7 +28,7 @@ export const COMBO_ITEM_QUANTITY_MAX = 99;
 
 const PRODUCT_ID_MESSAGE = 'El identificador del producto no es válido.';
 const QUANTITY_MESSAGE = 'Indica cuántas unidades lleva este componente.';
-const CUT_WITHOUT_PORTION_MESSAGE = 'Sin presentación no se puede indicar la parte.';
+export const CUT_WITHOUT_PORTION_MESSAGE = 'Sin presentación no se puede indicar la parte.';
 const ITEMS_MAX_MESSAGE = 'Un combo admite hasta 10 componentes.';
 const ITEMS_DUPLICATED_MESSAGE = 'Hay componentes repetidos en la lista.';
 
@@ -155,17 +155,14 @@ export interface ComboConsumptionItem {
  * Lanza error ante un cut sin portion (defensa propia) o una combinación inválida
  * (delegada a chickenConsumption), igual que los datos que el servicio ya impide.
  *
- * El parámetro acepta cualquier iterable (sección 8.3); la unión con un ítem suelto
- * existe porque it.each de Vitest reparte cada fila como argumentos y una fila de un
- * solo ítem le pasa el ítem mismo —que no es iterable y lanza TypeError, como piden
- * los casos de lanzamiento de AC-05.
+ * El parámetro acepta únicamente iterables (sección 8.3, y la simplificación
+ * autorizada por la spec 010, §12, por recomendación de ADV-007-06): un ítem suelto
+ * no es iterable y lanza TypeError, como piden los casos de lanzamiento de AC-05.
  */
-export function comboChickenConsumption(
-  items: Iterable<ComboConsumptionItem> | ComboConsumptionItem,
-): ChickenConsumption {
+export function comboChickenConsumption(items: Iterable<ComboConsumptionItem>): ChickenConsumption {
   let breastEighths = 0;
   let legEighths = 0;
-  for (const item of items as Iterable<ComboConsumptionItem>) {
+  for (const item of items) {
     if (item.portion === null) {
       // Sin presentación no se puede indicar la parte: el servicio lo impide al
       // escribir; aquí es defensa ante datos forzados (sección 8.3).

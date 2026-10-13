@@ -107,7 +107,7 @@ describe('003: ataques adversariales de la web con MSW', () => {
     async (_name, body) => {
       server.use(http.get('*/api/auth/me', () => HttpResponse.json(body)));
       for (const [Page, heading, path] of [
-        [MozoPage, 'Mozo', '/mozo'],
+        [MozoPage, 'Mesas', '/mozo'],
         [CajaPage, 'Caja', '/caja'],
         [CocinaPage, 'Cocina', '/cocina'],
         [AdminPage, 'Administración', '/admin'],
@@ -304,6 +304,11 @@ describe('003: ataques adversariales de la web con MSW', () => {
       window.history.replaceState({}, '', '/mozo');
       server.use(
         http.get('*/api/auth/me', () => HttpResponse.json(session())),
+        http.get('*/api/tables', () =>
+          HttpResponse.json({
+            tables: [{ id: 1, name: 'Mesa 1', isActive: true, state: 'free', order: null }],
+          }),
+        ),
         http.post('*/api/auth/logout', () => {
           if (bodyCase === 'JSON válido') return HttpResponse.json({ ok: true }, { status });
           if (bodyCase === 'JSON mal formado')
@@ -337,7 +342,7 @@ describe('003: ataques adversariales de la web con MSW', () => {
         'No se pudo cerrar la sesión. Intenta de nuevo.',
       );
       expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeEnabled();
-      expect(screen.getByRole('heading', { name: 'Mozo' })).toBeVisible();
+      expect(screen.getByRole('heading', { name: 'Mesas' })).toBeVisible();
       expect(hardNavigate).not.toHaveBeenCalled();
       expect(replace).not.toHaveBeenCalled();
     },

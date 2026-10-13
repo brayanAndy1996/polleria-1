@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { RequestHandler } from 'express';
 import type { OrdersController } from '../../controllers/orders.controller.ts';
+import type { OrderItemsController } from '../../controllers/order-items.controller.ts';
 import { ORDER_ID_MESSAGE } from '../../controllers/orders.controller.ts';
 import { requireRole } from '../../middlewares/auth.ts';
 import { malformedIdParamError } from '../../middlewares/id-param-error.ts';
@@ -21,6 +22,7 @@ import { requireJsonContentType, requireJsonObject } from '../../middlewares/jso
  */
 export function createOrdersRoutes(
   controller: OrdersController,
+  orderItemsController: OrderItemsController,
   requireAuth: RequestHandler,
 ): Router {
   const router = Router();
@@ -29,6 +31,8 @@ export function createOrdersRoutes(
     next();
   });
   router.get('/:orderId', requireAuth, controller.get);
+  // Las comandas del pedido (spec 010): cualquier rol con sesión.
+  router.get('/:orderId/tickets', requireAuth, orderItemsController.listTickets);
   router.post(
     '/:orderId/move',
     requireJsonContentType,
@@ -66,5 +70,6 @@ export function createOrdersRoutes(
   // Un percent-encoding roto en orderId ('%', 'abc%') estalla al decodificar la ruta,
   // antes del parser: se responde con el mismo VALIDATION_ERROR del parámetro.
   router.use(malformedIdParamError('orderId', ORDER_ID_MESSAGE));
+  router.use(malformedIdParamError('itemId', 'El identificador del ítem no es válido.'));
   return router;
 }

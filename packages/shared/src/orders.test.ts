@@ -39,10 +39,14 @@ const ORDER_NEEDS_TABLE_BODY = {
   },
 };
 
+<<<<<<< HEAD
 /**
  * Un pedido abierto válido: las trece claves exactas de D-010-14 (spec 010), que suman
  * `items` y `totalCents` a las once de D-009-14. Sin ítems enviados, ambas van vacías.
  */
+=======
+/** Un pedido abierto válido: las trece claves exactas de D-010-14 (la 010 suma items y totalCents). */
+>>>>>>> 9437dd019bbb348a611c696fde669a6c95f5996a
 const OPEN_ORDER = {
   id: 12,
   status: 'open',

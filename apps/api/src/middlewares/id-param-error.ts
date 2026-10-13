@@ -31,3 +31,38 @@ export function malformedIdParamError(path: string, message: string): ErrorReque
     next(error);
   };
 }
+
+/**
+ * Variante para rutas con MÁS de un parámetro de id (spec 010: orderId + itemId).
+ * El URIError no dice qué segmento estaba mal; se intenta decodificar cada
+ * segmento candidato de la URL relativa del router y el issue etiqueta el
+ * primero que falla. Si ninguno falla, etiqueta el último declarado.
+ */
+export function malformedIdParamsError(
+  params: { index: number; path: string; message: string }[],
+): ErrorRequestHandler {
+  return (error, req, _res, next) => {
+    if (error instanceof URIError && readStatus(error) === 400) {
+      const segments = req.path.split('/');
+      let issue = params[params.length - 1];
+      for (const candidate of params) {
+        try {
+          decodeURIComponent(segments[candidate.index] ?? '');
+        } catch {
+          issue = candidate;
+          break;
+        }
+      }
+      next(
+        new AppError({
+          code: ERROR_CODES.VALIDATION_ERROR,
+          message: 'Los datos enviados no son válidos.',
+          httpStatus: 400,
+          details: { issues: [{ path: issue?.path ?? '', message: issue?.message ?? '' }] },
+        }),
+      );
+      return;
+    }
+    next(error);
+  };
+}

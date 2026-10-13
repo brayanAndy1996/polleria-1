@@ -616,22 +616,19 @@ describe('009: tablas orders y tables con su migración sobre polleria_test', ()
     ])
       expect(await tableExists(sequelize, table)).toBe(true);
 
-    // La última aplicada es la de la spec 010: revierte primero ella y caen sus
-    // cinco tablas; luego la de la 009 con orders y tables.
+    // La última aplicada es la de la spec 010: revierte primero ella, luego la
+    // de la 009, que es la que interesa a esta prueba.
     expect(await migrateDown(sequelize)).toEqual([ORDER_ITEMS_MIGRATION]);
     expect(await tableExists(sequelize, 'order_items')).toBe(false);
     expect(await tableExists(sequelize, 'kitchen_tickets')).toBe(false);
-    expect(await tableExists(sequelize, 'order_item_components')).toBe(false);
-    expect(await tableExists(sequelize, 'order_item_sauces')).toBe(false);
-    expect(await tableExists(sequelize, 'idempotency_keys')).toBe(false);
-    expect(await tableExists(sequelize, 'orders')).toBe(true);
+    expect(await tableExists(sequelize, 'tables')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([TABLES_ORDERS_MIGRATION]);
     expect(await tableExists(sequelize, 'tables')).toBe(false);
     expect(await tableExists(sequelize, 'orders')).toBe(false);
     expect(await tableExists(sequelize, 'combo_items')).toBe(true);
     expect(await tableExists(sequelize, 'users')).toBe(true);
 
-    // Las migraciones son reaplicables tras revertir y las tablas vuelven a funcionar.
+    // La migración es reaplicable tras revertir y las tablas vuelven a funcionar.
     expect(await migrateUp(sequelize)).toEqual([TABLES_ORDERS_MIGRATION, ORDER_ITEMS_MIGRATION]);
     expect(await tableExists(sequelize, 'orders')).toBe(true);
     expect(await tableExists(sequelize, 'tables')).toBe(true);

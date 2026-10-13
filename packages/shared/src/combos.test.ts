@@ -460,10 +460,10 @@ describe('007: esquemas de componentes de combo y consumo en octavos', () => {
       { quantity: 1, portion: 'quarter', cut: 'leg' },
       { quantity: 1, portion: null, cut: 'breast' },
     ],
-  ])('AC-05: %o lanza error por combinación inválida', (...items) => {
-    // it.each reparte cada fila como argumentos: ...items reconstruye la lista real
-    // que comboChickenConsumption itera (firma Iterable puro desde la spec 010, §12).
-    expect(() => comboChickenConsumption(items)).toThrow();
+  ])('AC-05: %o lanza error por combinación inválida', (items) => {
+    // it.each reparte cada fila como argumentos: una fila de un solo ítem pasa
+    // el ítem mismo (no iterable) —la simplificación de la 010 lo fuerza a lanzar.
+    expect(() => comboChickenConsumption(items as never)).toThrow();
   });
   it('AC-05: una presentación fuera de PORTIONS lanza error aunque se fuerce el tipo', () => {
     const octavo = 'octavo' as unknown as Portion;

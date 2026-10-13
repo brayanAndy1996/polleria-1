@@ -20,6 +20,7 @@ import {
   createOrderNotOpenError,
   createOrderService,
 } from '../src/services/orders/order.service.ts';
+import { createProductService } from '../src/services/products/product.service.ts';
 import {
   clearMenuTables,
   clearOrderTables,
@@ -887,5 +888,165 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
       mesa4,
       mesa4,
     ]);
+  });
+});
+
+const ORDER_HAS_ACTIVE_ITEMS = {
+  code: 'ORDER_HAS_ACTIVE_ITEMS',
+  httpStatus: 409,
+  message: 'El pedido tiene \u00EDtems sin anular; un administrador debe anularlos primero.',
+};
+const FORBIDDEN = { code: 'FORBIDDEN', httpStatus: 403 };
+
+// AC-12 y AC-13 de la spec 010: las guardias y el merge con ítems. Va EN ROJO hasta
+// que T-09/T-10 creen order-item.service.ts y amplíen order.service.ts.
+describe('010: cancel y unir con ítems sobre polleria_test', () => {
+  let sequelize: Sequelize;
+  let models: Models;
+  let pinHasher: PinHasher;
+  let service: ReturnType<typeof createOrderService>;
+  let itemService: ReturnType<
+    import('../src/services/order-items/order-item.service.ts').createOrderItemService
+  >;
+
+  const createUser = (username: string, displayName: string, roles: UserRole[] = ['waiter']) =>
+    createUserService({ models, pinHasher }).createUser({
+      username,
+      displayName,
+      roles,
+      pin: '2468',
+    });
+  const insertTable = (name: string) =>
+    sequelize
+      .query<{ id: number }>(
+        'INSERT INTO "tables" (name, is_active) VALUES ($1, true) RETURNING id',
+        { type: QueryTypes.SELECT, bind: [name] },
+      )
+      .then((result) => result[0]?.id ?? -1);
+  const tableWithOrder = async (name: string, userId: number) => {
+    const tableId = await insertTable(name);
+    const order = await service.openOrder(tableId, { userId });
+    return { tableId, order };
+  };
+  /** Un producto de bebida y un envío de un ítem sobre el pedido. */
+  const sendDrink = async (orderId: number, userId: number, key: string) => {
+    const products = createProductService({ models });
+    const product =
+      (await products.listProducts()).find((p) => p.name === 'Inca Kola 1L') ??
+      (await products.createProduct({
+        name: 'Inca Kola 1L',
+        category: 'drink',
+        priceCents: 800,
+      }));
+    return itemService.sendItems(orderId, { items: [{ productId: product.id }] }, key, {
+      userId,
+    });
+  };
+
+  beforeAll(async () => {
+    sequelize = await connectTestDatabase();
+  });
+  beforeEach(async () => {
+    await migrateAndClearAuthTables(sequelize);
+    await clearOrderTables(sequelize);
+    await clearMenuTables(sequelize);
+    models = defineModels(sequelize);
+    pinHasher = createBcryptPinHasher({ cost: 4 });
+    service = createOrderService({ models });
+    // Import dinámico: el módulo no existe en fase roja y así solo caen los tests
+    // de la 010; los heredados de la 009 del mismo archivo siguen en verde.
+    const { createOrderItemService } =
+      await import('../src/services/order-items/order-item.service.ts');
+    itemService = createOrderItemService({ models });
+  });
+  afterAll(async () => {
+    await closeTestDatabase(sequelize);
+  });
+
+  it('AC-12: cancelar con ítems sent o void_requested falla para mozo y admin', async () => {
+    const juan = await createUser('mozo.juan', 'Juan');
+    const luz = await createUser('salon.duena', 'Do\u00F1a Luz', ['admin']);
+    const { order: p } = await tableWithOrder('Mesa 3', juan.id);
+    const sent = await sendDrink(p.id, juan.id, 'k-1');
+    const itemId = sent.order.items[0]!.id;
+    await expect(
+      service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id }),
+    ).rejects.toMatchObject(ORDER_HAS_ACTIVE_ITEMS);
+    await expect(
+      service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: luz.id }),
+    ).rejects.toMatchObject(ORDER_HAS_ACTIVE_ITEMS);
+    // Una solicitud pendiente también bloquea la cancelación.
+    await itemService.requestVoid(p.id, itemId, { reason: 'Se equivoc\u00F3 el cliente' }, 'k-r1', {
+      userId: juan.id,
+    });
+    await expect(
+      service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: luz.id }),
+    ).rejects.toMatchObject(ORDER_HAS_ACTIVE_ITEMS);
+  });
+  it('AC-12: con todos los ítems voided el mozo no cancela y el admin sí', async () => {
+    const juan = await createUser('mozo.juan', 'Juan');
+    const luz = await createUser('salon.duena', 'Do\u00F1a Luz', ['admin']);
+    const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
+    const sent = await sendDrink(p.id, juan.id, 'k-1');
+    const itemId = sent.order.items[0]!.id;
+    await itemService.voidItem(p.id, itemId, { reason: 'Error del cliente' }, 'k-v1', {
+      userId: luz.id,
+    });
+    await expect(
+      service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id }),
+    ).rejects.toMatchObject(FORBIDDEN);
+    const cancelled = await service.cancelOrder(p.id, 'Se fueron sin pedir', {
+      userId: luz.id,
+    });
+    expect(cancelled.status).toBe('cancelled');
+    expect(cancelled.items).toHaveLength(1);
+    expect(cancelled.items[0]!.status).toBe('voided');
+    expect(cancelled.totalCents).toBe(0);
+    // Las mesas quedaron libres; ítems y comandas quedan como historial.
+    const [mesa] = await sequelize.query<{ current_order_id: number | null }>(
+      'SELECT current_order_id FROM "tables" WHERE id = $1',
+      { type: QueryTypes.SELECT, bind: [mesa3] },
+    );
+    expect(mesa?.current_order_id).toBeNull();
+  });
+  it('AC-12: un pedido que nunca tuvo ítems se cancela igual que en la 009', async () => {
+    const juan = await createUser('mozo.juan', 'Juan');
+    const { order: p } = await tableWithOrder('Mesa 3', juan.id);
+    const cancelled = await service.cancelOrder(p.id, 'Se sentaron por error', {
+      userId: juan.id,
+    });
+    expect(cancelled.status).toBe('cancelled');
+    expect(cancelled.items).toEqual([]);
+    expect(cancelled.totalCents).toBe(0);
+  });
+
+  it('AC-13: joinTable mueve ítems y comandas al pedido destino', async () => {
+    const juan = await createUser('mozo.juan', 'Juan');
+    const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
+    const { tableId: mesa4, order: q } = await tableWithOrder('Mesa 4', juan.id);
+    const sentP = await sendDrink(p.id, juan.id, 'k-p1');
+    const sentQ = await sendDrink(q.id, juan.id, 'k-q1');
+    await sendDrink(q.id, juan.id, 'k-q2');
+    const merged = await service.joinTable(mesa4, mesa3, { userId: juan.id });
+    // P tiene los ítems de ambos pedidos; los de Q conservan su mesa de origen.
+    expect(merged.items).toHaveLength(3);
+    const itemsQ = merged.items.filter(
+      (item: { orderedAtTable: { id: number } | null }) => item.orderedAtTable?.id === mesa4,
+    );
+    expect(itemsQ).toHaveLength(2);
+    expect(merged.totalCents).toBe(2400);
+    // Las comandas de Q migran a la historia de P.
+    const { tickets } = await itemService.listOrderTickets(p.id);
+    expect(tickets).toHaveLength(3);
+    // Q queda merged, sin ítems ni total.
+    const absorbido = await service.getOrder(q.id);
+    expect(absorbido).toMatchObject({ status: 'merged', items: [], totalCents: 0 });
+    expect(sentP.order.id).toBe(p.id);
+    expect(sentQ.order.id).toBe(q.id);
+    // Separar una mesa después no arrastra sus ítems.
+    await service.leaveTable(mesa4, { userId: juan.id });
+    const despues = await service.getOrder(p.id);
+    expect(despues.items).toHaveLength(3);
+    expect(despues.totalCents).toBe(2400);
   });
 });
