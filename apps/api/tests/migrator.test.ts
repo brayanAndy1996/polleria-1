@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { Sequelize } from 'sequelize';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { migrateDown, migrateUp, seedUp } from '../src/db/migrator.ts';
 import {
   cleanFixtureTables,
@@ -112,11 +112,17 @@ describe('Migraciones y seeds contra polleria_test', () => {
     it('AC-23: con los seeders reales no lanza error, crea SequelizeData y la segunda llamada devuelve []', async () => {
       expect(await tableExists(sequelize, 'SequelizeData')).toBe(false);
 
-      await expect(seedUp(sequelize)).resolves.toBeInstanceOf(Array);
-      const second = await seedUp(sequelize);
+      await migrateUp(sequelize);
+      vi.stubEnv('NODE_ENV', 'development');
+      try {
+        await expect(seedUp(sequelize)).resolves.toBeInstanceOf(Array);
+        const second = await seedUp(sequelize);
+        expect(second).toEqual([]);
+      } finally {
+        vi.unstubAllEnvs();
+      }
 
       expect(await tableExists(sequelize, 'SequelizeData')).toBe(true);
-      expect(second).toEqual([]);
     });
 
     it('AC-23: un seeder de prueba se aplica una sola vez (una fila, segunda llamada devuelve [])', async () => {
