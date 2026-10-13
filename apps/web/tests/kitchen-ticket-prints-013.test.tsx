@@ -188,7 +188,7 @@ describe('013: avisos integrados en mozo y caja', () => {
       expect(calls).toEqual([null, '50']);
       expect(screen.queryByRole('button', { name: 'Cargar más' })).not.toBeInTheDocument();
       fireEvent(document, new Event('visibilitychange'));
-    fireEvent.focus(window);
+      fireEvent.focus(window);
       await waitFor(() => expect(calls.slice(2)).toContain(null));
     },
   );
@@ -390,6 +390,74 @@ describe('013: estado separado por pedido y copias permitidas', () => {
     expect(await screen.findByRole('button', { name: 'Solicitando…' })).toBeDisabled();
     expect(await screen.findByText('En espera')).toBeVisible();
     await waitFor(() => expect(reads).toBeGreaterThan(1));
+  });
+
+  it('AC-13: reemplaza En espera cuando la relectura confirma la copia', async () => {
+    let reads = 0;
+    server.use(
+      http.get('*/api/kitchen-ticket-prints/attention', () => {
+        reads += 1;
+        const succeeded = reads > 1;
+        return HttpResponse.json({
+          prints: [
+            succeeded
+              ? { ...print(5, 'succeeded'), lastAttempt: attempt(5, 'succeeded', 1) }
+              : print(),
+          ],
+          nextAfterTicketId: null,
+        });
+      }),
+      http.post('*/api/kitchen-ticket-prints/5/reprint', () =>
+        HttpResponse.json({ attempt: attempt(5, 'queued', 1) }, { status: 202 }),
+      ),
+    );
+    show();
+    await screen.findByText('Mesa al emitir 5');
+    fireEvent.click(row().getByRole('button', { name: 'Solicitar copia' }));
+    fireEvent.change(screen.getByLabelText('Motivo de la copia'), {
+      target: { value: 'Reponer salida' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, generar copia' }));
+    expect(await screen.findByText('En espera')).toBeVisible();
+    await waitFor(() => expect(reads).toBeGreaterThan(1));
+    expect(await screen.findByText('Archivo generado')).toBeVisible();
+  });
+
+  it('AC-12: vuelve a consultar páginas de atención cargadas y actualiza su estado', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const cursors: (string | null)[] = [];
+    let extraPageReads = 0;
+    server.use(
+      http.get('*/api/kitchen-ticket-prints/attention', ({ request }) => {
+        const after = new URL(request.url).searchParams.get('afterTicketId');
+        cursors.push(after);
+        if (after === '50') {
+          extraPageReads += 1;
+          const printView =
+            extraPageReads === 1
+              ? print(51, 'failed', 'initial', true)
+              : print(51, 'uncertain', 'initial', false);
+          return HttpResponse.json({ prints: [printView], nextAfterTicketId: null });
+        }
+        return HttpResponse.json({
+          prints: Array.from({ length: 50 }, (_, i) => print(i + 1)),
+          nextAfterTicketId: 50,
+        });
+      }),
+    );
+    show();
+    await screen.findByText('Mesa al emitir 50');
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar más' }));
+    await screen.findByText('Mesa al emitir 51');
+    expect(row(51).getByRole('button', { name: 'Solicitar copia' })).toBeVisible();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(await row(51).findByText('Revisar salida')).toBeVisible();
+    expect(row(51).queryByRole('button', { name: 'Solicitar copia' })).not.toBeInTheDocument();
+    expect(cursors).toEqual([null, '50', null, '50']);
   });
 
   it('AC-13: pérdida de respuesta reintenta con mismo motivo/clave; nueva copia usa clave distinta', async () => {

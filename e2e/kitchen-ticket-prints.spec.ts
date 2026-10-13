@@ -31,7 +31,9 @@ async function login(
   pin: string,
 ): Promise<void> {
   await page.goto('/login');
-  await page.getByRole('button', { name, exact: true }).click();
+  const username =
+    name === 'Mozo E2E' ? 'e2e.mozo' : name === 'Caja E2E' ? 'e2e.caja' : 'e2e.admin';
+  await page.getByRole('button', { name: `${name} ${username}`, exact: true }).click();
   for (const digit of pin) await page.getByRole('button', { name: digit, exact: true }).click();
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page).toHaveURL(
@@ -39,9 +41,9 @@ async function login(
   );
 }
 async function noOverflow(page: Page): Promise<void> {
-  expect(await page.evaluate<boolean>('document.documentElement.scrollWidth <= window.innerWidth')).toBe(
-    true,
-  );
+  expect(
+    await page.evaluate<boolean>('document.documentElement.scrollWidth <= window.innerWidth'),
+  ).toBe(true);
 }
 async function makeTable(admin: APIRequestContext): Promise<{ id: number; name: string }> {
   const name = `K013 ${randomUUID().slice(0, 8)}`;
@@ -147,7 +149,7 @@ test.describe('013: recorridos file reales sin servicios externos', () => {
       expect(printed).toMatch(/E2E Pollo/);
       expect(printed).toMatch(/pierna/i);
       expect(printed).toMatch(/E2E Gaseosa/);
-      expect(printed).toMatch(/E2E Aji/);
+      expect(printed).toMatch(/E2E Ají/);
       expect(printed).toContain('sin ensalada');
       await noOverflow(page);
       const gaseosaId = await product(page.request, 'E2E Gaseosa');
@@ -193,7 +195,7 @@ test.describe('013: recorridos file reales sin servicios externos', () => {
         .toBe('succeeded');
       const copyFiles = await files(dir);
       expect(copyFiles.length).toBeGreaterThan(copiesBefore.length);
-      expect(await outputSince(dir, copiesBefore)).toMatch(/REIMPRESION/);
+      expect(await outputSince(dir, copiesBefore)).toMatch(/REIMPRESIÓN #1/);
       const replay = await page.request.post(new URL(accepted.url()).pathname, {
         headers: { 'Idempotency-Key': accepted.request().headers()['idempotency-key']! },
         data: accepted.request().postDataJSON() as Record<string, unknown>,
@@ -234,7 +236,10 @@ test.describe('013: recorridos file reales sin servicios externos', () => {
       const sent = await send(waiter.request, orderId, [{ productId, quantity: 1 }]);
       await expect.poll(() => ticketState(waiter.request, orderId, sent.ticket.id)).toBe('failed');
       await waiter.goto('/mozo');
-      const waiterRow = waiter.getByRole('listitem').filter({ hasText: table.name }).filter({ hasText: 'No se pudo generar la comanda' });
+      const waiterRow = waiter
+        .getByRole('listitem')
+        .filter({ hasText: table.name })
+        .filter({ hasText: 'No se pudo generar la comanda' });
       await expect(waiterRow.getByText('No se pudo generar la comanda')).toBeVisible();
       await noOverflow(waiter);
       await login(page, 'Caja E2E', '1357');
@@ -253,7 +258,7 @@ test.describe('013: recorridos file reales sin servicios externos', () => {
       ).toBeVisible();
       await dialog.getByRole('button', { name: 'Sí, generar copia' }).click();
       await expect.poll(() => ticketState(page.request, orderId, sent.ticket.id)).toBe('succeeded');
-      expect(await outputSince(dir, before)).toMatch(/REIMPRESION/);
+      expect(await outputSince(dir, before)).toMatch(/REIMPRESIÓN #1/);
       const after = await page.request.get(`/api/orders/${orderId}`);
       expect(after.status()).toBe(200);
       const preserved = (await after.json()) as { items: unknown[]; totalCents: number };

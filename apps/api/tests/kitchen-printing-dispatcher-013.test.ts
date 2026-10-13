@@ -5,6 +5,8 @@ import path from 'node:path';
 import type { Sequelize } from 'sequelize';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createKitchenTicketPrintDispatcher } from '../src/services/kitchen-ticket-prints/kitchen-ticket-print.dispatcher.ts';
+import { createKitchenTicketPrintService } from '../src/services/kitchen-ticket-prints/kitchen-ticket-print.service.ts';
+import { kitchenTicketPrintSnapshotSchema } from '../src/services/kitchen-ticket-prints/print-snapshot.ts';
 import {
   clearMenuTables,
   clearOrderTables,
@@ -69,13 +71,56 @@ async function attempts() {
     error_code: string | null;
   }>(sequelize, 'SELECT * FROM kitchen_ticket_print_attempts ORDER BY id');
 }
+async function expandSnapshotToMultiplePages(ticketId: number): Promise<void> {
+  const [row] = await sqlRows<{ snapshot: unknown }>(
+    sequelize,
+    'SELECT snapshot FROM kitchen_ticket_prints WHERE ticket_id=:ticket',
+    { ticket: ticketId },
+  );
+  const original = kitchenTicketPrintSnapshotSchema.parse(row!.snapshot);
+  const base = original.ticket.items[0]!;
+  const items = Array.from({ length: 20 }, (_, itemIndex) => ({
+    ...base,
+    id: itemIndex + 1,
+    productName: `Producto-${itemIndex + 1}`,
+    productCategory: 'combo' as const,
+    portion: null,
+    cut: null,
+    breastEighths: 0,
+    legEighths: 0,
+    notes: `N${String(itemIndex + 1).padStart(2, '0')}-` + 'Z'.repeat(196),
+    sauces: Array.from({ length: 6 }, (_, sauceIndex) => ({
+      productId: base.productId,
+      productName: `Crema-${itemIndex + 1}-${sauceIndex + 1}-` + 'W'.repeat(42),
+      quantity: 1,
+      priceCents: 0,
+    })),
+    components: Array.from({ length: 10 }, (_, componentIndex) => ({
+      productId: base.productId,
+      productName: `Componente-${itemIndex + 1}-${componentIndex + 1}-` + 'Q'.repeat(38),
+      quantity: 1,
+      portion: null,
+      cut: null,
+      breastEighths: 0,
+      legEighths: 0,
+    })),
+  }));
+  const snapshot = kitchenTicketPrintSnapshotSchema.parse({
+    ...original,
+    ticket: { ...original.ticket, items },
+  });
+  await sequelize.query(
+    'UPDATE kitchen_ticket_prints SET snapshot=CAST(:snapshot AS jsonb) WHERE ticket_id=:ticket',
+    { replacements: { snapshot: JSON.stringify(snapshot), ticket: ticketId } },
+  );
+}
 function worker(overrides: Partial<Parameters<typeof createKitchenTicketPrintDispatcher>[0]> = {}) {
   const instance = createKitchenTicketPrintDispatcher({
     models: context.models,
     printerService: context.printerService,
     now: () => PRINT_TIME,
     owner,
-    isOwnerEnded: async () => true,
+    isOwnerEnded: () => Promise.resolve(true),
     ...overrides,
   });
   workers.push(instance);
@@ -102,6 +147,44 @@ afterEach(async () => {
 });
 
 describe('013: despacho local exclusivo y recuperación sin repetir I/O', () => {
+  it('AC-07: arranca suspendido hasta revisar propietario e intentos interrumpidos', async () => {
+    const sent = await context.send();
+    await sequelize.query(
+      "UPDATE kitchen_ticket_print_attempts SET status='failed',finished_at=:finished,error_code='PRINTER_OUTPUT_FAILED' WHERE ticket_id=:ticket",
+      { replacements: { finished: PRINT_TIME, ticket: sent.ticket.id } },
+    );
+    const dispatcherRef: { current?: ReturnType<typeof createKitchenTicketPrintDispatcher> } = {};
+    const printService = createKitchenTicketPrintService({
+      models: context.models,
+      printerService: context.printerService,
+      now: () => PRINT_TIME,
+      isDestinationSuspended: () => dispatcherRef.current?.isSuspended() ?? true,
+    });
+    const instance = worker();
+    dispatcherRef.current = instance;
+
+    expect(instance.isSuspended()).toBe(true);
+    expect(
+      (
+        await printService.listForOrder(context.order.id, {
+          userId: context.waiter.id,
+          roles: ['waiter'],
+        })
+      ).prints[0]!.canReprint,
+    ).toBe(false);
+
+    await instance.reconcile();
+    expect(instance.isSuspended()).toBe(false);
+    expect(
+      (
+        await printService.listForOrder(context.order.id, {
+          userId: context.waiter.id,
+          roles: ['waiter'],
+        })
+      ).prints[0]!.canReprint,
+    ).toBe(true);
+  });
+
   it('AC-07: persiste documentos, hash y propietario antes de PrinterService, con un solo archivo completo y venta intacta', async () => {
     const sent = await context.send();
     const before = await sqlRows(sequelize, 'SELECT * FROM order_items');
@@ -158,7 +241,7 @@ describe('013: despacho local exclusivo y recuperación sin repetir I/O', () => 
     const a = worker();
     const b = worker({
       owner: { ...owner, executionId: randomUUID() },
-      isOwnerEnded: async () => false,
+      isOwnerEnded: () => Promise.resolve(false),
     });
     const first = a.tick();
     try {
@@ -234,6 +317,166 @@ describe('013: despacho local exclusivo y recuperación sin repetir I/O', () => 
     expect(output).toHaveBeenCalledTimes(2);
   });
 
+  it('AC-07: perder la conexión del lock durante I/O suspende destino y reconcilia sin duplicar', async () => {
+    await context.send();
+    await context.send('second-ticket');
+    const pending = barrier();
+    const realPrint = context.printerService.printPrepared.bind(context.printerService);
+    const output = vi
+      .spyOn(context.printerService, 'printPrepared')
+      .mockImplementation(async (job) => {
+        await pending.waiting;
+        return realPrint(job);
+      });
+    const manager = sequelize.connectionManager;
+    const originalGetConnection = manager.getConnection.bind(manager);
+    let lockConnection: Awaited<ReturnType<typeof originalGetConnection>> | undefined;
+    vi.spyOn(manager, 'getConnection').mockImplementation(async (options) => {
+      const connection = await originalGetConnection(options);
+      lockConnection ??= connection;
+      return connection;
+    });
+    const instance = worker();
+    const first = instance.tick();
+    try {
+      await vi.waitFor(() => expect(output).toHaveBeenCalledTimes(1));
+      expect(lockConnection).toBeDefined();
+      await manager.destroyConnection(lockConnection!);
+      await vi.waitFor(async () => expect((await attempts())[0]!.status).toBe('uncertain'));
+      expect(instance.isSuspended()).toBe(true);
+      expect(
+        (
+          await context.prints.listForOrder(context.order.id, {
+            userId: context.waiter.id,
+            roles: ['waiter'],
+          })
+        ).prints.every((entry) => !entry.canReprint),
+      ).toBe(true);
+      await instance.tick();
+      expect(output).toHaveBeenCalledTimes(1);
+      expect((await attempts())[1]!.status).toBe('queued');
+    } finally {
+      pending.release();
+      await first;
+    }
+    expect((await attempts())[0]).toMatchObject({ status: 'succeeded', completed_pages: 1 });
+    expect(output).toHaveBeenCalledTimes(1);
+    expect(instance.isSuspended()).toBe(false);
+  });
+
+  it('AC-07: stop espera I/O activo y no reclama el siguiente intento', async () => {
+    await context.send();
+    await context.send('second-ticket');
+    const pending = barrier();
+    const realPrint = context.printerService.printPrepared.bind(context.printerService);
+    const output = vi
+      .spyOn(context.printerService, 'printPrepared')
+      .mockImplementation(async (job) => {
+        await pending.waiting;
+        return realPrint(job);
+      });
+    const instance = worker();
+    const first = instance.tick();
+    let stopFinished = false;
+    let stop: Promise<void> | undefined;
+    try {
+      await vi.waitFor(() => expect(output).toHaveBeenCalledTimes(1));
+      stop = instance.stop().then(() => {
+        stopFinished = true;
+      });
+      await Promise.resolve();
+      expect(stopFinished).toBe(false);
+      expect((await attempts())[1]!.status).toBe('queued');
+      expect(output).toHaveBeenCalledTimes(1);
+    } finally {
+      pending.release();
+      await first;
+      await stop;
+    }
+    expect(stopFinished).toBe(true);
+    expect((await attempts()).map((row) => row.status)).toEqual(['succeeded', 'queued']);
+    expect(output).toHaveBeenCalledTimes(1);
+  });
+
+  it('AC-07: persiste todas las páginas y un fallo parcial conserva páginas completas y venta', async () => {
+    const firstSent = await context.send();
+    const secondSent = await context.send('second-ticket');
+    await expandSnapshotToMultiplePages(firstSent.ticket.id);
+    await expandSnapshotToMultiplePages(secondSent.ticket.id);
+    const beforeItems = await sqlRows(sequelize, 'SELECT * FROM order_items ORDER BY id');
+    const rows = await attempts();
+    const firstId = rows[0]!.id;
+    const secondId = rows[1]!.id;
+    const realPrint = context.printerService.printPrepared.bind(context.printerService);
+    const output = vi
+      .spyOn(context.printerService, 'printPrepared')
+      .mockImplementation(async (job) => {
+        if (job.label === `k-${secondId}-p2`)
+          throw Object.assign(new Error('fallo página 2'), { code: 'EIO' });
+        return realPrint(job);
+      });
+    const instance = worker();
+
+    await instance.tick();
+    const completed = (await attempts()).find((row) => row.id === firstId)!;
+    expect(completed.status).toBe('succeeded');
+    expect(completed.documents!.length).toBeGreaterThan(1);
+    expect(completed.completed_pages).toBe(completed.documents!.length);
+    expect(
+      completed.documents!.every((job) =>
+        output.mock.calls.some(([sent]) => sent.jobId === job.jobId),
+      ),
+    ).toBe(true);
+
+    await instance.tick();
+    const partial = (await attempts()).find((row) => row.id === secondId)!;
+    expect(partial.status).toBe('failed');
+    expect(partial.completed_pages).toBe(1);
+    expect(partial.finished_at).not.toBeNull();
+    expect(partial.error_code).toBe('PRINTER_OUTPUT_FAILED');
+    expect(await readdir(dir)).toContain(`${partial.documents![0]!.jobId}.txt`);
+    expect(await readdir(dir)).not.toContain(`${partial.documents![1]!.jobId}.txt`);
+    expect(await sqlRows(sequelize, 'SELECT * FROM order_items ORDER BY id')).toEqual(beforeItems);
+    expect(firstSent.order.totalCents).toBe(1600);
+    expect(secondSent.order.totalCents).toBe(3200);
+  });
+
+  it('AC-08: pérdida del ACK PostgreSQL tras escribir se concilia sin repetir PrinterService', async () => {
+    await context.send();
+    const model = context.models.KitchenTicketPrintAttempt;
+    const updatePrototype = Object.getOwnPropertyDescriptor(model.prototype, 'update')
+      ? model.prototype
+      : Reflect.getPrototypeOf(model.prototype);
+    const originalUpdate = updatePrototype
+      ? (Object.getOwnPropertyDescriptor(updatePrototype, 'update')?.value as
+          InstanceType<typeof model>['update'] | undefined)
+      : undefined;
+    if (!originalUpdate) throw new Error('Falta update original para simular pérdida de ACK.');
+    let loseAcknowledgement = true;
+    vi.spyOn(model.prototype, 'update').mockImplementation(async function (
+      this: InstanceType<typeof model>,
+      ...args
+    ) {
+      const values = args[0];
+      const result = await originalUpdate.apply(this, args);
+      if (loseAcknowledgement && values.status === 'succeeded') {
+        loseAcknowledgement = false;
+        throw new Error('respuesta de PostgreSQL perdida después del commit');
+      }
+      return result;
+    });
+    const output = vi.spyOn(context.printerService, 'printPrepared');
+    const instance = worker();
+    await instance.tick();
+    expect(loseAcknowledgement).toBe(false);
+    expect((await attempts())[0]).toMatchObject({ status: 'succeeded', completed_pages: 1 });
+    expect(output).toHaveBeenCalledTimes(1);
+
+    await instance.reconcile();
+    expect((await attempts())[0]!.status).toBe('succeeded');
+    expect(output).toHaveBeenCalledTimes(1);
+  });
+
   it('AC-08: caída rename→ack se reconcilia exacta sin segunda llamada a printPrepared', async () => {
     await context.send();
     const first = worker();
@@ -300,7 +543,7 @@ describe('013: despacho local exclusivo y recuperación sin repetir I/O', () => 
         "UPDATE kitchen_ticket_print_attempts SET status='printing',finished_at=NULL,owner_host=:host",
         { replacements: { host: scenario === 'different-host' ? 'otro-servidor' : owner.host } },
       );
-      const ended = vi.fn(async () => scenario === 'different-host');
+      const ended = vi.fn(() => Promise.resolve(scenario === 'different-host'));
       const output = vi.spyOn(context.printerService, 'printPrepared');
       const inspection = vi.spyOn(context.printerService, 'inspectPrepared');
       const instance = worker({ isOwnerEnded: ended });

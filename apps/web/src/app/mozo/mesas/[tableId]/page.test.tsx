@@ -818,13 +818,18 @@ describe('011: la mesa y su pedido (/mozo/mesas/[tableId])', () => {
     });
   });
 
-  it('AC-17: de vuelta de la toma la mesa muestra el aviso "Pedido enviado a cocina."', async () => {
+  it('AC-17: de vuelta de la toma la mesa muestra el aviso de generación de comanda', async () => {
     // Transporte del aviso fijado por este test (la spec no define mecanismo):
     // la toma deja sessionStorage['polleria:orderNotice'] con el texto y la mesa
     // lo muestra junto a la comanda nueva al montar.
-    sessionStorage.setItem('polleria:orderNotice', 'Pedido enviado a cocina.');
+    sessionStorage.setItem(
+      'polleria:orderNotice',
+      'Pedido registrado. Consulta la generación de la comanda.',
+    );
     await renderMesaOcupada(ORDER_VACIO, [makeTicket()]);
-    expect(await screen.findByText('Pedido enviado a cocina.')).toBeVisible();
+    expect(
+      await screen.findByText('Pedido registrado. Consulta la generación de la comanda.'),
+    ).toBeVisible();
     expect(screen.getByText('Comanda inicial')).toBeVisible();
   });
 

@@ -136,9 +136,19 @@ describe('013: migración durable de generación file en polleria_test', () => {
       "INSERT INTO kitchen_ticket_print_attempts(ticket_id,copy_number,status,requested_by_user_id,requested_by_name,completed_pages,created_at) VALUES(:ticket,0,'queued',:user,'Juan',0,now())",
       { replacements: { ticket: ticket.id, user: seed.waiter.id } },
     );
-    await expect(sequelize.query(sql)).rejects.toMatchObject({
-      parent: { code: expect.stringMatching(/23514|23503/) },
-    });
+    const rejection = await sequelize.query(sql).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(rejection).toBeDefined();
+    if (typeof rejection !== 'object' || rejection === null || !('parent' in rejection)) {
+      throw new Error('La escritura inválida no devolvió un error de PostgreSQL con parent.');
+    }
+    const parent = rejection.parent;
+    if (typeof parent !== 'object' || parent === null || !('code' in parent)) {
+      throw new Error('El error de PostgreSQL no incluyó su código SQLSTATE.');
+    }
+    expect(parent.code).toMatch(/23514|23503/);
   });
 
   it('AC-10: unicidad impide otra copia activa, incluida uncertain sin finished_at, pero permite historial terminal', async () => {

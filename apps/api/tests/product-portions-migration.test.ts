@@ -261,7 +261,9 @@ describe('006: tabla product_portions y su migración sobre polleria_test', () =
 
     // La última aplicada es la de la spec 010: revierte primero ella, luego la
     // de la 009 (tables y orders), la de la 007 (combo_items) y la de la 006.
-    expect(await migrateDown(sequelize)).toEqual(['20261012150000-create-kitchen-ticket-prints.ts']);
+    expect(await migrateDown(sequelize)).toEqual([
+      '20261012150000-create-kitchen-ticket-prints.ts',
+    ]);
     expect(await tableExists(sequelize, 'kitchen_ticket_prints')).toBe(false);
     expect(await migrateDown(sequelize)).toEqual([ORDER_ITEMS_MIGRATION]);
     expect(await tableExists(sequelize, 'order_items')).toBe(false);

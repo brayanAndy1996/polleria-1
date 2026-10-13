@@ -702,7 +702,9 @@ describe('010: migración de ítems del pedido sobre polleria_test', () => {
     ])
       expect(await tableExists(sequelize, table)).toBe(true);
     // Un solo down revierte solo la migración nueva.
-    expect(await migrateDown(sequelize)).toEqual(['20261012150000-create-kitchen-ticket-prints.ts']);
+    expect(await migrateDown(sequelize)).toEqual([
+      '20261012150000-create-kitchen-ticket-prints.ts',
+    ]);
     expect(await tableExists(sequelize, 'kitchen_ticket_prints')).toBe(false);
     expect(await migrateDown(sequelize)).toEqual(['20261011120000-create-order-items.ts']);
     for (const table of [
@@ -715,7 +717,10 @@ describe('010: migración de ítems del pedido sobre polleria_test', () => {
       expect(await tableExists(sequelize, table)).toBe(false);
     expect(await tableExists(sequelize, 'orders')).toBe(true);
     // Re-up la vuelve a crear con todas sus restricciones (AC-03/AC-04).
-    expect(await migrateUp(sequelize)).toEqual(['20261011120000-create-order-items.ts', '20261012150000-create-kitchen-ticket-prints.ts']);
+    expect(await migrateUp(sequelize)).toEqual([
+      '20261011120000-create-order-items.ts',
+      '20261012150000-create-kitchen-ticket-prints.ts',
+    ]);
     const userId = await insertUser();
     const orderId = await insertOrder(userId);
     const productId = await insertProduct();

@@ -3,6 +3,7 @@ import type { Express } from 'express';
 import type { Sequelize } from 'sequelize';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  errorResponseSchema,
   kitchenTicketPrintsResponseSchema,
   kitchenTicketPrintAttentionResponseSchema,
   reprintKitchenTicketResponseSchema,
@@ -77,16 +78,16 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
       .set('Idempotency-Key', 'send-http')
       .send({ items: [{ productId: context.drink.id, quantity: 2 }] });
     expect(response.status).toBe(201);
-    expect(sendOrderItemsResponseSchema.safeParse(response.body).success).toBe(true);
-    expect(Object.keys(response.body).sort()).toEqual(['order', 'ticket']);
+    const sentBody = sendOrderItemsResponseSchema.parse(response.body as unknown);
+    expect(Object.keys(sentBody).sort()).toEqual(['order', 'ticket']);
     const state = await request(app)
       .get(`/api/orders/${context.order.id}/ticket-prints`)
       .set('Cookie', cookies.juan!);
     expect(state.status).toBe(200);
     noStore(state);
-    expect(kitchenTicketPrintsResponseSchema.safeParse(state.body).success).toBe(true);
-    expect(state.body.prints).toHaveLength(1);
-    expect(state.body.prints[0]).toMatchObject({ status: 'queued', canReprint: false });
+    const stateBody = kitchenTicketPrintsResponseSchema.parse(state.body as unknown);
+    expect(stateBody.prints).toHaveLength(1);
+    expect(stateBody.prints[0]).toMatchObject({ status: 'queued', canReprint: false });
   });
   it.each(['juan', 'luz', 'ana', 'beto'])(
     'AC-11: %s puede leer los estados de un pedido autenticado',
@@ -97,7 +98,9 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
         .set('Cookie', cookies[username]!);
       expect(response.status).toBe(200);
       noStore(response);
-      expect(kitchenTicketPrintsResponseSchema.safeParse(response.body).success).toBe(true);
+      expect(kitchenTicketPrintsResponseSchema.safeParse(response.body as unknown).success).toBe(
+        true,
+      );
     },
   );
   it('AC-09: comanda histórica aparece not_tracked y rechaza copia sin crear trabajo', async () => {
@@ -126,7 +129,7 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
     const response = await copy(old.id);
     expect(response.status).toBe(409);
     noStore(response);
-    expect(response.body.error).toMatchObject({
+    expect(errorResponseSchema.parse(response.body as unknown).error).toMatchObject({
       code: 'PRINT_SNAPSHOT_UNAVAILABLE',
       details: null,
     });
@@ -139,8 +142,8 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
     const first = await copy(sent.ticket.id);
     expect(first.status).toBe(202);
     noStore(first);
-    expect(reprintKitchenTicketResponseSchema.safeParse(first.body).success).toBe(true);
-    expect(first.body.attempt).toMatchObject({
+    const firstBody = reprintKitchenTicketResponseSchema.parse(first.body as unknown);
+    expect(firstBody.attempt).toMatchObject({
       ticketId: sent.ticket.id,
       copyNumber: 1,
       status: 'queued',
@@ -157,7 +160,9 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
     expect(replay.body).toEqual(first.body);
     const conflict = await copy(sent.ticket.id, 'juan', 'copy-013', 'otro motivo');
     expect(conflict.status).toBe(409);
-    expect(conflict.body.error.code).toBe('IDEMPOTENCY_CONFLICT');
+    expect(errorResponseSchema.parse(conflict.body as unknown).error.code).toBe(
+      'IDEMPOTENCY_CONFLICT',
+    );
     expect(await countRows(sequelize, 'kitchen_ticket_print_attempts')).toBe(2);
   });
   it('AC-10: claves concurrentes distintas tienen un ganador y un 409; la misma clave reenvía exactamente 202', async () => {
@@ -168,14 +173,15 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
       copy(sent.ticket.id, 'luz', 'copy-b'),
     ]);
     expect(both.map((response) => response.status).sort()).toEqual([202, 409]);
-    expect(both.find((response) => response.status === 409)?.body.error.code).toBe(
-      'PRINT_IN_PROGRESS',
-    );
+    expect(
+      errorResponseSchema.parse(both.find((response) => response.status === 409)!.body as unknown)
+        .error.code,
+    ).toBe('PRINT_IN_PROGRESS');
     expect(await countRows(sequelize, 'kitchen_ticket_print_attempts')).toBe(2);
     const winner =
-      both[0]!.status === 202
-        ? { username: 'juan', key: 'copy-a', response: both[0]! }
-        : { username: 'luz', key: 'copy-b', response: both[1]! };
+      both[0].status === 202
+        ? { username: 'juan', key: 'copy-a', response: both[0] }
+        : { username: 'luz', key: 'copy-b', response: both[1] };
     const repeated = await Promise.all([
       copy(sent.ticket.id, winner.username, winner.key),
       copy(sent.ticket.id, winner.username, winner.key),
@@ -198,12 +204,11 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
     const state = await request(app)
       .get(`/api/orders/${context.order.id}/ticket-prints`)
       .set('Cookie', cookies.luz!);
-    expect(state.body.prints.every((entry: { canReprint: boolean }) => !entry.canReprint)).toBe(
-      true,
-    );
+    const stateBody = kitchenTicketPrintsResponseSchema.parse(state.body as unknown);
+    expect(stateBody.prints.every((entry) => !entry.canReprint)).toBe(true);
     const blocked = await copy(b.ticket.id, 'luz', 'new-copy');
     expect(blocked.status).toBe(409);
-    expect(blocked.body.error.code).toBe('PRINT_IN_PROGRESS');
+    expect(errorResponseSchema.parse(blocked.body as unknown).error.code).toBe('PRINT_IN_PROGRESS');
     const replay = await copy(b.ticket.id);
     expect(replay.status).toBe(202);
     expect(replay.body).toEqual(accepted.body);
@@ -227,7 +232,8 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
     const response = await copy(voided.ticket.id, username);
     expect(response.status).toBe(status);
     noStore(response);
-    if (status === 403) expect(response.body.error.code).toBe('FORBIDDEN');
+    if (status === 403)
+      expect(errorResponseSchema.parse(response.body as unknown).error.code).toBe('FORBIDDEN');
   });
   it('AC-10: copiar un pedido cerrado/fusionado no altera ticket, ítems, venta ni claves previas010', async () => {
     const sent = await context.send();
@@ -254,7 +260,8 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
     const state = await request(app)
       .get(`/api/orders/${target.id}/ticket-prints`)
       .set('Cookie', cookies.juan!);
-    expect(state.body.prints[0]).toMatchObject({
+    const stateBody = kitchenTicketPrintsResponseSchema.parse(state.body as unknown);
+    expect(stateBody.prints[0]).toMatchObject({
       ticketId: sent.ticket.id,
       orderId: target.id,
       tablesAtIssue: [{ id: context.table.id, name: 'Mesa 3' }],
@@ -272,18 +279,15 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
       .set('Cookie', cookies.juan!);
     expect(first.status).toBe(200);
     noStore(first);
-    expect(kitchenTicketPrintAttentionResponseSchema.safeParse(first.body).success).toBe(true);
-    expect(first.body.prints.map((entry: { ticketId: number }) => entry.ticketId)).toEqual(
-      ids.slice(0, 50),
-    );
-    expect(first.body.nextAfterTicketId).toBe(ids[49]);
+    const firstBody = kitchenTicketPrintAttentionResponseSchema.parse(first.body as unknown);
+    expect(firstBody.prints.map((entry) => entry.ticketId)).toEqual(ids.slice(0, 50));
+    expect(firstBody.nextAfterTicketId).toBe(ids[49]);
     const second = await request(app)
       .get(`/api/kitchen-ticket-prints/attention?afterTicketId=${ids[49]}`)
       .set('Cookie', cookies.juan!);
-    expect(second.body.prints.map((entry: { ticketId: number }) => entry.ticketId)).toEqual(
-      ids.slice(50),
-    );
-    expect(second.body.nextAfterTicketId).toBeNull();
+    const secondBody = kitchenTicketPrintAttentionResponseSchema.parse(second.body as unknown);
+    expect(secondBody.prints.map((entry) => entry.ticketId)).toEqual(ids.slice(50));
+    expect(secondBody.nextAfterTicketId).toBeNull();
     expect(JSON.stringify(first.body)).not.toMatch(
       /reason|snapshot|destination|ownerHost|ownerPid|\.txt|\/tmp\//,
     );
@@ -303,7 +307,9 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
       for (const url of urls) {
         const response = await request(app).get(url).set('Cookie', cookies.juan!);
         expect(response.status).toBe(400);
-        expect(response.body.error.code).toBe('VALIDATION_ERROR');
+        expect(errorResponseSchema.parse(response.body as unknown).error.code).toBe(
+          'VALIDATION_ERROR',
+        );
         noStore(response);
       }
       const response = await request(app)
@@ -333,7 +339,7 @@ describe('013: contrato HTTP de historial y copia sobre polleria_test', () => {
       .get('/api/orders/2147483647/ticket-prints')
       .set('Cookie', cookies.juan!);
     expect(order.status).toBe(404);
-    expect(order.body.error.code).toBe('ORDER_NOT_FOUND');
+    expect(errorResponseSchema.parse(order.body as unknown).error.code).toBe('ORDER_NOT_FOUND');
     noStore(order);
     const missing = await copy(2147483647);
     expect(missing.status).toBe(404);
