@@ -3,6 +3,16 @@
 Documento de traspaso para retomar el trabajo en una conversación nueva. Lo mantiene el orquestador.
 Corte: 2026-10-12. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 
+## Estado actual del flujo reducido — 2026-10-13
+
+- Metodología aprobada y aplicada en AGENTS.md, CLAUDE.md y docs/agents/: principal mantiene specs/contrato y revisa; test-writer Luna medium; único implementer Luna medium para UI y gpt-6.1-sol medium para transacciones/recuperación. Sin rondas independientes de adversarial-tester/reviewer; conservar regresiones existentes y los 14 AC.
+- 013 implementada y verificada en feat/013-kitchen-printing; pendiente revisión del usuario e integración a main con autorización posterior. Commits de cierre: a5055f5 (tests) y 2c99b61 (producción). No se migró polleria_dev ni se modificó el .env del usuario durante la validación.
+- Verificación completa del principal: Vitest con cobertura, 132 archivos aprobados, 2631 pruebas aprobadas, 4 fallos esperados y 2 omitidas; líneas globales 97,23 %, umbrales del proyecto cumplidos. Lint global, formato, tipos de raíz/API/shared/web y 501 referencias locales de OpenAPI 0.10.0 pasan.
+- E2E: 24 recorridos anteriores aprobados y 12 no aplicables al proyecto seleccionado; los cuatro recorridos nuevos (dos casos × desktop/mobile) aprobados en repetición tras corregir selectores/literales de sus pruebas. Total validado en ejecuciones separadas: 28 aprobados y 12 omitidos. Chromium del sistema 154.0.8037.57 mediante wrapper externo, carpeta temporal /tmp/polleria-013-e2e; no se afirma validación con Chromium empaquetado.
+- Revisión principal detectó y corrigió arranque del dispatcher sin guardia inicial, estado pendiente permanente tras copia y páginas de atención obsoletas; regresiones conservadas. Pruebas críticas incluyen pérdida real del lock, cierre con salida pendiente, ACK perdido, páginas parciales, permisos y replay. El rojo inicial de las dos regresiones UI fue reportado antes del fix; su log fue sobrescrito por la revalidación y no se presenta como artefacto rojo disponible.
+- Evidencia local de cierre en /workspace/.cloud-setup/: 013-final-coverage-2.log, 013-final-lint-2.log, 013-new-e2e-3.log y ejemplos review-013/. Los archivos del entorno pueden no persistir en otra máquina; reproducir según scripts del repo con DB de pruebas y configuración file temporal.
+- Alcance: archivo generado no confirma papel. Hardware/ESC-POS pendientes de datos del usuario. La deuda previa de build por getServerSnapshot en primary-instance.ts continúa documentada; los E2E anteriores pasaron mediante renderizado cliente. Revisión del principal, sin auditoría adversarial/reviewer independiente bajo el flujo reducido.
+
 ## Cambio de metodología — 2026-10-12
 
 - Usuario aprobó flujo reducido: principal redacta specs/OpenAPI y revisa; solo test-writer e implementer como subagentes, medium. Luna para pruebas/tareas sencillas, gpt-6.1-sol para implementación compleja. Sin rondas independientes de spec-writer, reviewer o adversarial-tester; conservar pruebas existentes.

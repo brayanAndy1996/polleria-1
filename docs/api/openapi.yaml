@@ -127,8 +127,8 @@ info:
     - Todas las respuestas de /tables/* y /orders/* llevan Cache-Control: no-store,
       también las de error.
     Generación file de comandas (spec 013, aprobada el 2026-10-12):
-    - Las tres operaciones con tag kitchen-ticket-prints están aprobadas pero aún no implementadas
-      (x-implementation-status: pending). Esta versión es su contrato para TDD, no evidencia de rutas disponibles.
+    - Las tres operaciones con tag kitchen-ticket-prints están implementadas en la rama de la spec 013
+      (x-implementation-status: implemented), verificadas mediante integración y E2E file.
     - file genera archivos locales completos; no acredita papel, falta de papel ni recepción por cocina.
       Un proceso API sin réplicas/reinicio superpuesto; la pérdida de lock no cancela I/O.
     - Una suspensión del destino bloquea copias nuevas globalmente; un replay previamente aceptado conserva su 202.
@@ -154,7 +154,7 @@ tags:
   - name: menu
     description: La carta para armar pedidos — productos activos con presentaciones y componentes (spec 010).
   - name: kitchen-ticket-prints
-    description: Generación file, atención de fallos y copias de comandas (spec 013 aprobada; operaciones aún no implementadas).
+    description: Generación file, atención de fallos y copias de comandas (spec 013 aprobada; operaciones implementadas).
 paths:
   /health:
     get:
@@ -2225,10 +2225,10 @@ paths:
       tags:
         - kitchen-ticket-prints
       summary: Estado actual de generación file de las comandas del pedido
-      x-implementation-status: pending
+      x-implementation-status: implemented
       x-spec: 013-kitchen-printing
       description: |
-        Contrato aprobado el 2026-10-12 (spec 013); operación aún no implementada.
+        Contrato aprobado el 2026-10-12 (spec 013); operación implementada y verificada con file.
         Roles permitidos: cualquier rol con sesión, incluido kitchen. Responde una vista por comanda
         del pedido actual, ordenada por ticketId ascendente, con lectura consistente de snapshot
         y último intento (REPEATABLE READ). Tras una unión, las comandas trasladadas se listan
@@ -2296,10 +2296,10 @@ paths:
       tags:
         - kitchen-ticket-prints
       summary: Comandas file cuyo último intento requiere revisión
-      x-implementation-status: pending
+      x-implementation-status: implemented
       x-spec: 013-kitchen-printing
       description: |
-        Contrato aprobado el 2026-10-12 (spec 013); operación aún no implementada.
+        Contrato aprobado el 2026-10-12 (spec 013); operación implementada y verificada con file.
         Roles permitidos: waiter, cashier, admin. kitchen recibe 403 FORBIDDEN.
         Lista una vista por ticket cuyo último intento es failed o uncertain, incluidos los
         ANULADO; no lista todas las páginas ni todos los intentos. El mozo recibe solo este
@@ -2367,10 +2367,10 @@ paths:
       tags:
         - kitchen-ticket-prints
       summary: Solicitar una copia completa y auditada de la comanda file
-      x-implementation-status: pending
+      x-implementation-status: implemented
       x-spec: 013-kitchen-printing
       description: |
-        Contrato aprobado el 2026-10-12 (spec 013); operación aún no implementada.
+        Contrato aprobado el 2026-10-12 (spec 013); operación implementada y verificada con file.
         Roles permitidos: waiter para initial/additional; cashier o admin para cualquier tipo.
         kitchen recibe 403; waiter sobre void recibe 403. No exige pedido abierto y admite
         historial de pedidos cerrados/fusionados. Debe existir una snapshot original de la 013.
