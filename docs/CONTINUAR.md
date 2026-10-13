@@ -3,6 +3,14 @@
 Documento de traspaso para retomar el trabajo en una conversación nueva. Lo mantiene el orquestador.
 Corte: 2026-10-13. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 
+## Preparación de demo — rama dev, 2026-10-13
+
+- Solicitada por el usuario para probar una BD local vacía; rama dev creada desde main c3021d2. Guía: docs/PROBAR-DEMO.md; requisitos: docs/specs/dev-demo/spec.md. No integra Caja ni altera main.
+- Nuevo pnpm db:demo: exige development antes de conectar, aplica migraciones y seed explícito con cuatro usuarios/roles, seis mesas y seis productos con presentaciones/mostrito. Solo inserta faltantes; carga transaccional y reintento, conserva existentes. PIN públicos exclusivos de demo; no guardar conexiones en Git.
+- Checks dirigidos: 32/32 (demo, CLI, migrador y lock); tipos API, lint y formato pasan. No se reejecutó suite completa/cobertura/E2E para esta preparación de datos. Rojo inicial causal por ausencia del módulo; sin atribuir assertions ejecutadas en esa colección fallida.
+- Principal ejecutó el comando real dos veces en polleria_dev del entorno: migración 013 y seed aplicados, segunda corrida sin pendientes; login admin y lectura de seis productos/seis mesas aprobados, logout posterior. La BD de la PC del usuario no es accesible desde aquí: debe crear polleria_dev en PostgreSQL si falta, configurar su .env y ejecutar la guía.
+- Siguiente desarrollo funcional sigue siendo spec 014 de Caja. Preparación demo no crea cobros, stock ni pedidos ficticios.
+
 ## Estado actual del flujo reducido — 2026-10-13
 
 - Metodología aprobada y aplicada en AGENTS.md, CLAUDE.md y docs/agents/: principal mantiene specs/contrato y revisa; test-writer Luna medium; único implementer Luna medium para UI y gpt-6.1-sol medium para transacciones/recuperación. Sin rondas independientes de adversarial-tester/reviewer; conservar regresiones existentes y los 14 AC.
