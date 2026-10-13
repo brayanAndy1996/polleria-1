@@ -10,6 +10,7 @@ import { RoleGuard } from '../../components/auth/role-guard.tsx';
 import { ApiError, apiClient, parseResponse } from '../../lib/api/client.ts';
 import { TABLE_STATE_LABELS } from '../../lib/menu-labels.ts';
 import { WaiterPrintAttention } from '../../components/kitchen-ticket-prints/kitchen-ticket-print-sections.tsx';
+import { ScreenState } from '../../components/auth/screen-state.tsx';
 
 /** Color por estado del salón (spec §59/D-011-04): verde, ámbar, azul, morado. */
 const TABLE_STATE_TEXT_CLASSES: Readonly<Record<string, string>> = {
@@ -106,7 +107,7 @@ function WaiterBoard({ tables }: { tables: BoardTable[] }) {
       {active.length === 0 ? (
         <p>No hay mesas activas.</p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3">
+        <ul className="salon-board">
           {active.map((table) => (
             <TableCard key={table.id} table={table} />
           ))}
@@ -128,10 +129,12 @@ export default function Page() {
   });
   if (tables.isPending)
     return (
-      <p role="status" className="p-6 text-center">
-        Cargando mesas...
-        <span className="sr-only">Cargando...</span>
-      </p>
+      <ScreenState>
+        <p role="status" className="p-6 text-center">
+          Cargando mesas...
+          <span className="sr-only">Cargando...</span>
+        </p>
+      </ScreenState>
     );
   // Cualquier fallo (API o red) muestra la misma pantalla de reintento dentro
   // del chrome del guard (AC-06, ADV-011-03).
