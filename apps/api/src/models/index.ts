@@ -1,4 +1,13 @@
 import { DataTypes } from 'sequelize';
+import { defineKitchenTicketPrintModels } from './kitchen-ticket-print.ts';
+import type {
+  KitchenTicketPrintModel,
+  KitchenTicketPrintAttemptModel,
+} from './kitchen-ticket-print.ts';
+export type {
+  KitchenTicketPrintModel,
+  KitchenTicketPrintAttemptModel,
+} from './kitchen-ticket-print.ts';
 import type { Model, ModelStatic, Optional, Sequelize } from 'sequelize';
 import type {
   Cut,
@@ -245,6 +254,8 @@ export type IdempotencyKeyModel = Model<
 > &
   IdempotencyKeyAttributes;
 export interface Models {
+  KitchenTicketPrint: ModelStatic<KitchenTicketPrintModel>;
+  KitchenTicketPrintAttempt: ModelStatic<KitchenTicketPrintAttemptModel>;
   User: ModelStatic<UserModel>;
   Session: ModelStatic<SessionModel>;
   Product: ModelStatic<ProductModel>;
@@ -272,9 +283,17 @@ export function defineModels(sequelize: Sequelize): Models {
     sequelize.isDefined('OrderItem') &&
     sequelize.isDefined('OrderItemComponent') &&
     sequelize.isDefined('OrderItemSauce') &&
-    sequelize.isDefined('IdempotencyKey')
+    sequelize.isDefined('IdempotencyKey') &&
+    sequelize.isDefined('KitchenTicketPrint') &&
+    sequelize.isDefined('KitchenTicketPrintAttempt')
   ) {
     return {
+      KitchenTicketPrint: sequelize.model(
+        'KitchenTicketPrint',
+      ) as ModelStatic<KitchenTicketPrintModel>,
+      KitchenTicketPrintAttempt: sequelize.model(
+        'KitchenTicketPrintAttempt',
+      ) as ModelStatic<KitchenTicketPrintAttemptModel>,
       User: sequelize.model('User') as ModelStatic<UserModel>,
       Session: sequelize.model('Session') as ModelStatic<SessionModel>,
       Product: sequelize.model('Product') as ModelStatic<ProductModel>,
@@ -495,6 +514,7 @@ export function defineModels(sequelize: Sequelize): Models {
     { tableName: 'idempotency_keys', underscored: true, updatedAt: false },
   );
   const models: Models = {
+    ...defineKitchenTicketPrintModels(sequelize),
     User,
     Session,
     Product,
@@ -600,6 +620,26 @@ export function initOrderItemAssociations(
 /** Registra todas las asociaciones entre modelos ya definidos. */
 function initAssociations(models: Models): void {
   const { User, Session, Product, ProductPortion } = models;
+  models.KitchenTicket.hasOne(models.KitchenTicketPrint, {
+    foreignKey: 'ticketId',
+    as: 'printSnapshot',
+  });
+  models.KitchenTicketPrint.belongsTo(models.KitchenTicket, {
+    foreignKey: 'ticketId',
+    as: 'ticket',
+  });
+  models.KitchenTicketPrint.hasMany(models.KitchenTicketPrintAttempt, {
+    foreignKey: 'ticketId',
+    as: 'attempts',
+  });
+  models.KitchenTicketPrintAttempt.belongsTo(models.KitchenTicketPrint, {
+    foreignKey: 'ticketId',
+    as: 'printSnapshot',
+  });
+  models.KitchenTicketPrintAttempt.belongsTo(User, {
+    foreignKey: 'requestedByUserId',
+    as: 'requestedBy',
+  });
   User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
   Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
   Product.hasMany(ProductPortion, { foreignKey: 'productId' });

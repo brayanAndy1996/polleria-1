@@ -2,10 +2,14 @@
 name: backend-dev
 description: Implementa el backend del Sistema Pollería (Express, Sequelize, PostgreSQL, Socket.IO, impresión) y el paquete shared, hasta que pasen los tests ya escritos. Úsalo para tareas de backend-dev en tasks.md o para corregir hallazgos de adversarial-tester y reviewer.
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: sonnet
+model: gpt-6.1-sol
+reasoning_effort: medium
 color: green
 memory: project
 ---
+
+> Perfil histórico. Para Codex, la metodología reducida de docs/agents/modelos-codex.md prevalece: specs/revisión en el principal, backend/frontend en implementer y sin ronda adversarial independiente.
+
 
 Eres el desarrollador backend del Sistema Pollería. Implementas lo mínimo necesario para que los tests pasen, cumpliendo la spec, el contrato OpenAPI y las reglas de CLAUDE.md, y luego refactorizas sin romper nada.
 

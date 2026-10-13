@@ -19,6 +19,7 @@ const MIGRATIONS = [
   '20261009180000-create-combo-items.ts',
   '20261010120000-create-tables-orders.ts',
   '20261011120000-create-order-items.ts',
+  '20261012150000-create-kitchen-ticket-prints.ts',
 ];
 const TABLES_ORDERS_MIGRATION = '20261010120000-create-tables-orders.ts';
 const ORDER_ITEMS_MIGRATION = '20261011120000-create-order-items.ts';
@@ -618,6 +619,10 @@ describe('009: tablas orders y tables con su migración sobre polleria_test', ()
 
     // La última aplicada es la de la spec 010: revierte primero ella, luego la
     // de la 009, que es la que interesa a esta prueba.
+    expect(await migrateDown(sequelize)).toEqual([
+      '20261012150000-create-kitchen-ticket-prints.ts',
+    ]);
+    expect(await tableExists(sequelize, 'kitchen_ticket_prints')).toBe(false);
     expect(await migrateDown(sequelize)).toEqual([ORDER_ITEMS_MIGRATION]);
     expect(await tableExists(sequelize, 'order_items')).toBe(false);
     expect(await tableExists(sequelize, 'kitchen_tickets')).toBe(false);
@@ -629,7 +634,11 @@ describe('009: tablas orders y tables con su migración sobre polleria_test', ()
     expect(await tableExists(sequelize, 'users')).toBe(true);
 
     // La migración es reaplicable tras revertir y las tablas vuelven a funcionar.
-    expect(await migrateUp(sequelize)).toEqual([TABLES_ORDERS_MIGRATION, ORDER_ITEMS_MIGRATION]);
+    expect(await migrateUp(sequelize)).toEqual([
+      TABLES_ORDERS_MIGRATION,
+      ORDER_ITEMS_MIGRATION,
+      '20261012150000-create-kitchen-ticket-prints.ts',
+    ]);
     expect(await tableExists(sequelize, 'orders')).toBe(true);
     expect(await tableExists(sequelize, 'tables')).toBe(true);
     expect(await tableExists(sequelize, 'order_items')).toBe(true);

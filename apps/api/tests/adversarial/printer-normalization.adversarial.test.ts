@@ -158,34 +158,30 @@ describe('002 adversarial: normalización y validación del documento', () => {
   // primera vez y 5 a 7 s al reimprimir (en la PC de desarrollo). AC-17 pide menos de 2 s y
   // D-002-06 promete unos 100 ms para el caso más grande. En la Fase 3 congelaría la API completa
   // mientras se imprime.
-  // Deuda aceptada por el usuario el 2026-10-08 (ver docs/PROGRESS.md). Corregir en la Fase 3 y volver a it(...).
-  it.fails(
-    'ADV-002-01: el documento más costoso que se acepta se imprime en menos de 2 s, también al reimprimirlo',
-    async () => {
-      const line = 'x' + '\u0344'.repeat(1000) + '\u0323'.repeat(999);
-      expect(line.length).toBe(2000);
-      const lines = Array.from({ length: 500 }, () => line);
-      const fake = createFakeDriver();
-      const service = createPrinterService({ driver: fake.driver });
+  // Deuda aceptada por el usuario el 2026-10-08; resuelta por T-10 de la 013 y revalidada por ADV-002-01.
+  it('ADV-002-01: el documento más costoso que se acepta se imprime en menos de 2 s, también al reimprimirlo', async () => {
+    const line = 'x' + '\u0344'.repeat(1000) + '\u0323'.repeat(999);
+    expect(line.length).toBe(2000);
+    const lines = Array.from({ length: 500 }, () => line);
+    const fake = createFakeDriver();
+    const service = createPrinterService({ driver: fake.driver });
 
-      const elapsedMs: number[] = [];
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const startedAt = performance.now();
-        await service.print({ label: 'prueba', lines });
-        elapsedMs.push(performance.now() - startedAt);
-      }
+    const elapsedMs: number[] = [];
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const startedAt = performance.now();
+      await service.print({ label: 'prueba', lines });
+      elapsedMs.push(performance.now() - startedAt);
+    }
 
-      // El documento es válido: cada línea se imprime como 'x' (las marcas sin equivalente se quitan).
-      expect(fake.jobs).toHaveLength(2);
-      expect(fake.jobs[0]?.lines).toEqual(Array.from({ length: 500 }, () => 'x'));
-      const report = elapsedMs.map((ms) => `${String(Math.round(ms))} ms`).join(', ');
-      expect(
-        Math.max(...elapsedMs),
-        `tiempos de la impresión y la reimpresión: ${report}`,
-      ).toBeLessThan(2000);
-    },
-    120_000,
-  );
+    // El documento es válido: cada línea se imprime como 'x' (las marcas sin equivalente se quitan).
+    expect(fake.jobs).toHaveLength(2);
+    expect(fake.jobs[0]?.lines).toEqual(Array.from({ length: 500 }, () => 'x'));
+    const report = elapsedMs.map((ms) => `${String(Math.round(ms))} ms`).join(', ');
+    expect(
+      Math.max(...elapsedMs),
+      `tiempos de la impresión y la reimpresión: ${report}`,
+    ).toBeLessThan(2000);
+  }, 120_000);
 
   // ADV-002-03 (Bajo): el esquema revisa el máximo de 500 líneas después de recorrer TODOS los
   // elementos. Con un arreglo enorme (por ejemplo `new Array(2 ** 32 - 1)`, que no ocupa memoria

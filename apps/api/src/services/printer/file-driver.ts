@@ -3,6 +3,13 @@ import type { FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { JOB_ID_MAX_LENGTH, JOB_ID_PATTERN } from './print-job.ts';
+import {
+  PRINT_LABEL_MAX_LENGTH,
+  PRINT_LABEL_PATTERN,
+  PRINTABLE_CHARACTERS,
+  PRINTER_LINE_WIDTH,
+  PRINTER_MAX_LINES,
+} from './print-document.ts';
 import type { PrintJob, PrintReceipt, PrinterDriver } from './print-job.ts';
 import { PrinterError } from './printer-error.ts';
 
@@ -56,6 +63,44 @@ function assertValidJobId(jobId: unknown): asserts jobId is string {
   }
 }
 
+const PRINTABLE_SET: ReadonlySet<string> = new Set(PRINTABLE_CHARACTERS);
+
+/** El driver también defiende su frontera pública: solo acepta la salida ya canónica. */
+export function assertCanonicalJob(job: unknown): asserts job is PrintJob {
+  if (typeof job !== 'object' || job === null || !('jobId' in job)) {
+    throw new PrinterError('PRINTER_INVALID_DOCUMENT');
+  }
+  assertValidJobId(job.jobId);
+  if (
+    !('label' in job) ||
+    typeof job.label !== 'string' ||
+    job.label.length > PRINT_LABEL_MAX_LENGTH ||
+    !PRINT_LABEL_PATTERN.test(job.label) ||
+    !('lines' in job) ||
+    !Array.isArray(job.lines) ||
+    job.lines.length === 0 ||
+    job.lines.length > PRINTER_MAX_LINES
+  ) {
+    throw new PrinterError('PRINTER_INVALID_DOCUMENT');
+  }
+
+  let hasContent = false;
+  for (const line of job.lines) {
+    if (typeof line !== 'string' || line.length > PRINTER_LINE_WIDTH || line.endsWith(' ')) {
+      throw new PrinterError('PRINTER_INVALID_DOCUMENT');
+    }
+    for (const character of line) {
+      if (!PRINTABLE_SET.has(character)) {
+        throw new PrinterError('PRINTER_INVALID_DOCUMENT');
+      }
+    }
+    hasContent ||= line.length > 0;
+  }
+  if (!hasContent) {
+    throw new PrinterError('PRINTER_INVALID_DOCUMENT');
+  }
+}
+
 /**
  * Driver file (D-002-08): escribe cada trabajo como un archivo UTF-8 `<jobId>.txt`, con cada línea
  * seguida de LF. Escribe primero `<jobId>.tmp` y lo renombra al final, así el .txt aparece completo
@@ -71,8 +116,8 @@ export function createFilePrinterDriver(options: FilePrinterDriverOptions): Prin
   return {
     name: 'file',
     async print(job: PrintJob): Promise<PrintReceipt> {
-      // Antes de tocar el disco: ni siquiera se crea la carpeta con un jobId inválido.
-      assertValidJobId(job.jobId);
+      // Antes de cualquier I/O, incluso cuando se llama directamente al driver.
+      assertCanonicalJob(job);
 
       const content = job.lines.map((line) => `${line}\n`).join('');
       const tempPath = path.join(dir, `${job.jobId}.tmp`);

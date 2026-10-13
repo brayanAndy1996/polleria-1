@@ -112,7 +112,9 @@ test.describe('011: pantallas del mozo en el celular', () => {
     await page.getByRole('button', { name: 'Agregar al pedido' }).click();
     await page.getByRole('button', { name: 'Enviar a cocina (2)' }).click();
     // De vuelta en la mesa: aviso, ítems y total (1700 + 0 + 400).
-    await expect(page.getByText('Pedido enviado a cocina.')).toBeVisible();
+    await expect(
+      page.getByText('Pedido registrado. Consulta la generación de la comanda.'),
+    ).toBeVisible();
     await expect(sentItems(page).getByText(/E2E Pollo — Cuarto — pierna/)).toBeVisible();
     await expect(sentItems(page).getByText(/E2E Gaseosa/)).toBeVisible();
     await expect(page.getByText('Total S/ 21.00')).toBeVisible();

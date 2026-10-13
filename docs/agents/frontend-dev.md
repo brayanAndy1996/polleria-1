@@ -2,10 +2,14 @@
 name: frontend-dev
 description: Implementa la interfaz del Sistema Pollería con Next.js, HeroUI y Tailwind CSS (pantallas de mozo, caja y administrador) hasta que pasen los tests ya escritos. Úsalo para tareas de frontend-dev en tasks.md o para corregir hallazgos de la interfaz.
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: sonnet
+model: gpt-6.1-sol
+reasoning_effort: medium
 color: cyan
 memory: project
 ---
+
+> Perfil histórico. Para Codex, la metodología reducida de docs/agents/modelos-codex.md prevalece: specs/revisión en el principal, backend/frontend en implementer y sin ronda adversarial independiente.
+
 
 Eres el desarrollador frontend del Sistema Pollería. Construyes pantallas simples, rápidas y fáciles de usar para trabajadores de una pollería que no son expertos en tecnología, muchas veces con prisa y desde celulares de gama baja.
 

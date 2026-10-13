@@ -30,6 +30,7 @@ import type {
 import { loadOrderViews, toOrderItems } from '../orders/order-view.ts';
 import { createOrderNotFoundError, createOrderNotOpenError } from '../orders/order.service.ts';
 import type { OrderActor } from '../orders/order.service.ts';
+import type { KitchenTicketPrintService } from '../kitchen-ticket-prints/kitchen-ticket-print.service.ts';
 
 /** El usuario de la sesión que ejecuta la operación (misma forma que OrderActor). */
 export type OrderItemActor = OrderActor;
@@ -189,9 +190,16 @@ function validationIssues(issues: Issue[]): AppError {
  * en posición de tipo (`import('...').createOrderItemService`) para tipar el
  * servicio sin importar su valor — ahí solo se ven los exportados de tipo.
  */
-export type createOrderItemService = (deps: { models: Models }) => OrderItemService;
+interface OrderItemServiceDeps {
+  models: Models;
+  kitchenTicketPrintService?: KitchenTicketPrintService;
+}
+export type createOrderItemService = (deps: OrderItemServiceDeps) => OrderItemService;
 
-export function createOrderItemService({ models }: { models: Models }): OrderItemService {
+export function createOrderItemService({
+  models,
+  kitchenTicketPrintService,
+}: OrderItemServiceDeps): OrderItemService {
   const maybeSequelize = models.Order.sequelize;
   if (maybeSequelize === undefined)
     throw new Error('Los modelos no están vinculados a una conexión de Sequelize.');
@@ -744,6 +752,15 @@ export function createOrderItemService({ models }: { models: Models }): OrderIte
           order: await viewOf(order.id, transaction),
           ticket: await ticketOf(ticket, transaction),
         };
+        await kitchenTicketPrintService?.enqueue(
+          {
+            version: 1,
+            ticket: response.ticket,
+            orderIdAtIssue: orderId,
+            tablesAtIssue: response.order.tables,
+          },
+          transaction,
+        );
         await storeResponse(SCOPE_SEND, key, 201, response, transaction);
         return response;
       });
@@ -805,6 +822,15 @@ export function createOrderItemService({ models }: { models: Models }): OrderIte
           order: await viewOf(orderId, transaction),
           ticket: await ticketOf(ticket, transaction),
         };
+        await kitchenTicketPrintService?.enqueue(
+          {
+            version: 1,
+            ticket: response.ticket,
+            orderIdAtIssue: orderId,
+            tablesAtIssue: response.order.tables,
+          },
+          transaction,
+        );
         await storeResponse(SCOPE_VOID, key, 200, response, transaction);
         return response;
       });

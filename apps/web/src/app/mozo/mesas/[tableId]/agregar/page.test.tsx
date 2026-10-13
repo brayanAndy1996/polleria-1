@@ -2,8 +2,8 @@
 // apps/web/src/app/mozo/mesas/[tableId]/agregar/page.tsx (hoy no existe: el rojo
 // es por ausencia del módulo). La toma lee GET /api/menu al entrar, arma el
 // carrito en local y envía la tanda con Idempotency-Key (D-011-07..D-011-10).
-// El transporte del aviso 'Pedido enviado a cocina.' queda fijado por estos
-// tests: sessionStorage['polleria:orderNotice'] con el texto literal.
+// El transporte del aviso nuevo queda fijado por estos tests:
+// sessionStorage['polleria:orderNotice'] con el texto literal aprobado en 013.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, delay, http } from 'msw';
@@ -434,7 +434,9 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
         mocks.replace.mock.calls.concat(mocks.push.mock.calls).map((c: unknown[]) => c[0]),
       ).toContain('/mozo/mesas/3');
     });
-    expect(sessionStorage.getItem('polleria:orderNotice')).toBe('Pedido enviado a cocina.');
+    expect(sessionStorage.getItem('polleria:orderNotice')).toBe(
+      'Pedido registrado. Consulta la generación de la comanda.',
+    );
     expect(screen.getByRole('button', { name: 'Enviar a cocina (0)' })).toBeInTheDocument();
   });
 

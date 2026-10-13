@@ -43,7 +43,7 @@ import {
 } from '../../../../../lib/menu-labels.ts';
 
 const NOTICE_KEY = 'polleria:orderNotice';
-const SENT_NOTICE = 'Pedido enviado a cocina.';
+const SENT_NOTICE = 'Pedido registrado. Consulta la generación de la comanda.';
 /** Categorías con cremas (RN-010-13): pollo, platos y combos. */
 const SAUCE_CATEGORIES: readonly ProductCategory[] = ['chicken', 'dish', 'combo'];
 const DISTRIBUTIONS: readonly { label: string; breast: number; leg: number }[] = [
