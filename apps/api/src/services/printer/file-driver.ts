@@ -66,7 +66,7 @@ function assertValidJobId(jobId: unknown): asserts jobId is string {
 const PRINTABLE_SET: ReadonlySet<string> = new Set(PRINTABLE_CHARACTERS);
 
 /** El driver también defiende su frontera pública: solo acepta la salida ya canónica. */
-function assertCanonicalJob(job: unknown): asserts job is PrintJob {
+export function assertCanonicalJob(job: unknown): asserts job is PrintJob {
   if (typeof job !== 'object' || job === null || !('jobId' in job)) {
     throw new PrinterError('PRINTER_INVALID_DOCUMENT');
   }

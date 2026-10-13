@@ -4,6 +4,11 @@ import { createApp } from './app.ts';
 import { ConfigError, loadConfig } from './config/env.ts';
 import type { AppConfig } from './config/env.ts';
 import { createSequelize } from './db/sequelize.ts';
+import { defineModels } from './models/index.ts';
+import { createPrinterDriver } from './services/printer/create-printer-driver.ts';
+import { createPrinterService } from './services/printer/printer.service.ts';
+import { createKitchenTicketPrintService } from './services/kitchen-ticket-prints/kitchen-ticket-print.service.ts';
+import { createKitchenTicketPrintDispatcher } from './services/kitchen-ticket-prints/kitchen-ticket-print.dispatcher.ts';
 
 /** Tiempo máximo para cerrar con SIGINT o SIGTERM antes de salir a la fuerza. */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -42,7 +47,19 @@ async function main(): Promise<void> {
 
   // Sequelize conecta bajo demanda: la API arranca aunque PostgreSQL esté apagado (S-04).
   const sequelize = createSequelize(config.databaseUrl);
-  const server = http.createServer(createApp({ sequelize }));
+  const models = defineModels(sequelize);
+  const printerService = createPrinterService({
+    driver: createPrinterDriver(config.printer),
+    fileDir: config.printer.fileDir,
+  });
+  const dispatcher = createKitchenTicketPrintDispatcher({ models, printerService });
+  const printService = createKitchenTicketPrintService({
+    models,
+    printerService,
+    wakeDispatcher: dispatcher.wake,
+    isDestinationSuspended: dispatcher.isSuspended,
+  });
+  const server = http.createServer(createApp({ sequelize, printService }));
 
   try {
     await listen(server, config.host, config.port);
@@ -58,6 +75,7 @@ async function main(): Promise<void> {
   }
 
   console.log(`API escuchando en http://${config.host}:${String(config.port)}`);
+  dispatcher.start();
 
   let shuttingDown = false;
   const shutdown = (): void => {
@@ -71,15 +89,18 @@ async function main(): Promise<void> {
       process.exit(1);
     }, SHUTDOWN_TIMEOUT_MS).unref();
 
+    const printingStopped = dispatcher.stop();
     server.close(() => {
-      sequelize.close().then(
-        () => {
-          process.exitCode = 0;
-        },
-        () => {
-          process.exitCode = 1;
-        },
-      );
+      printingStopped
+        .then(() => sequelize.close())
+        .then(
+          () => {
+            process.exitCode = 0;
+          },
+          () => {
+            process.exitCode = 1;
+          },
+        );
     });
     server.closeIdleConnections();
   };

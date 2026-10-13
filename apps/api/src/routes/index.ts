@@ -20,6 +20,8 @@ import { createTablesRoutes } from './tables/tables.routes.ts';
 import { createOrdersRoutes } from './orders/orders.routes.ts';
 import { createOrderItemsRoutes } from './orders/order-items.routes.ts';
 import { createMenuRoutes } from './menu.routes.ts';
+import { createKitchenTicketPrintsRoutes } from './kitchen-ticket-prints.routes.ts';
+import type { KitchenTicketPrintsController } from '../controllers/kitchen-ticket-prints.controller.ts';
 
 export interface ApiRouterDependencies {
   healthService: HealthService;
@@ -32,6 +34,7 @@ export interface ApiRouterDependencies {
   ordersController: OrdersController;
   orderItemsController: OrderItemsController;
   menuController: MenuController;
+  kitchenTicketPrintsController: KitchenTicketPrintsController;
   requireAuth: RequestHandler;
 }
 
@@ -47,6 +50,7 @@ export function createApiRouter({
   ordersController,
   orderItemsController,
   menuController,
+  kitchenTicketPrintsController,
   requireAuth,
 }: ApiRouterDependencies): Router {
   const router = Router();
@@ -71,6 +75,7 @@ export function createApiRouter({
   // /menu para la carta completa.
   router.use('/orders', createOrderItemsRoutes(orderItemsController, requireAuth));
   router.use('/menu', createMenuRoutes(menuController, requireAuth));
+  router.use(createKitchenTicketPrintsRoutes(kitchenTicketPrintsController, requireAuth));
 
   return router;
 }

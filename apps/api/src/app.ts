@@ -31,6 +31,12 @@ import { createOrderItemService } from './services/order-items/order-item.servic
 import { createOrderItemsController } from './controllers/order-items.controller.ts';
 import { createMenuService } from './services/menu/menu.service.ts';
 import { createMenuController } from './controllers/menu.controller.ts';
+import { createKitchenTicketPrintService } from './services/kitchen-ticket-prints/kitchen-ticket-print.service.ts';
+import type { KitchenTicketPrintService } from './services/kitchen-ticket-prints/kitchen-ticket-print.service.ts';
+import { createKitchenTicketPrintsController } from './controllers/kitchen-ticket-prints.controller.ts';
+import { createPrinterService } from './services/printer/printer.service.ts';
+import { createPrinterDriver } from './services/printer/create-printer-driver.ts';
+import { DEFAULT_PRINTER_FILE_DIR } from './config/env.ts';
 
 export interface AppDependencies {
   sequelize: Sequelize;
@@ -38,6 +44,7 @@ export interface AppDependencies {
   healthTimeoutMs?: number;
   now?: () => Date;
   pinHasher?: PinHasher;
+  printService?: KitchenTicketPrintService;
 }
 
 /**
@@ -53,6 +60,7 @@ const NO_STORE_PATH_PREFIXES = [
   '/api/tables',
   '/api/orders',
   '/api/menu',
+  '/api/kitchen-ticket-prints',
 ] as const;
 
 /**
@@ -73,6 +81,7 @@ export function createApp({
   healthTimeoutMs,
   now = () => new Date(),
   pinHasher = createBcryptPinHasher(),
+  printService,
 }: AppDependencies): Express {
   configureZodLocale();
 
@@ -113,7 +122,19 @@ export function createApp({
   const ordersController = createOrdersController({ orderService });
   // Ítems del pedido y carta (spec 010): envío idempotente, anulación con
   // auditoría y comandas; la carta resuelve presentaciones y componentes.
-  const orderItemService = createOrderItemService({ models });
+  const kitchenTicketPrintService =
+    printService ??
+    createKitchenTicketPrintService({
+      models,
+      now,
+      printerService: createPrinterService({
+        driver: createPrinterDriver({ driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR }),
+        fileDir: DEFAULT_PRINTER_FILE_DIR,
+      }),
+    });
+  const kitchenTicketPrintsController =
+    createKitchenTicketPrintsController(kitchenTicketPrintService);
+  const orderItemService = createOrderItemService({ models, kitchenTicketPrintService });
   const orderItemsController = createOrderItemsController({ orderItemService });
   const menuService = createMenuService({ models });
   const menuController = createMenuController({ menuService });
@@ -159,6 +180,7 @@ export function createApp({
       ordersController,
       orderItemsController,
       menuController,
+      kitchenTicketPrintsController,
       requireAuth,
     }),
   );
