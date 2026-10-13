@@ -1,15 +1,13 @@
 # Instrucciones para Codex
 
-Lee `CLAUDE.md`, `docs/PROGRESS.md` y `docs/CONTINUAR.md` al iniciar trabajo en este repositorio. Las decisiones aprobadas más recientes prevalecen sobre instrucciones históricas de plataforma.
+Lee CLAUDE.md, docs/PROGRESS.md y docs/CONTINUAR.md al iniciar. La metodología reducida aprobada el 2026-10-12 en docs/agents/modelos-codex.md prevalece sobre perfiles históricos de Claude/Devin y el flujo anterior de siete roles.
 
-El agente principal es el orquestador según `docs/agents/orquestador.md`. Planifica, delega, verifica y mantiene documentación; no escribe código de producción ni tests. Usa subagentes reales y separados para cada rol del ciclo SDD → TDD → pruebas adversariales → revisión.
+Tres funciones: orquestador principal, test-writer y un implementer que cubre backend/frontend/shared. El principal redacta specs, mantiene OpenAPI/documentación, revisa y verifica; no escribe producción ni tests. Solo los dos roles ejecutores usan subagentes. No crear agentes separados spec-writer, reviewer o adversarial-tester, ni duplicar un rol en paralelo.
 
-La asignación aprobada de modelos está en `docs/agents/modelos-codex.md`. Al crear cada subagente, usa `fork_turns="none"` y pasa explícitamente:
+Usa fork_turns="none", contexto acotado y reasoning_effort="medium". Test-writer usa gpt-6-luna. Implementer usa gpt-6-luna para tareas sencillas y gpt-6.1-sol para lógica compleja de transacciones, permisos, dinero o concurrencia. Explica el modelo elegido; no usar xhigh/max por defecto. Si la cuota impide el modelo necesario, informa el bloqueo y continúa tareas independientes; no reintentes en bucle.
 
-- spec-writer: `model="gpt-6.1-sol"`, `reasoning_effort="xhigh"`.
-- test-writer, backend-dev, frontend-dev y reviewer: `model="gpt-6.1-sol"`, `reasoning_effort="medium"`.
-- adversarial-tester: `model="gpt-6-luna"`, `reasoning_effort="max"`.
+Flujo: spec aprobada → bloque pequeño de pruebas en rojo → implementación mínima en verde → revisión del principal → checks de cierre. Conserva todos los AC aprobados y las pruebas adversariales existentes como regresiones. El test-writer conserva casos críticos de dinero/permisos/idempotencia/concurrencia; el implementer no cambia tests. No hay ronda adversarial independiente ni revisión independiente: registrar esa limitación sin atribuir verificaciones ficticias.
 
-Incluye en cada encargo la definición del rol, spec/tasks, AC, decisiones aprobadas, rama y alcance de archivos. No cambies estos modelos silenciosamente. El reviewer no edita archivos; los implementadores no editan tests. Serializa las suites que comparten polleria_test y evita escrituras concurrentes en los mismos archivos. No integres a main sin autorización del usuario.
+Serializa Vitest/cobertura/Playwright si usan polleria_test; evita instalaciones simultáneas y escrituras en los mismos archivos. Tests solo con guardias de DB aislada. Commits separados de tests, producción y docs. Integración a main requiere autorización posterior del usuario.
 
-Cada tarea de nube ya está aislada: usa el checkout existente y no crees worktrees salvo solicitud explícita. Durante planificación no implementes ni lances tareas de producción o tests.
+Usa el checkout existente de la nube; no crees worktrees salvo solicitud explícita. Durante planificación no implementes. Preserva el trabajo parcial previo y retoma desde evidencia real, sin reconstruir TDD retrospectivo.

@@ -187,6 +187,7 @@ async function renderMesaOcupada(order: JsonValue = ORDER_VACIO, tickets: JsonVa
   mockTickets(tickets);
   const view = show(<MesaPage />);
   expect(await screen.findByRole('heading', { name: 'Mesa 3', level: 1 })).toBeVisible();
+  expect(await screen.findByRole('heading', { name: 'Pedido', level: 2 })).toBeVisible();
   return view;
 }
 function expectNavigatedTo(path: string) {
@@ -254,8 +255,8 @@ describe('011: la mesa y su pedido (/mozo/mesas/[tableId])', () => {
     );
     show(<MesaPage />);
     fireEvent.click(await screen.findByRole('button', { name: 'Abrir mesa' }));
-    expect(await screen.findByText('La mesa ya tiene un pedido abierto.')).toBeVisible();
     await waitFor(() => {
+      expect(screen.getByText('La mesa ya tiene un pedido abierto.')).toBeVisible();
       expect(screen.getByText('Ocupada')).toBeVisible();
     });
   });
@@ -807,6 +808,7 @@ describe('011: la mesa y su pedido (/mozo/mesas/[tableId])', () => {
     mockOrder(makeOrder({ items: [ITEM_CHAUFA_PEDIDA], totalCents: 1400 }));
     show(<MesaPage />);
     await screen.findByRole('heading', { name: 'Mesa 3', level: 1 });
+    await screen.findByRole('heading', { name: 'Pedido', level: 2 });
     const row2 = itemRow('Chaufa');
     fireEvent.click(within(row2).getByRole('button', { name: 'Rechazar solicitud' }));
     expect(await screen.findByText(/¿Rechazar la anulación que pidió Juan\?/)).toBeVisible();
@@ -816,13 +818,18 @@ describe('011: la mesa y su pedido (/mozo/mesas/[tableId])', () => {
     });
   });
 
-  it('AC-17: de vuelta de la toma la mesa muestra el aviso "Pedido enviado a cocina."', async () => {
+  it('AC-17: de vuelta de la toma la mesa muestra el aviso de generación de comanda', async () => {
     // Transporte del aviso fijado por este test (la spec no define mecanismo):
     // la toma deja sessionStorage['polleria:orderNotice'] con el texto y la mesa
     // lo muestra junto a la comanda nueva al montar.
-    sessionStorage.setItem('polleria:orderNotice', 'Pedido enviado a cocina.');
+    sessionStorage.setItem(
+      'polleria:orderNotice',
+      'Pedido registrado. Consulta la generación de la comanda.',
+    );
     await renderMesaOcupada(ORDER_VACIO, [makeTicket()]);
-    expect(await screen.findByText('Pedido enviado a cocina.')).toBeVisible();
+    expect(
+      await screen.findByText('Pedido registrado. Consulta la generación de la comanda.'),
+    ).toBeVisible();
     expect(screen.getByText('Comanda inicial')).toBeVisible();
   });
 

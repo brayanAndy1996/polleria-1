@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { RoleGuard } from '../../components/auth/role-guard.tsx';
 import { ApiError, apiClient, parseResponse } from '../../lib/api/client.ts';
 import { TABLE_STATE_LABELS } from '../../lib/menu-labels.ts';
+import { WaiterPrintAttention } from '../../components/kitchen-ticket-prints/kitchen-ticket-print-sections.tsx';
 
 /** Color por estado del salón (spec §59/D-011-04): verde, ámbar, azul, morado. */
 const TABLE_STATE_TEXT_CLASSES: Readonly<Record<string, string>> = {
@@ -111,6 +112,7 @@ function WaiterBoard({ tables }: { tables: BoardTable[] }) {
           ))}
         </ul>
       )}
+      <WaiterPrintAttention />
     </>
   );
 }

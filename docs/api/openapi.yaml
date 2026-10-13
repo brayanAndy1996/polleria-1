@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.9.0
+  version: 0.10.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -126,6 +126,13 @@ info:
       en el pedido (readyAt y billRequestedAt) para que la pantalla muestre las dos.
     - Todas las respuestas de /tables/* y /orders/* llevan Cache-Control: no-store,
       también las de error.
+    Generación file de comandas (spec 013, aprobada el 2026-10-12):
+    - Las tres operaciones con tag kitchen-ticket-prints están implementadas en la rama de la spec 013
+      (x-implementation-status: implemented), verificadas mediante integración y E2E file.
+    - file genera archivos locales completos; no acredita papel, falta de papel ni recepción por cocina.
+      Un proceso API sin réplicas/reinicio superpuesto; la pérdida de lock no cancela I/O.
+    - Una suspensión del destino bloquea copias nuevas globalmente; un replay previamente aceptado conserva su 202.
+      Las operaciones y formas de 0.9.0 mantienen su comportamiento.
 servers:
   - url: http://localhost:3000/api
     description: A través de la web, en el mismo origen. Es lo que usan los navegadores (PC de caja y celulares).
@@ -146,6 +153,8 @@ tags:
     description: Ciclo del pedido — la cuenta de una o más mesas —, sus señales (spec 009) y los ítems enviados a cocina con su anulación (spec 010).
   - name: menu
     description: La carta para armar pedidos — productos activos con presentaciones y componentes (spec 010).
+  - name: kitchen-ticket-prints
+    description: Generación file, atención de fallos y copias de comandas (spec 013 aprobada; operaciones implementadas).
 paths:
   /health:
     get:
@@ -2210,6 +2219,278 @@ paths:
           $ref: '#/components/responses/OrderNotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+  /orders/{orderId}/ticket-prints:
+    get:
+      operationId: listOrderTicketPrints
+      tags:
+        - kitchen-ticket-prints
+      summary: Estado actual de generación file de las comandas del pedido
+      x-implementation-status: implemented
+      x-spec: 013-kitchen-printing
+      description: |
+        Contrato aprobado el 2026-10-12 (spec 013); operación implementada y verificada con file.
+        Roles permitidos: cualquier rol con sesión, incluido kitchen. Responde una vista por comanda
+        del pedido actual, ordenada por ticketId ascendente, con lectura consistente de snapshot
+        y último intento (REPEATABLE READ). Tras una unión, las comandas trasladadas se listan
+        en el pedido destino; el origen fusionado conserva su existencia y responde prints: [].
+        No exige pedido abierto. El vínculo orderId es actual; tablesAtIssue conserva los nombres
+        al emitir. Una comanda sin snapshot responde not_tracked, tablesAtIssue: [],
+        lastAttempt: null y canReprint: false. Nunca se reconstruye una mesa histórica.
+        Es una consulta separada: no cambia KitchenTicket, Order ni las respuestas idempotentes
+        201/200 de la spec 010. Si el destino está suspendido, canReprint es false para todas
+        las comandas. No expone ítems, motivos, rutas, huellas de carpeta, PID ni causa privada.
+        Todas las respuestas, también los errores, llevan Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: 'Estados actuales; prints: [] si el pedido no tiene comandas.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenTicketPrintsResponse'
+        '400':
+          description: 'VALIDATION_ERROR: orderId no es un identificador válido; issue en orderId.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'UNAUTHENTICATED: debes iniciar sesión para continuar.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 'ORDER_NOT_FOUND: ese pedido no existe.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 'INTERNAL_ERROR: error inesperado; sin detalles privados.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /kitchen-ticket-prints/attention:
+    get:
+      operationId: listKitchenTicketPrintAttention
+      tags:
+        - kitchen-ticket-prints
+      summary: Comandas file cuyo último intento requiere revisión
+      x-implementation-status: implemented
+      x-spec: 013-kitchen-printing
+      description: |
+        Contrato aprobado el 2026-10-12 (spec 013); operación implementada y verificada con file.
+        Roles permitidos: waiter, cashier, admin. kitchen recibe 403 FORBIDDEN.
+        Lista una vista por ticket cuyo último intento es failed o uncertain, incluidos los
+        ANULADO; no lista todas las páginas ni todos los intentos. El mozo recibe solo este
+        resumen, sin ítems ni motivo de anulación, y no puede copiar una comanda void.
+        Página fija de hasta 50 vistas, ordenada por ticketId ascendente. afterTicketId
+        es exclusivo; nextAfterTicketId es el último ticketId devuelto si hay más, o null.
+        Sin resultados responde prints: [] y nextAfterTicketId: null. Cada refresco empieza
+        sin cursor; el estado puede cambiar entre páginas. Lectura coherente de cada página,
+        sin garantía de una fotografía inmutable entre solicitudes. No hay filtro por mozo.
+        Si el destino está suspendido, canReprint es false en todas las vistas.
+        Todas las respuestas, también los errores, llevan Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/AfterTicketId'
+      responses:
+        '200':
+          description: Pendientes de revisión y cursor de la página siguiente.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KitchenTicketPrintAttentionResponse'
+        '400':
+          description: 'VALIDATION_ERROR: afterTicketId inválido; issue en afterTicketId.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'UNAUTHENTICATED: debes iniciar sesión para continuar.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: 'FORBIDDEN: el usuario no tiene un rol permitido.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 'INTERNAL_ERROR: error inesperado; sin detalles privados.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /kitchen-ticket-prints/{ticketId}/reprint:
+    post:
+      operationId: reprintKitchenTicket
+      tags:
+        - kitchen-ticket-prints
+      summary: Solicitar una copia completa y auditada de la comanda file
+      x-implementation-status: implemented
+      x-spec: 013-kitchen-printing
+      description: |
+        Contrato aprobado el 2026-10-12 (spec 013); operación implementada y verificada con file.
+        Roles permitidos: waiter para initial/additional; cashier o admin para cualquier tipo.
+        kitchen recibe 403; waiter sobre void recibe 403. No exige pedido abierto y admite
+        historial de pedidos cerrados/fusionados. Debe existir una snapshot original de la 013.
+        Solicitud JSON estricta con reason e Idempotency-Key obligatoria. Se crea un intento
+        queued con actor, hora, motivo y copyNumber consecutivo (1 para la primera copia).
+        Genera todas las páginas, con REIMPRESIÓN #N y contenido original. No modifica la
+        comanda de negocio, pedido, ítems, total, stock ni las claves/scopes de la spec 010.
+        La clave de copia es única globalmente entre tickets. Después de autenticar, autorizar
+        y validar, misma clave + ticketId + motivo validado devuelve exactamente el 202
+        almacenado. Distinto ticketId o motivo responde IDEMPOTENCY_CONFLICT. El replay
+        se resuelve antes de guardias de intento/destino; funciona aunque el intento terminara
+        o el destino se haya suspendido después. Un rollback no consume clave ni copyNumber.
+        Una copia nueva responde PRINT_IN_PROGRESS si ese ticket tiene queued/printing o I/O
+        todavía activo. Si el destino está suspendido por cualquier llamada/propietario sin
+        fin confirmado, también se bloquea toda copia nueva de otro ticket succeeded.
+        La autorización de un replay no permite saltarse permisos de rol/tipo actuales.
+        202 acepta la solicitud, no afirma archivo generado. Su body conserva queued,
+        pageCount: null, completedPages: 0 y fechas de inicio/fin null aunque un replay
+        ocurra después; consultar GET para estado fresco. Fallar después del 202 produce
+        failed/uncertain en la consulta, no un error retroactivo ni un 503 de este POST.
+        Despliegue soportado: un proceso API, file local, sin réplicas/reinicio superpuesto;
+        la pérdida de advisory lock no cancela I/O ni prueba fin del proceso propietario.
+        Todas las respuestas, también los errores, llevan Cache-Control: no-store.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - $ref: '#/components/parameters/ReprintIdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReprintKitchenTicketRequest'
+            example:
+              reason: No se encuentra el archivo anterior
+      responses:
+        '202':
+          description: Solicitud aceptada y encolada; replay devuelve este mismo body original.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReprintKitchenTicketResponse'
+              example:
+                attempt:
+                  id: 21
+                  ticketId: 8
+                  copyNumber: 1
+                  status: queued
+                  requestedBy:
+                    id: 2
+                    displayName: Juan
+                  createdAt: '2026-10-12T18:35:00.000Z'
+                  startedAt: null
+                  finishedAt: null
+                  pageCount: null
+                  completedPages: 0
+                  errorCode: null
+        '400':
+          description: VALIDATION_ERROR con issues en ticketId, idempotencyKey o reason; INVALID_JSON/INVALID_BODY
+            al leer el cuerpo.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: 'UNAUTHENTICATED: debes iniciar sesión para continuar.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: 'FORBIDDEN: kitchen no copia; waiter no copia void; ningún rol permitido.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/KitchenTicketNotFound'
+        '409':
+          $ref: '#/components/responses/KitchenTicketPrintConflict'
+        '413':
+          description: 'PAYLOAD_TOO_LARGE: cuerpo superior a 100 KB después de descomprimir.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: 'UNSUPPORTED_MEDIA_TYPE: contenido JSON, compresión o charset no admitido.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 'INTERNAL_ERROR: error inesperado; sin detalles privados.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /menu:
     get:
       operationId: getMenu
@@ -3068,6 +3349,255 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/KitchenTicket'
+    KitchenTicketPrintAttemptStatus:
+      type: string
+      enum:
+        - queued
+        - printing
+        - succeeded
+        - failed
+        - uncertain
+      description: Estado persistido del intento file. succeeded acredita todos los archivos completos; nunca
+        papel ni recepción por cocina. uncertain puede seguir activo si finishedAt es null.
+    KitchenTicketPrintStatus:
+      type: string
+      enum:
+        - queued
+        - printing
+        - succeeded
+        - failed
+        - uncertain
+        - not_tracked
+      description: Estado del último intento; not_tracked deriva de ausencia de snapshot de la 013, sin reconstrucción
+        ni autoimpresión del historial anterior.
+    KitchenTicketPrintErrorCode:
+      type: string
+      enum:
+        - PRINTER_OUTPUT_FAILED
+        - PRINTER_INVALID_DOCUMENT
+        - PRINTER_EMPTY_DOCUMENT
+        - PRINT_TIMEOUT
+        - PRINT_OUTPUT_UNCERTAIN
+      description: Código seguro del resultado de generación. Es un campo de estado, no un error HTTP del
+        envío de ítems. No incluye rutas, causas ni stack.
+    KitchenTicketPrintAttemptView:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - ticketId
+        - copyNumber
+        - status
+        - requestedBy
+        - createdAt
+        - startedAt
+        - finishedAt
+        - pageCount
+        - completedPages
+        - errorCode
+      description: Resumen público del intento, sin motivo de copia/void, documentos, jobId, ruta, huella
+        de carpeta, propietario o causa privada. Los instantes no nulos son UTC con Z. La respuesta 202 conserva
+        la vista queued original; GET devuelve estado actual.
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        ticketId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        copyNumber:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          description: 0 = primer intento automático; 1 y siguientes = copias explícitas marcadas REIMPRESIÓN.
+        status:
+          $ref: '#/components/schemas/KitchenTicketPrintAttemptStatus'
+        requestedBy:
+          $ref: '#/components/schemas/UserRef'
+          description: Nombre copiado al solicitar. En el primer intento es el autor del envío/anulación;
+            en una copia, el solicitante.
+        createdAt:
+          type: string
+          format: date-time
+          description: Hora de solicitud en ISO 8601 UTC con sufijo Z.
+        startedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          description: Hora UTC al reclamar el intento; null mientras queued.
+        finishedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          description: Hora UTC de fin. null en queued/printing y uncertain aún activo; no debe fingirse fin
+            tras un timeout o pérdida de lock.
+        pageCount:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 2147483647
+            - type: 'null'
+          description: Número de documentos completos previstos, de al menos una página; null hasta persistir
+            su preparación.
+        completedPages:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          description: Páginas completas confirmadas; no supera pageCount cuando existe. En succeeded coincide
+            con pageCount.
+        errorCode:
+          oneOf:
+            - $ref: '#/components/schemas/KitchenTicketPrintErrorCode'
+            - type: 'null'
+    KitchenTicketPrintView:
+      type: object
+      additionalProperties: false
+      required:
+        - ticketId
+        - orderId
+        - kind
+        - tablesAtIssue
+        - status
+        - lastAttempt
+        - canReprint
+      description: 'Una vista por comanda. Solo resumen de generación: no devuelve ítems ni motivos. El mozo
+        puede conocer que un void falló sin ver su detalle ni solicitar copia. lastAttempt.ticketId coincide
+        con ticketId y su status con el status público.'
+      properties:
+        ticketId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        orderId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          description: Pedido actual por kitchen_tickets.order_id; puede cambiar tras una unión sin alterar
+            el snapshot.
+        kind:
+          $ref: '#/components/schemas/KitchenTicketKind'
+        tablesAtIssue:
+          type: array
+          items:
+            $ref: '#/components/schemas/TableRef'
+          description: Mesas y nombres copiados al emitir, por id ascendente. [] en not_tracked; no se reconstruyen
+            nombres históricos.
+        status:
+          $ref: '#/components/schemas/KitchenTicketPrintStatus'
+        lastAttempt:
+          oneOf:
+            - $ref: '#/components/schemas/KitchenTicketPrintAttemptView'
+            - type: 'null'
+          description: Último intento, consistente con status. null exclusivamente en not_tracked.
+        canReprint:
+          type: boolean
+          description: Depende de sesión/rol/tipo, snapshot y ausencia de intento activo. Si el destino está
+            suspendido por I/O/propietario sin fin confirmado, false en TODOS los tickets, aunque este sea
+            succeeded. Un replay anterior sigue devolviendo su 202.
+      allOf:
+        - if:
+            properties:
+              status:
+                const: not_tracked
+            required:
+              - status
+          then:
+            properties:
+              tablesAtIssue:
+                maxItems: 0
+              lastAttempt:
+                type: 'null'
+              canReprint:
+                const: false
+          else:
+            properties:
+              lastAttempt:
+                $ref: '#/components/schemas/KitchenTicketPrintAttemptView'
+    KitchenTicketPrintsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - prints
+      description: Estados de todas las comandas del pedido actual, ticketId ascendente, incluidos los not_tracked;
+        [] si no hay comandas.
+      properties:
+        prints:
+          type: array
+          items:
+            $ref: '#/components/schemas/KitchenTicketPrintView'
+    KitchenTicketPrintAttentionResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - prints
+        - nextAfterTicketId
+      description: Página fija de atención. Los estados pueden cambiar entre llamadas; el refresco siempre
+        parte de la primera página.
+      properties:
+        prints:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/KitchenTicketPrintView'
+          description: Una vista por ticket cuyo último intento es failed/uncertain, ticketId ascendente;
+            [] si no hay pendientes.
+        nextAfterTicketId:
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 2147483647
+            - type: 'null'
+          description: Último ticketId de esta página si hay más; null en la última o vacía. El cursor es
+            exclusivo.
+    ReprintKitchenTicketRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - reason
+      description: Cuerpo JSON estricto; solo reason. El motivo validado forma parte del hash junto a ticketId
+        y se guarda en auditoría, sin exponerse en los resúmenes públicos.
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+          x-max-utf16-length: 200
+          description: Una sola línea, recortada antes de validar; 1–200 unidades UTF-16 (String.length),
+            sin categorías Unicode Cc/Cf/Zl/Zp. maxLength es un límite adicional de puntos de código; el límite
+            UTF-16 se comprueba en el dominio. Blanco, controles o más de 200 unidades dan VALIDATION_ERROR
+            con issue en reason.
+    ReprintKitchenTicketResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - attempt
+      description: Body 202 original almacenado para replay. attempt.status es queued, pageCount null, completedPages
+        0, startedAt/finishedAt/errorCode null. Consultar GET para estado actual.
+      properties:
+        attempt:
+          $ref: '#/components/schemas/KitchenTicketPrintAttemptView'
+      allOf:
+        - properties:
+            attempt:
+              properties:
+                status:
+                  const: queued
+                copyNumber:
+                  minimum: 1
+                startedAt:
+                  type: 'null'
+                finishedAt:
+                  type: 'null'
+                pageCount:
+                  type: 'null'
+                completedPages:
+                  const: 0
+                errorCode:
+                  type: 'null'
     OrderItemSauceInput:
       type: object
       additionalProperties: false
@@ -3433,6 +3963,11 @@ components:
           99 ítems sin anular.
         - IDEMPOTENCY_CONFLICT (409, spec 010): la misma (scope, key) de
           Idempotency-Key ya se usó con otro order_id u otro request_hash.
+        - KITCHEN_TICKET_NOT_FOUND (404, spec 013): ticketId válido de una comanda inexistente.
+        - PRINT_IN_PROGRESS (409, spec 013): intento activo del ticket o suspensión global del destino.
+        - PRINT_SNAPSHOT_UNAVAILABLE (409, spec 013): comanda anterior sin snapshot original.
+        En reimpresión (spec 013), IDEMPOTENCY_CONFLICT también indica clave de copia reutilizada
+        con otro ticketId o motivo validado; no altera los scopes/cuerpos de la spec 010.
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
       examples: [NOT_FOUND]
     ValidationIssue:
@@ -3577,6 +4112,43 @@ components:
         minimum: 1
         maximum: 2147483647
       example: 34
+    TicketId:
+      name: ticketId
+      in: path
+      required: true
+      description: 'Identificador de comanda: un único valor en dígitos, entero 1–2147483647. Forma/percent-encoding
+        inválidos: 400 VALIDATION_ERROR, issue ticketId, mensaje El identificador de la comanda no es válido.'
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      example: 8
+    AfterTicketId:
+      name: afterTicketId
+      in: query
+      required: false
+      description: 'Cursor exclusivo: un único entero positivo en dígitos, 1–2147483647. Ausente empieza la
+        primera página. Valor inválido o repetido: 400 VALIDATION_ERROR, issue afterTicketId. No agrega un
+        límite configurable: la página tiene hasta 50 tickets.'
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 2147483647
+      example: 8
+    ReprintIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 'Clave de copia global entre tickets, separada de las claves/scopes de la spec 010. Un
+        único valor de 1–128 caracteres ASCII visibles sin espacios; falta, duplicado o mala forma: 400 VALIDATION_ERROR,
+        issue idempotencyKey. Misma clave + ticketId + reason validado devuelve el 202 original antes de las
+        guardias de actividad/suspensión; otro ticket/motivo da 409 IDEMPOTENCY_CONFLICT.'
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: ^[\x21-\x7E]{1,128}$
+      example: copia-comanda8-2026-10-12-001
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -4166,3 +4738,53 @@ components:
               code: IDEMPOTENCY_CONFLICT
               message: Esa clave de envío ya se usó con otros datos.
               details: null
+    KitchenTicketNotFound:
+      description: 'KITCHEN_TICKET_NOT_FOUND: ticketId válido no corresponde a una comanda. Nada quedó creado.'
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: KITCHEN_TICKET_NOT_FOUND
+              message: Esa comanda no existe.
+              details: null
+    KitchenTicketPrintConflict:
+      description: 'No se aceptó una copia nueva (spec 013). PRINT_IN_PROGRESS: el ticket tiene una generación
+        activa o todo el destino está suspendido por I/O/propietario sin fin confirmado, incluso si otro ticket
+        succeeded. PRINT_SNAPSHOT_UNAVAILABLE: comanda anterior sin snapshot original. IDEMPOTENCY_CONFLICT:
+        clave de copia reutilizada con otro ticketId o motivo validado. Replay de una solicitud ya aceptada
+        se devuelve antes de estas guardias con su 202 original. Nada quedó creado ni cambiado.'
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControlNoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            generationInProgress:
+              summary: Intento activo o destino suspendido
+              value:
+                error:
+                  code: PRINT_IN_PROGRESS
+                  message: Esta comanda ya tiene una generación en curso. Espera antes de solicitar otra copia.
+                  details: null
+            snapshotUnavailable:
+              summary: Comanda anterior a la función
+              value:
+                error:
+                  code: PRINT_SNAPSHOT_UNAVAILABLE
+                  message: Esta comanda es anterior a la generación de archivos y no tiene una copia original
+                    guardada.
+                  details: null
+            idempotencyConflict:
+              summary: La clave ya se usó con otros datos
+              value:
+                error:
+                  code: IDEMPOTENCY_CONFLICT
+                  message: Esa clave de envío ya se usó con otros datos.
+                  details: null

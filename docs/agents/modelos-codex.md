@@ -1,41 +1,34 @@
-# Modelos y delegación en Codex
+# Metodología y modelos en Codex
 
-Asignación aprobada por el usuario el 2026-10-12. Esta tabla y los campos `model` y `reasoning_effort` de los seis roles prevalecen, para Codex, sobre las asignaciones históricas Opus/Sonnet de otras plataformas.
+Política reducida aprobada por el usuario el 2026-10-12 tras alcanzar el límite de uso. Sustituye la asignación anterior de siete roles para trabajo nuevo, incluida la spec 013 en curso. Conserva los resultados y las pruebas producidos por el equipo anterior.
 
-| Rol | Identificador del modelo | Razonamiento |
+| Función | Ejecutor | Modelo / razonamiento |
 | --- | --- | --- |
-| spec-writer | gpt-6.1-sol | xhigh |
-| test-writer | gpt-6.1-sol | medium |
-| backend-dev | gpt-6.1-sol | medium |
-| frontend-dev | gpt-6.1-sol | medium |
-| adversarial-tester | gpt-6-luna | max |
-| reviewer | gpt-6.1-sol | medium |
+| Orquestación, specs, OpenAPI y revisión | Agente principal | Modelo de la sesión; sin subagentes adicionales |
+| test-writer | Un subagente | gpt-6-luna / medium |
+| implementer (backend, frontend y shared) | Un subagente | gpt-6-luna / medium en tareas sencillas; gpt-6.1-sol / medium en lógica compleja |
 
-GPT-6 Luna corresponde al identificador `gpt-6-luna`. No se cambia el modelo del agente principal: actúa como orquestador y no escribe producción ni pruebas.
+La elección de Luna para test-writer concreta el ahorro solicitado. Los bloques complejos de implementación reservan gpt-6.1-sol. Explicar el modelo al delegar; si su cuota impide trabajar, informar y continuar tareas independientes, sin sustitución silenciosa ni bucles de reintentos. Cambiar a medium reduce consumo futuro, pero no repone cuota agotada. No se promete un ahorro exacto.
 
-## Aplicación al crear subagentes
+## Flujo vigente
 
-El Markdown documenta la política; la selección real se hace mediante `collaboration.spawn_agent`. Cada rol se ejecuta en un subagente separado, con `fork_turns: "none"` y los valores explícitos de `model` y `reasoning_effort` de la tabla. No usar una herencia completa de conversación que impida aplicar los overrides. Si el modelo o esfuerzo requerido no está disponible, informar al usuario antes de sustituirlo.
+1. El principal prepara spec/tareas/contrato y obtiene aprobación del comportamiento nuevo. Mantiene los 14 AC y P-01…P-06 ya aprobados de la 013.
+2. test-writer escribe o repara las pruebas de un bloque pequeño y demuestra rojo causal, distinguiendo módulos ausentes, bugs y fallos de fixtures/entorno.
+3. implementer escribe producción mínima y refactoriza hasta verde. No puede crear, modificar ni borrar tests.
+4. El principal revisa diff, trazabilidad y resultados. Las discrepancias de tests vuelven al test-writer. Si cambia comportamiento aprobado, consulta al usuario.
+5. Verificaciones dirigidas por bloque; suite completa, tipos, lint, cobertura y E2E pertinentes al cierre. Ningún resultado omitido/esperado se cuenta como aprobado.
+6. El principal mantiene PROGRESS/CONTINUAR y solicita autorización para integrar a main. Mantener commits de tests, producción y docs separados.
 
-Cada encargo incluye: ruta de la definición del rol, `CLAUDE.md`, spec y tasks, tareas y AC asignados, contrato OpenAPI pertinente, rama actual, decisiones aprobadas, límites de edición y evidencias que debe devolver. Los subagentes no crean otros subagentes sin un encargo explícito del orquestador.
+Se eliminan los subagentes separados spec-writer/reviewer y la ronda adversarial independiente. Las pruebas adversariales existentes permanecen en la suite; test-writer mantiene regresiones críticas de dinero, permisos, idempotencia y concurrencia. La revisión principal no tiene la independencia del reviewer anterior: registrar esta limitación. No ampliar ni reducir criterios de aceptación para ahorrar cuota.
 
-## Flujo obligatorio
+## Delegación y ejecución
 
-1. Spec, tareas y contrato por spec-writer; aprobación del usuario antes de implementar comportamiento nuevo.
-2. Tests por test-writer y comprobación del rojo por la razón correcta.
-3. Implementación y refactor con pruebas verdes por backend-dev/frontend-dev; no pueden editar tests.
-4. Ataque independiente por adversarial-tester; regresión reproducible y severidad por hallazgo. Los cambios de producción vuelven al implementador.
-5. Revisión independiente por reviewer, sin editar archivos; veredicto APROBADO o CAMBIOS REQUERIDOS.
-6. Verificación del orquestador, trazabilidad AC → tests, cierre documental y autorización para integrar a main.
+Solo un test-writer y un implementer activos; usar collaboration.spawn_agent con fork_turns="none", model y reasoning_effort="medium" explícitos. Pasar únicamente rol, spec/AC/tareas del bloque, contrato pertinente, archivos asignados, decisiones y evidencia de rojo disponible. No heredar todo el historial ni crear subagentes secundarios.
 
-El orquestador resuelve disputas de tests con su autor y la spec; no permite debilitar pruebas para obtener verde. Respeta el límite de tres vueltas de implementación/ataque/revisión definido en su rol.
+No superponer tests de DB, cobertura y E2E sobre polleria_test. Coordinar el dueño del slot de DB. No instalaciones simultáneas ni escrituras sobre los mismos archivos. El entorno de nube ya está aislado: no crear worktrees salvo solicitud.
 
-## Concurrencia y contexto
+## Traspaso de la 013
 
-Paralelizar backend y frontend solo con contrato acordado y archivos disjuntos. Compartimos checkout: no permitir escrituras simultáneas en los mismos archivos, cambios concurrentes de rama ni instalaciones simultáneas. Serializar Vitest, cobertura y Playwright cuando usan polleria_test. Los cambios Git de subagentes requieren un encargo específico; la integración a main requiere autorización del usuario.
+Spec aprobada; OpenAPI 0.10.0 tiene tres operaciones pendientes. AC-01/02 implementados y revalidados por el equipo anterior: 61 unitarios nuevos verdes, 183 unitarios previos verdes y 45 adversariales verdes con un fallo esperado intacto. Commits ca31064, 99c3a75, 124f1ee, 2985b45 conservan esa historia.
 
-Reducir contexto a documentos y decisiones pertinentes, conservando la trazabilidad y la evidencia de rojo/verde. No repetir suites completas sin una razón nueva; el orquestador sí ejecuta las verificaciones de cierre exigidas por CLAUDE.md.
-
-## Punto de partida
-
-La 012 está integrada y la siguiente propuesta documentada es la 013 (cocina/impresión). Antes de implementar, clasificar los 29 fallos de web reproducidos durante onboarding y planificar la deuda ADV-002-01/02 indicada en PROGRESS.md. Tipos, lint y las suites de integración se verificaron; E2E está pendiente de descargar Chromium y aplicar el acceso de red guardado para cdn.playwright.dev. Estos resultados no equivalen a una suite completa en verde ni a una autorización para implementar la 013.
+El límite de uso interrumpió T-03…T-08 y T-11…T-13. Hay pruebas y producción parciales sin commit: preservarlas, validar fixtures y retomar por bloques, sin presumir verde. E2E baseline home/auth mobile 8/8 pasó con Chromium del sistema 154.0.8037.57 y configuración local externa; los E2E nuevos de 013 todavía no se validaron.

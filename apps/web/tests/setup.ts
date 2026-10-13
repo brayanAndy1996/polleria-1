@@ -4,12 +4,20 @@
 // - Desmonta lo que renderizó React Testing Library y reinicia los handlers entre pruebas.
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll } from 'vitest';
+import { HttpResponse, http } from 'msw';
+import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { server } from './msw-server.ts';
 
-beforeAll(() => {
-  server.listen({ onUnhandledFrame: 'error' });
+beforeEach(() => {
+  server.use(
+    http.get('*/api/kitchen-ticket-prints/attention', () =>
+      HttpResponse.json({ prints: [], nextAfterTicketId: null }),
+    ),
+    http.get('*/api/orders/:orderId/ticket-prints', () => HttpResponse.json({ prints: [] })),
+  );
 });
+
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
 
 afterEach(() => {
   cleanup();

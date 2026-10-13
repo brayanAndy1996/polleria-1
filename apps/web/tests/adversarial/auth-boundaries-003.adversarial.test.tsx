@@ -233,6 +233,11 @@ describe('003: ataques adversariales de la web con MSW', () => {
     async (status) => {
       server.use(
         http.get('*/api/auth/me', () => HttpResponse.json(session())),
+        http.get('*/api/tables', () =>
+          HttpResponse.json({
+            tables: [{ id: 1, name: 'Mesa 1', isActive: true, state: 'free', order: null }],
+          }),
+        ),
         http.post('*/api/auth/logout', () =>
           HttpResponse.json(
             {
@@ -248,15 +253,14 @@ describe('003: ataques adversariales de la web con MSW', () => {
       );
       show(<MozoPage />);
       fireEvent.click(await screen.findByRole('button', { name: 'Cerrar sesión' }));
+      const logoutError = await screen.findByRole('alert');
       await waitFor(() =>
         expect(
           screen.queryByRole('button', { name: 'Cerrando sesión...' }),
         ).not.toBeInTheDocument(),
       );
       expect(hardNavigate).not.toHaveBeenCalled();
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'No se pudo cerrar la sesión. Intenta de nuevo.',
-      );
+      expect(logoutError).toHaveTextContent('No se pudo cerrar la sesión. Intenta de nuevo.');
     },
   );
 

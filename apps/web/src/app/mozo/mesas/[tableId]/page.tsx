@@ -29,6 +29,7 @@ import {
 } from '../../../../lib/api/orders.ts';
 import { rejectVoidItem, requestVoidItem, voidOrderItem } from '../../../../lib/api/order-items.ts';
 import { createIdempotencyKey } from '../../../../lib/idempotency.ts';
+import { OrderTicketPrints } from '../../../../components/kitchen-ticket-prints/kitchen-ticket-print-sections.tsx';
 import {
   KITCHEN_TICKET_KIND_LABELS,
   TABLE_STATE_LABELS,
@@ -321,6 +322,8 @@ function OccupiedTable({
 }) {
   const session = useSessionQuery();
   const isAdmin = session.data?.user.roles.includes('admin') ?? false;
+  const canManagePrints =
+    session.data?.user.roles.some((role) => role === 'waiter' || role === 'admin') ?? false;
   const sessionUser: UserRef | undefined =
     session.data === undefined
       ? undefined
@@ -859,6 +862,7 @@ function OccupiedTable({
           </ul>
         )}
       </section>
+      <OrderTicketPrints orderId={orderId} isWaiter={canManagePrints} isAdmin={isAdmin} />
     </>
   );
 }
