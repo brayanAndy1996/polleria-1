@@ -11,3 +11,5 @@ Flujo: spec aprobada → bloque pequeño de pruebas en rojo → implementación 
 Serializa Vitest/cobertura/Playwright si usan polleria_test; evita instalaciones simultáneas y escrituras en los mismos archivos. Tests solo con guardias de DB aislada. Commits separados de tests, producción y docs. Integración a main requiere autorización posterior del usuario.
 
 Usa el checkout existente de la nube; no crees worktrees salvo solicitud explícita. Durante planificación no implementes. Preserva el trabajo parcial previo y retoma desde evidencia real, sin reconstruir TDD retrospectivo.
+
+Para diseño/revisión de interfaz, el usuario instaló frontend-design, web-design-guidelines y ui-ux-pro-max en .agents/skills/. Leer sus SKILL.md y aplicarlos en cambios UI. Su guía visual no sustituye permisos, metodología reducida, contratos ni reglas de dominio de este proyecto.

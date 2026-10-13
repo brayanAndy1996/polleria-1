@@ -571,284 +571,292 @@ function OccupiedTable({
         </Link>
       </p>
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Pedido</h2>
-        {current.items.length === 0 ? (
-          <p>Todavía no hay ítems enviados.</p>
-        ) : (
-          <ul className="space-y-3">
-            {current.items.map((item) => (
-              <OrderItemRow
-                key={item.id}
-                item={item}
-                tableId={table.id}
-                isAdmin={isAdmin}
-                onRequestVoid={(target) => openVoidPanel(target, 'request')}
-                onVoid={(target) => openVoidPanel(target, 'direct')}
-                onApproveVoid={(target) => openVoidPanel(target, 'approve')}
-                onRejectVoid={(target) => {
-                  setPanel({ kind: 'reject', item: target, key: createIdempotencyKey() });
-                  setActionError(undefined);
-                }}
-              />
-            ))}
-          </ul>
-        )}
-        <p className="font-semibold">Total {formatSoles(current.totalCents)}</p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Acciones</h2>
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href={`/mozo/mesas/${table.id}/agregar`}
-            className="inline-flex min-h-12 items-center text-accent underline underline-offset-4"
-          >
-            Agregar ítems
-          </Link>
-          {current.readyAt === null ? (
-            <Button
-              className="min-h-12"
-              isDisabled={signal.isPending}
-              onPress={() =>
-                run({ isPending: signal.isPending, mutate: () => signal.mutate('ready') })
-              }
-            >
-              Marcar pedido listo
-            </Button>
+      <div className="order-summary">
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">Pedido</h2>
+          {current.items.length === 0 ? (
+            <p>Todavía no hay ítems enviados.</p>
           ) : (
-            <Button
-              className="min-h-12"
-              isDisabled={signal.isPending}
-              onPress={() =>
-                run({ isPending: signal.isPending, mutate: () => signal.mutate('served') })
-              }
-            >
-              Marcar servido
-            </Button>
+            <ul className="space-y-3">
+              {current.items.map((item) => (
+                <OrderItemRow
+                  key={item.id}
+                  item={item}
+                  tableId={table.id}
+                  isAdmin={isAdmin}
+                  onRequestVoid={(target) => openVoidPanel(target, 'request')}
+                  onVoid={(target) => openVoidPanel(target, 'direct')}
+                  onApproveVoid={(target) => openVoidPanel(target, 'approve')}
+                  onRejectVoid={(target) => {
+                    setPanel({ kind: 'reject', item: target, key: createIdempotencyKey() });
+                    setActionError(undefined);
+                  }}
+                />
+              ))}
+            </ul>
           )}
-          {current.billRequestedAt === null && (
-            <Button
-              className="min-h-12"
-              isDisabled={signal.isPending}
-              onPress={() =>
-                run({ isPending: signal.isPending, mutate: () => signal.mutate('request-bill') })
-              }
+          <p className="font-semibold">Total {formatSoles(current.totalCents)}</p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">Acciones</h2>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/mozo/mesas/${table.id}/agregar`}
+              className="inline-flex min-h-12 items-center text-accent underline underline-offset-4"
             >
-              Pedir la cuenta
-            </Button>
-          )}
-          <Button
-            className="min-h-12"
-            isDisabled={move.isPending}
-            onPress={() => {
-              setPanel({ kind: 'move' });
-              // La primera candidata queda elegida: es la mesa que el select muestra.
-              setMoveTarget(String(moveCandidates[0]?.id ?? ''));
-              setActionError(undefined);
-            }}
-          >
-            Mover a otra mesa
-          </Button>
-          <Button
-            className="min-h-12"
-            isDisabled={join.isPending}
-            onPress={() => {
-              setPanel({ kind: 'join' });
-              setJoinTarget(String(joinCandidates[0]?.id ?? ''));
-              setActionError(undefined);
-            }}
-          >
-            Unir mesa
-          </Button>
-          {extraTables.map((covered) => (
+              Agregar ítems
+            </Link>
+            {current.readyAt === null ? (
+              <Button
+                className="min-h-12"
+                isDisabled={signal.isPending}
+                onPress={() =>
+                  run({ isPending: signal.isPending, mutate: () => signal.mutate('ready') })
+                }
+              >
+                Marcar pedido listo
+              </Button>
+            ) : (
+              <Button
+                className="min-h-12"
+                isDisabled={signal.isPending}
+                onPress={() =>
+                  run({ isPending: signal.isPending, mutate: () => signal.mutate('served') })
+                }
+              >
+                Marcar servido
+              </Button>
+            )}
+            {current.billRequestedAt === null && (
+              <Button
+                className="min-h-12"
+                isDisabled={signal.isPending}
+                onPress={() =>
+                  run({ isPending: signal.isPending, mutate: () => signal.mutate('request-bill') })
+                }
+              >
+                Pedir la cuenta
+              </Button>
+            )}
             <Button
-              key={covered.id}
               className="min-h-12"
-              isDisabled={leave.isPending}
+              isDisabled={move.isPending}
               onPress={() => {
-                setPanel({ kind: 'separate', table: covered });
+                setPanel({ kind: 'move' });
+                // La primera candidata queda elegida: es la mesa que el select muestra.
+                setMoveTarget(String(moveCandidates[0]?.id ?? ''));
                 setActionError(undefined);
               }}
             >
-              Separar {covered.name}
+              Mover a otra mesa
             </Button>
-          ))}
-          <Button
-            className="min-h-12"
-            isDisabled={cancel.isPending}
-            onPress={() => {
-              setPanel({ kind: 'cancel' });
-              setReason('');
-              setLocalError(undefined);
-              setActionError(undefined);
-            }}
-          >
-            Cancelar pedido
-          </Button>
-        </div>
-        {actionError !== undefined && <p role="alert">{actionError}</p>}
-
-        {panel?.kind === 'move' && (
-          <div className="space-y-3 rounded-2xl border border-separator bg-surface px-4 py-4">
-            <select
-              className="min-h-12 w-full rounded-xl border border-separator bg-surface px-3"
-              value={moveTarget}
-              onChange={(event) => setMoveTarget(event.target.value)}
+            <Button
+              className="min-h-12"
+              isDisabled={join.isPending}
+              onPress={() => {
+                setPanel({ kind: 'join' });
+                setJoinTarget(String(joinCandidates[0]?.id ?? ''));
+                setActionError(undefined);
+              }}
             >
-              {moveCandidates.map((candidate) => (
-                <option key={candidate.id} value={String(candidate.id)}>
-                  {candidate.name}
-                </option>
-              ))}
-            </select>
-            <div className="flex flex-wrap gap-3">
+              Unir mesa
+            </Button>
+            {extraTables.map((covered) => (
               <Button
-                className="min-h-12"
-                isDisabled={moveTarget === '' || move.isPending}
-                onPress={() =>
-                  run({ isPending: move.isPending, mutate: () => move.mutate(Number(moveTarget)) })
-                }
-              >
-                Mover
-              </Button>
-              <Button className="min-h-12" onPress={closePanel}>
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        )}
-        {panel?.kind === 'join' && (
-          <div className="space-y-3 rounded-2xl border border-separator bg-surface px-4 py-4">
-            <select
-              className="min-h-12 w-full rounded-xl border border-separator bg-surface px-3"
-              value={joinTarget}
-              onChange={(event) => setJoinTarget(event.target.value)}
-            >
-              {joinCandidates.map((candidate) => (
-                <option key={candidate.id} value={String(candidate.id)}>
-                  {candidate.name}
-                </option>
-              ))}
-            </select>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                className="min-h-12"
-                isDisabled={joinTarget === '' || join.isPending}
-                onPress={() =>
-                  run({ isPending: join.isPending, mutate: () => join.mutate(Number(joinTarget)) })
-                }
-              >
-                Unir
-              </Button>
-              <Button className="min-h-12" onPress={closePanel}>
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        )}
-        {panel?.kind === 'separate' && (
-          <div className="space-y-3 rounded-2xl border border-separator bg-surface px-4 py-4">
-            <p>{`¿Separar ${panel.table.name}? Quedará libre.`}</p>
-            <div className="flex flex-wrap gap-3">
-              <Button
+                key={covered.id}
                 className="min-h-12"
                 isDisabled={leave.isPending}
-                onPress={() =>
-                  run({
-                    isPending: leave.isPending,
-                    mutate: () => leave.mutate(panel.table.id),
-                  })
-                }
+                onPress={() => {
+                  setPanel({ kind: 'separate', table: covered });
+                  setActionError(undefined);
+                }}
               >
-                Sí, separar
+                Separar {covered.name}
               </Button>
-              <Button className="min-h-12" onPress={closePanel}>
-                Cancelar
-              </Button>
-            </div>
+            ))}
+            <Button
+              className="min-h-12"
+              isDisabled={cancel.isPending}
+              onPress={() => {
+                setPanel({ kind: 'cancel' });
+                setReason('');
+                setLocalError(undefined);
+                setActionError(undefined);
+              }}
+            >
+              Cancelar pedido
+            </Button>
           </div>
-        )}
-        {panel?.kind === 'reject' && (
-          <div className="space-y-3 rounded-2xl border border-separator bg-surface px-4 py-4">
-            <p>
-              {`¿Rechazar la anulación que pidió ${panel.item.voidRequestedBy?.displayName ?? ''}? El ítem sigue contando en la cuenta.`}
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                className="min-h-12"
-                isDisabled={voidCycle.isPending}
-                onPress={() =>
-                  run({
-                    isPending: voidCycle.isPending,
-                    mutate: () =>
-                      voidCycle.mutate({
-                        mode: 'reject',
-                        item: panel.item,
-                        reason: '',
-                        key: panel.key,
-                      }),
-                  })
-                }
+          {actionError !== undefined && <p role="alert">{actionError}</p>}
+
+          {panel?.kind === 'move' && (
+            <div className="space-y-3 rounded-2xl border border-separator bg-surface px-4 py-4">
+              <select
+                className="min-h-12 w-full rounded-xl border border-separator bg-surface px-3"
+                value={moveTarget}
+                onChange={(event) => setMoveTarget(event.target.value)}
               >
-                Sí, rechazar
-              </Button>
-              <Button className="min-h-12" onPress={closePanel}>
-                Cancelar
-              </Button>
+                {moveCandidates.map((candidate) => (
+                  <option key={candidate.id} value={String(candidate.id)}>
+                    {candidate.name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  className="min-h-12"
+                  isDisabled={moveTarget === '' || move.isPending}
+                  onPress={() =>
+                    run({
+                      isPending: move.isPending,
+                      mutate: () => move.mutate(Number(moveTarget)),
+                    })
+                  }
+                >
+                  Mover
+                </Button>
+                <Button className="min-h-12" onPress={closePanel}>
+                  Cancelar
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
-        {panel?.kind === 'cancel' && (
-          <ReasonDialog
-            label="Motivo de la cancelación"
-            value={reason}
-            pending={cancel.isPending}
-            localError={localError}
-            onValue={setReason}
-            onAccept={() => {
-              const parsed = cancelOrderRequestSchema.safeParse({ reason });
-              if (!parsed.success) {
-                setLocalError(issuesFromZod(parsed.error)[0]?.message ?? 'Revisa el motivo.');
-                return;
-              }
-              run({
-                isPending: cancel.isPending,
-                mutate: () => cancel.mutate(parsed.data.reason),
-              });
-            }}
-            onCancel={closePanel}
-          />
-        )}
-        {panel?.kind === 'void' && (
-          <ReasonDialog
-            label="Motivo de la anulación"
-            value={reason}
-            pending={voidCycle.isPending}
-            localError={localError}
-            onValue={setReason}
-            onAccept={() => {
-              const parsed = voidOrderItemRequestSchema.safeParse({ reason });
-              if (!parsed.success) {
-                setLocalError(issuesFromZod(parsed.error)[0]?.message ?? 'Revisa el motivo.');
-                return;
-              }
-              if (panel?.kind !== 'void') return;
-              run({
-                isPending: voidCycle.isPending,
-                mutate: () =>
-                  voidCycle.mutate({
-                    mode: panel.mode,
-                    item: panel.item,
-                    reason: parsed.data.reason,
-                    key: panel.key,
-                  }),
-              });
-            }}
-            onCancel={closePanel}
-          />
-        )}
-      </section>
+          )}
+          {panel?.kind === 'join' && (
+            <div className="space-y-3 rounded-2xl border border-separator bg-surface px-4 py-4">
+              <select
+                className="min-h-12 w-full rounded-xl border border-separator bg-surface px-3"
+                value={joinTarget}
+                onChange={(event) => setJoinTarget(event.target.value)}
+              >
+                {joinCandidates.map((candidate) => (
+                  <option key={candidate.id} value={String(candidate.id)}>
+                    {candidate.name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  className="min-h-12"
+                  isDisabled={joinTarget === '' || join.isPending}
+                  onPress={() =>
+                    run({
+                      isPending: join.isPending,
+                      mutate: () => join.mutate(Number(joinTarget)),
+                    })
+                  }
+                >
+                  Unir
+                </Button>
+                <Button className="min-h-12" onPress={closePanel}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+          {panel?.kind === 'separate' && (
+            <div className="space-y-3 rounded-2xl border border-separator bg-surface px-4 py-4">
+              <p>{`¿Separar ${panel.table.name}? Quedará libre.`}</p>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  className="min-h-12"
+                  isDisabled={leave.isPending}
+                  onPress={() =>
+                    run({
+                      isPending: leave.isPending,
+                      mutate: () => leave.mutate(panel.table.id),
+                    })
+                  }
+                >
+                  Sí, separar
+                </Button>
+                <Button className="min-h-12" onPress={closePanel}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+          {panel?.kind === 'reject' && (
+            <div className="space-y-3 rounded-2xl border border-separator bg-surface px-4 py-4">
+              <p>
+                {`¿Rechazar la anulación que pidió ${panel.item.voidRequestedBy?.displayName ?? ''}? El ítem sigue contando en la cuenta.`}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  className="min-h-12"
+                  isDisabled={voidCycle.isPending}
+                  onPress={() =>
+                    run({
+                      isPending: voidCycle.isPending,
+                      mutate: () =>
+                        voidCycle.mutate({
+                          mode: 'reject',
+                          item: panel.item,
+                          reason: '',
+                          key: panel.key,
+                        }),
+                    })
+                  }
+                >
+                  Sí, rechazar
+                </Button>
+                <Button className="min-h-12" onPress={closePanel}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+          {panel?.kind === 'cancel' && (
+            <ReasonDialog
+              label="Motivo de la cancelación"
+              value={reason}
+              pending={cancel.isPending}
+              localError={localError}
+              onValue={setReason}
+              onAccept={() => {
+                const parsed = cancelOrderRequestSchema.safeParse({ reason });
+                if (!parsed.success) {
+                  setLocalError(issuesFromZod(parsed.error)[0]?.message ?? 'Revisa el motivo.');
+                  return;
+                }
+                run({
+                  isPending: cancel.isPending,
+                  mutate: () => cancel.mutate(parsed.data.reason),
+                });
+              }}
+              onCancel={closePanel}
+            />
+          )}
+          {panel?.kind === 'void' && (
+            <ReasonDialog
+              label="Motivo de la anulación"
+              value={reason}
+              pending={voidCycle.isPending}
+              localError={localError}
+              onValue={setReason}
+              onAccept={() => {
+                const parsed = voidOrderItemRequestSchema.safeParse({ reason });
+                if (!parsed.success) {
+                  setLocalError(issuesFromZod(parsed.error)[0]?.message ?? 'Revisa el motivo.');
+                  return;
+                }
+                if (panel?.kind !== 'void') return;
+                run({
+                  isPending: voidCycle.isPending,
+                  mutate: () =>
+                    voidCycle.mutate({
+                      mode: panel.mode,
+                      item: panel.item,
+                      reason: parsed.data.reason,
+                      key: panel.key,
+                    }),
+                });
+              }}
+              onCancel={closePanel}
+            />
+          )}
+        </section>
+      </div>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Comandas enviadas</h2>

@@ -42,6 +42,13 @@ async function chooseJuan() {
 function enterPin(pin = '2468') {
   for (const digit of pin) fireEvent.click(screen.getByRole('button', { name: digit }));
 }
+function expectLoginUsersInOrder() {
+  const buttons = screen.getAllByRole('button');
+  expect(buttons).toHaveLength(USERS.length);
+  USERS.forEach((user, index) => {
+    expect(buttons[index]).toHaveAccessibleName(`${user.displayName} ${user.username}`);
+  });
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -67,10 +74,7 @@ describe('003: pantalla de inicio de sesión', () => {
     show(<LoginScreen />);
     expect(screen.getByRole('status')).toHaveTextContent('Cargando usuarios...');
     expect(await screen.findByRole('heading', { name: '¿Quién eres?', level: 1 })).toBeVisible();
-    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
-      'Juanmozo.juan',
-      'Anacaja.ana',
-    ]);
+    expectLoginUsersInOrder();
     expect(hardNavigate).not.toHaveBeenCalled();
   });
   it('AC-29: maneja una lista vacía y permite reintentar tras un error', async () => {
@@ -96,10 +100,7 @@ describe('003: pantalla de inicio de sesión', () => {
     server.use(http.get('*/api/auth/users', () => HttpResponse.json({ users: USERS })));
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
     expect(await screen.findByRole('heading', { name: '¿Quién eres?', level: 1 })).toBeVisible();
-    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
-      'Juanmozo.juan',
-      'Anacaja.ana',
-    ]);
+    expectLoginUsersInOrder();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(hardNavigate).not.toHaveBeenCalled();
   });
@@ -179,6 +180,22 @@ describe('003: pantalla de inicio de sesión', () => {
     await waitFor(() => {
       expect(replace).toHaveBeenCalledWith('/mozo');
     });
+  });
+  it('AC-30: Enter en el skip link no cancela su activación ni intenta enviar el PIN', async () => {
+    const loginCalls = vi.fn();
+    server.use(
+      http.post('*/api/auth/login', () => {
+        loginCalls();
+        return HttpResponse.json(session());
+      }),
+    );
+    show(<LoginScreen />);
+    await chooseJuan();
+
+    const skipLink = screen.getByRole('link', { name: 'Saltar al contenido' });
+    expect(fireEvent.keyDown(skipLink, { key: 'Enter' })).toBe(true);
+    expect(loginCalls).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
   it.each([
     [['waiter'], null, '/mozo'],

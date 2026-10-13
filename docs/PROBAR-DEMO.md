@@ -62,6 +62,6 @@ Abre `http://localhost:3000` y comprueba que indique **Conectado**.
 5. Desde el estado de la comanda, solicita una copia con motivo y confirma: se genera REIMPRESIÓN.
 6. Prueba mover/unir/separar mesas y la administración de usuarios/carta.
 
-Caja aún no cobra ni cierra cuentas; cocina aún no tiene una bandeja de preparación. Inventario y reportes se desarrollarán después. El archivo generado permite probar sin impresora física. Para esta revisión usa `pnpm dev`; queda una deuda conocida del build de producción documentada en PROGRESS.md.
+Caja aún no cobra ni cierra cuentas; cocina aún no tiene una bandeja de preparación. Inventario y reportes se desarrollarán después. El archivo generado permite probar sin impresora física. El rediseño visual y la corrección del build están incluidos en `dev`. Puedes ver la [comparación de pantallas](ui-redesign/README.md). Si ya preparaste la demo, basta con detener el servidor, actualizar la rama y ejecutar `pnpm dev`; este cambio no requiere nuevas migraciones.
 
 Si algo falla, revisa primero la salida de la API y que PostgreSQL esté iniciado. No ejecutes el setup de Playwright para llenar la demo: ese setup limpia la base de pruebas.

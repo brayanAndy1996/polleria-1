@@ -24,6 +24,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { Label } from '@heroui/react';
 import { RoleGuard } from '../../../../../components/auth/role-guard.tsx';
+import { ScreenState } from '../../../../../components/auth/screen-state.tsx';
 import { LabeledInput } from '../../../../../components/users/labeled-input.tsx';
 import { apiClient, parseResponse } from '../../../../../lib/api/client.ts';
 import { apiErrorMessage } from '../../../../../lib/api/error-message.ts';
@@ -664,90 +665,96 @@ function OrderComposer({
           Volver al pedido
         </Link>
       </p>
-      {products.length === 0 ? (
-        <p>La carta está vacía.</p>
-      ) : (
-        PRODUCT_CATEGORIES.map((category) => {
-          const section = products.filter((product) => product.category === category);
-          if (section.length === 0) return null;
-          return (
-            <section key={category} className="space-y-3">
-              <h2 className="text-xl font-semibold">{PRODUCT_CATEGORY_LABELS[category]}</h2>
-              <ul className="grid grid-cols-2 gap-3">
-                {section.map((product) => (
-                  <li key={product.id}>
-                    <button
-                      type="button"
-                      aria-label={product.name}
-                      className="flex min-h-16 w-full flex-col justify-center gap-1 rounded-2xl border border-separator bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-                      onClick={() => openEditor(product)}
-                    >
-                      <span className="font-semibold wrap-anywhere">{product.name}</span>
-                      <span className="text-sm">{formatSoles(product.priceCents)}</span>
-                    </button>
-                    {editorProductId === product.id && editor !== null && (
-                      <ItemEditor
-                        product={product}
-                        sauces={sauces}
-                        editor={editor}
-                        onChange={setEditor}
-                        onAdd={() => addToCart(product)}
-                      />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        })
-      )}
-      <section className="space-y-3">
-        <CartSection
-          lines={cart}
-          lineErrors={lineErrors}
-          onQuantity={(key, value) => {
-            touchCart(
-              cart.map((line) =>
-                line.key === key
-                  ? { ...line, quantity: Math.max(1, Math.floor(Number(value) || 1)) }
-                  : line,
-              ),
-            );
-          }}
-          onRemove={(key) => {
-            touchCart(cart.filter((line) => line.key !== key));
-          }}
-        />
-        {cartError !== undefined && <p role="alert">{cartError}</p>}
-        {sendFailed && (
-          <div className="space-y-2">
-            <p role="alert">No se pudo enviar el pedido.</p>
-            {sendErrors.map((message) => (
-              <p key={message}>{message}</p>
-            ))}
-          </div>
-        )}
-        {!sendFailed &&
-          sendErrors.map((message) => (
-            <p key={message} role="alert">
-              {message}
-            </p>
-          ))}
-        <div className="flex flex-wrap gap-3">
-          <Button
-            className="min-h-12"
-            isDisabled={cart.length === 0 || send.isPending || orderId === undefined}
-            onPress={doSend}
-          >
-            {send.isPending ? 'Enviando...' : `Enviar a cocina (${cart.length})`}
-          </Button>
-          {sendFailed && (
-            <Button className="min-h-12" isDisabled={send.isPending} onPress={doSend}>
-              Reintentar envío
-            </Button>
+      <div className="composer-layout">
+        <div className="composer-catalog">
+          {products.length === 0 ? (
+            <p>La carta está vacía.</p>
+          ) : (
+            PRODUCT_CATEGORIES.map((category) => {
+              const section = products.filter((product) => product.category === category);
+              if (section.length === 0) return null;
+              return (
+                <section key={category} className="space-y-3">
+                  <h2 className="text-xl font-semibold">{PRODUCT_CATEGORY_LABELS[category]}</h2>
+                  <ul className="grid grid-cols-2 gap-3">
+                    {section.map((product) => (
+                      <li key={product.id}>
+                        <button
+                          type="button"
+                          aria-label={product.name}
+                          className="flex min-h-16 w-full flex-col justify-center gap-1 rounded-2xl border border-separator bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+                          onClick={() => openEditor(product)}
+                        >
+                          <span className="font-semibold wrap-anywhere">{product.name}</span>
+                          <span className="text-sm">{formatSoles(product.priceCents)}</span>
+                        </button>
+                        {editorProductId === product.id && editor !== null && (
+                          <ItemEditor
+                            product={product}
+                            sauces={sauces}
+                            editor={editor}
+                            onChange={setEditor}
+                            onAdd={() => addToCart(product)}
+                          />
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            })
           )}
         </div>
-      </section>
+        <aside className="composer-cart" aria-label="Pedido por enviar">
+          <section className="space-y-3">
+            <CartSection
+              lines={cart}
+              lineErrors={lineErrors}
+              onQuantity={(key, value) => {
+                touchCart(
+                  cart.map((line) =>
+                    line.key === key
+                      ? { ...line, quantity: Math.max(1, Math.floor(Number(value) || 1)) }
+                      : line,
+                  ),
+                );
+              }}
+              onRemove={(key) => {
+                touchCart(cart.filter((line) => line.key !== key));
+              }}
+            />
+            {cartError !== undefined && <p role="alert">{cartError}</p>}
+            {sendFailed && (
+              <div className="space-y-2">
+                <p role="alert">No se pudo enviar el pedido.</p>
+                {sendErrors.map((message) => (
+                  <p key={message}>{message}</p>
+                ))}
+              </div>
+            )}
+            {!sendFailed &&
+              sendErrors.map((message) => (
+                <p key={message} role="alert">
+                  {message}
+                </p>
+              ))}
+            <div className="flex flex-wrap gap-3">
+              <Button
+                className="min-h-12"
+                isDisabled={cart.length === 0 || send.isPending || orderId === undefined}
+                onPress={doSend}
+              >
+                {send.isPending ? 'Enviando...' : `Enviar a cocina (${cart.length})`}
+              </Button>
+              {sendFailed && (
+                <Button className="min-h-12" isDisabled={send.isPending} onPress={doSend}>
+                  Reintentar envío
+                </Button>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
     </>
   );
 }
@@ -765,25 +772,29 @@ export default function Page() {
   });
   if (menu.isPending || tables.isPending)
     return (
-      <p role="status" className="p-6 text-center">
-        Cargando carta...
-      </p>
+      <ScreenState>
+        <p role="status" className="p-6 text-center">
+          Cargando carta...
+        </p>
+      </ScreenState>
     );
   if (menu.isError || tables.isError)
     return (
-      <div className="space-y-4 p-6 text-center">
-        <p role="alert">
-          {tables.isError ? 'No se pudo cargar el salón.' : 'No se pudo cargar la carta.'}
-        </p>
-        <Button
-          className="min-h-12"
-          onPress={() => {
-            void (tables.isError ? tables : menu).refetch();
-          }}
-        >
-          Reintentar
-        </Button>
-      </div>
+      <ScreenState>
+        <div className="space-y-4 p-6 text-center">
+          <p role="alert">
+            {tables.isError ? 'No se pudo cargar el salón.' : 'No se pudo cargar la carta.'}
+          </p>
+          <Button
+            className="min-h-12"
+            onPress={() => {
+              void (tables.isError ? tables : menu).refetch();
+            }}
+          >
+            Reintentar
+          </Button>
+        </div>
+      </ScreenState>
     );
   return (
     <RoleGuard area="/mozo">
