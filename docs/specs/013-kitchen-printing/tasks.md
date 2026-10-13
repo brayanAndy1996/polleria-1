@@ -2,7 +2,7 @@
 
 > Adaptación aprobada 2026-10-12: mantener IDs/AC/dependencias, asignar tareas spec-writer al principal, backend-dev/frontend-dev al implementer y reviewer al principal. A-01 ya fue ejecutada por el equipo anterior; A-02 deja de ser una ronda independiente: test-writer conserva regresiones críticas y el principal revisa. No eliminar pruebas existentes ni reducir AC. Esta asignación prevalece sobre los responsables históricos de las tablas.
 
-- Estado: **Implementada y verificada en rama el 2026-10-13**, con spec/P-01…P-06 aprobadas el 2026-10-12. S-01 y T-01…T-20 completadas; regresiones críticas, revisión del principal y checks de cierre cumplidos bajo el flujo reducido. Integración a main pendiente de autorización separada.
+- Estado: **Implementada y verificada en rama el 2026-10-13**, con spec/P-01…P-06 aprobadas el 2026-10-12. S-01 y T-01…T-20 completadas; regresiones críticas, revisión del principal y checks de cierre cumplidos bajo el flujo reducido. Integrada a main con autorización del usuario el 2026-10-13 (merge df19019).
 - Rama: `feat/013-kitchen-printing`; alcance aprobado de driver: file. Sin ESC/POS/barra/pantalla cocina.
 - Fuente de verdad: [spec.md](spec.md), con 14 AC. OpenAPI aprobado 0.10.0 en S-01, operaciones 013 marcadas implemented y formas/operaciones previas 0.9.0 conservadas; contrato de §9 antes de los tests T-03…T-08.
 - Tamaño objetivo: cada tarea 1–2 h; dividir por AC/archivo si supera ese tamaño. No reducir AC ni agregar infraestructura para cumplir una estimación.

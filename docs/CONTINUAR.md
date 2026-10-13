@@ -1,25 +1,33 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
 Documento de traspaso para retomar el trabajo en una conversación nueva. Lo mantiene el orquestador.
-Corte: 2026-10-12. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
+Corte: 2026-10-13. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 
 ## Estado actual del flujo reducido — 2026-10-13
 
 - Metodología aprobada y aplicada en AGENTS.md, CLAUDE.md y docs/agents/: principal mantiene specs/contrato y revisa; test-writer Luna medium; único implementer Luna medium para UI y gpt-6.1-sol medium para transacciones/recuperación. Sin rondas independientes de adversarial-tester/reviewer; conservar regresiones existentes y los 14 AC.
-- 013 implementada y verificada en feat/013-kitchen-printing; pendiente revisión del usuario e integración a main con autorización posterior. Commits de cierre: a5055f5 (tests) y 2c99b61 (producción). No se migró polleria_dev ni se modificó el .env del usuario durante la validación.
+- 013 INTEGRADA a main el 2026-10-13 con autorización del usuario, merge df19019 (sin conflictos). Commits de cierre: a5055f5 (tests) y 2c99b61 (producción). No se migró polleria_dev ni se modificó el .env del usuario durante la validación.
 - Verificación completa del principal: Vitest con cobertura, 132 archivos aprobados, 2631 pruebas aprobadas, 4 fallos esperados y 2 omitidas; líneas globales 97,23 %, umbrales del proyecto cumplidos. Lint global, formato, tipos de raíz/API/shared/web y 501 referencias locales de OpenAPI 0.10.0 pasan.
 - E2E: 24 recorridos anteriores aprobados y 12 no aplicables al proyecto seleccionado; los cuatro recorridos nuevos (dos casos × desktop/mobile) aprobados en repetición tras corregir selectores/literales de sus pruebas. Total validado en ejecuciones separadas: 28 aprobados y 12 omitidos. Chromium del sistema 154.0.8037.57 mediante wrapper externo, carpeta temporal /tmp/polleria-013-e2e; no se afirma validación con Chromium empaquetado.
 - Revisión principal detectó y corrigió arranque del dispatcher sin guardia inicial, estado pendiente permanente tras copia y páginas de atención obsoletas; regresiones conservadas. Pruebas críticas incluyen pérdida real del lock, cierre con salida pendiente, ACK perdido, páginas parciales, permisos y replay. El rojo inicial de las dos regresiones UI fue reportado antes del fix; su log fue sobrescrito por la revalidación y no se presenta como artefacto rojo disponible.
 - Evidencia local de cierre en /workspace/.cloud-setup/: 013-final-coverage-2.log, 013-final-lint-2.log, 013-new-e2e-3.log y ejemplos review-013/. Los archivos del entorno pueden no persistir en otra máquina; reproducir según scripts del repo con DB de pruebas y configuración file temporal.
 - Alcance: archivo generado no confirma papel. Hardware/ESC-POS pendientes de datos del usuario. La deuda previa de build por getServerSnapshot en primary-instance.ts continúa documentada; los E2E anteriores pasaron mediante renderizado cliente. Revisión del principal, sin auditoría adversarial/reviewer independiente bajo el flujo reducido.
 
-## Cambio de metodología — 2026-10-12
+## Próxima entrega y pendientes
+
+- Próximo paso: redactar la spec 014 de Caja y cobro (Fase 4), con una propuesta de primer bloque de pre-cuenta y pago completo. Aprobar sus reglas antes de pruebas/implementación; no hay spec 014 aprobada todavía.
+- Caja restante: pagos por efectivo/Yape/Plin/tarjeta, vuelto, pagos mixtos, división de cuenta, apertura/cierre y cuadre, ticket de venta (RF-13…17). Dividir en specs pequeñas para el flujo reducido.
+- Después: inventario de pollo por parte/octavos y bebidas, entradas/consumo, agotados y alertas (Fase 5); reportes, auditoría y datos de demostración (Fase 6).
+- Cocina: 013 completa para archivos; impresión física ESC/POS y detección de fallos/papel requieren marca, modelo y conexión. Barra separada (RF-11) es posterior. RF-12 para llevar/delivery sigue pendiente de asignación a una spec.
+- Preparación de uso real: migración de polleria_dev, recorrido manual y resolver deuda de build por getServerSnapshot. Las regresiones conocidas esperadas/omitidas continúan visibles; ADV-002-01/02 ya están resueltas por 013.
+
+## Cambio de metodología — 2026-10-12 (histórico)
 
 - Usuario aprobó flujo reducido: principal redacta specs/OpenAPI y revisa; solo test-writer e implementer como subagentes, medium. Luna para pruebas/tareas sencillas, gpt-6.1-sol para implementación compleja. Sin rondas independientes de spec-writer, reviewer o adversarial-tester; conservar pruebas existentes.
 - El límite de uso interrumpió el equipo anterior. Preservar cambios parciales de 013 y validar su estado antes de continuar; no afirmar verde/cierre de bloques sin nueva evidencia.
 - Retomar por bloques pequeños: primero fixtures/contrato de tests y migración/snapshot/formateo ya parcialmente escritos; después despacho/API y UI. Todos los 14 AC aprobados permanecen requeridos. Las referencias del traspaso de abajo al equipo anterior son históricas.
 
-## Actualización actual en Codex — 2026-10-12
+## Actualización anterior en Codex — 2026-10-12 (histórico)
 
 - El usuario autorizó iniciar el desarrollo con los subagentes y modelos documentados en docs/agents/modelos-codex.md. La documentación fue publicada en main en 659061d. Trabajo actual en feat/013-kitchen-printing.
 - spec-writer preparó docs/specs/013-kitchen-printing/spec.md y tasks.md como Borrador (14 AC y recomendaciones P-01…P-06); revisión documental independiente sin bloqueos materiales pendientes. El usuario aprobó la spec y P-01…P-06 el 2026-10-12 («está perfecto… puedes seguir con el desarrollo»). S-01 de contrato terminada (OpenAPI 0.10.0 con operaciones pendientes); T-01/T-02 en rojo causal y después T-09/T-10 verdes. A-01 independiente revalidó y convirtió ADV-002-01/02 a tests ordinarios; quedan otras deudas esperadas intactas. Implementación T-11/T-13 en curso tras rojo de T-03/T-05; tests API T-06/T-07 y web/E2E T-08 en desarrollo por subagentes test-writer separados. El usuario confirmó empezar con driver file y posponer hardware/ESC-POS hasta disponer de datos de la impresora.

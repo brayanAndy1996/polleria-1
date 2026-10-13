@@ -6,14 +6,22 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 ## Estado actual del flujo reducido — 2026-10-13
 
 - Metodología aprobada y aplicada en AGENTS.md, CLAUDE.md y docs/agents/: principal mantiene specs/contrato y revisa; test-writer Luna medium; único implementer Luna medium para UI y gpt-6.1-sol medium para transacciones/recuperación. Sin rondas independientes de adversarial-tester/reviewer; conservar regresiones existentes y los 14 AC.
-- 013 implementada y verificada en feat/013-kitchen-printing; pendiente revisión del usuario e integración a main con autorización posterior. Commits de cierre: a5055f5 (tests) y 2c99b61 (producción). No se migró polleria_dev ni se modificó el .env del usuario durante la validación.
+- 013 INTEGRADA a main el 2026-10-13 con autorización del usuario, merge df19019 (sin conflictos). Commits de cierre: a5055f5 (tests) y 2c99b61 (producción). No se migró polleria_dev ni se modificó el .env del usuario durante la validación.
 - Verificación completa del principal: Vitest con cobertura, 132 archivos aprobados, 2631 pruebas aprobadas, 4 fallos esperados y 2 omitidas; líneas globales 97,23 %, umbrales del proyecto cumplidos. Lint global, formato, tipos de raíz/API/shared/web y 501 referencias locales de OpenAPI 0.10.0 pasan.
 - E2E: 24 recorridos anteriores aprobados y 12 no aplicables al proyecto seleccionado; los cuatro recorridos nuevos (dos casos × desktop/mobile) aprobados en repetición tras corregir selectores/literales de sus pruebas. Total validado en ejecuciones separadas: 28 aprobados y 12 omitidos. Chromium del sistema 154.0.8037.57 mediante wrapper externo, carpeta temporal /tmp/polleria-013-e2e; no se afirma validación con Chromium empaquetado.
 - Revisión principal detectó y corrigió arranque del dispatcher sin guardia inicial, estado pendiente permanente tras copia y páginas de atención obsoletas; regresiones conservadas. Pruebas críticas incluyen pérdida real del lock, cierre con salida pendiente, ACK perdido, páginas parciales, permisos y replay. El rojo inicial de las dos regresiones UI fue reportado antes del fix; su log fue sobrescrito por la revalidación y no se presenta como artefacto rojo disponible.
 - Evidencia local de cierre en /workspace/.cloud-setup/: 013-final-coverage-2.log, 013-final-lint-2.log, 013-new-e2e-3.log y ejemplos review-013/. Los archivos del entorno pueden no persistir en otra máquina; reproducir según scripts del repo con DB de pruebas y configuración file temporal.
 - Alcance: archivo generado no confirma papel. Hardware/ESC-POS pendientes de datos del usuario. La deuda previa de build por getServerSnapshot en primary-instance.ts continúa documentada; los E2E anteriores pasaron mediante renderizado cliente. Revisión del principal, sin auditoría adversarial/reviewer independiente bajo el flujo reducido.
 
-## Cambio de metodología — 2026-10-12
+## Próxima entrega y pendientes
+
+- Próximo paso: redactar la spec 014 de Caja y cobro (Fase 4), con una propuesta de primer bloque de pre-cuenta y pago completo. Aprobar sus reglas antes de pruebas/implementación; no hay spec 014 aprobada todavía.
+- Caja restante: pagos por efectivo/Yape/Plin/tarjeta, vuelto, pagos mixtos, división de cuenta, apertura/cierre y cuadre, ticket de venta (RF-13…17). Dividir en specs pequeñas para el flujo reducido.
+- Después: inventario de pollo por parte/octavos y bebidas, entradas/consumo, agotados y alertas (Fase 5); reportes, auditoría y datos de demostración (Fase 6).
+- Cocina: 013 completa para archivos; impresión física ESC/POS y detección de fallos/papel requieren marca, modelo y conexión. Barra separada (RF-11) es posterior. RF-12 para llevar/delivery sigue pendiente de asignación a una spec.
+- Preparación de uso real: migración de polleria_dev, recorrido manual y resolver deuda de build por getServerSnapshot. Las regresiones conocidas esperadas/omitidas continúan visibles; ADV-002-01/02 ya están resueltas por 013.
+
+## Cambio de metodología — 2026-10-12 (histórico)
 
 - Usuario aprobó flujo reducido: principal redacta specs/OpenAPI y revisa; solo test-writer e implementer como subagentes, medium. Luna para pruebas/tareas sencillas, gpt-6.1-sol para implementación compleja. Sin rondas independientes de spec-writer, reviewer o adversarial-tester; conservar pruebas existentes.
 - El límite de uso interrumpió el equipo anterior. Preservar cambios parciales de 013 y validar su estado antes de continuar; no afirmar verde/cierre de bloques sin nueva evidencia.
@@ -21,7 +29,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 
 ## Estado actual
 
-### Trabajo actual en Codex — 2026-10-12
+### Trabajo anterior en Codex — 2026-10-12 (histórico)
 
 - Fase: preparación de la Fase 3 (cocina/impresión).
 - Funcionalidad: 013-kitchen-printing, spec aprobada por el usuario con P-01…P-06 el 2026-10-12; 14 AC en desarrollo.
@@ -56,7 +64,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 010 | order-items (ítems del pedido con presentación/parte/cremas/observaciones, envío idempotente, comandas como registro, anulación solicitada por el mozo y ejecutada por admin) | 2 | Cerrada (APROBADO en 2.ª vuelta; 19 AC; 19 adversariales con 7 hallazgos corregidos —2 críticos, 2 altos, 2 medios, 1 bajo—; integrada a main en el merge 5110579; pendientes manuales registrados) | feat/010-order-items | 2026-10-11 |
 | 011 | waiter-screens (pantallas del mozo: tablero de mesas con estados, pedido por mesa con acciones del ciclo y comandas, toma de comanda con carrito y envío idempotente, anulación mozo→admin en pantalla; solo apps/web) | 2 | Cerrada (APROBADO en 2.ª vuelta; 24 AC; 30 adversariales con 12 hallazgos corregidos —3 altos, 4 medios, 5 bajos—; integrada a main en el merge 66681f8) | feat/011-waiter-screens | 2026-10-12 |
 | 012 | tables-admin (pantalla /admin/mesas: lista con estado derivado, alta en línea, renombrar por diálogo, activar/desactivar con confirmación; solo apps/web + E2E, contrato 0.9.0 sin cambios) | 2 | Cerrada (APROBADO en 1.ª vuelta; 11 AC; 34 adversariales con 3 hallazgos corregidos —2 medios, 1 bajo—; integrada a main en el merge c26c6c4; pendientes manuales registrados) | feat/012-tables-admin | 2026-10-12 |
-| 013 | kitchen-printing (generación automática file, errores y copias auditadas; hardware posterior) | 3 | Implementada y verificada (14 AC); pendiente integración autorizada | feat/013-kitchen-printing | — |
+| 013 | kitchen-printing (generación automática file, errores y copias auditadas; hardware posterior) | 3 | Cerrada para file (14 AC); integrada a main, merge df19019; hardware posterior | feat/013-kitchen-printing | 2026-10-13 |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec. La de la Fase 2 (009 a 012) la propuso el spec-writer de la 009.
 
@@ -187,8 +195,8 @@ Ataques de la 001 sin fallas (quedan como regresión en verde): prototype pollut
 
 | ID | Severidad | Hallazgo | Estado |
 | --- | --- | --- | --- |
-| ADV-002-01 | Medio | Una línea válida con miles de acentos combinantes desordenados hace que normalizar tarde más de 2 s y bloquee Node (AC-17). | Deuda (Fase 3), test con it.fails |
-| ADV-002-02 | Medio | createPrinterDriver se exporta desde index.ts y su print escribe tal cual ESC, GS y NUL si alguien lo usa sin el servicio. | Deuda (Fase 3), test con it.fails |
+| ADV-002-01 | Medio | Una línea válida con miles de acentos combinantes desordenados hace que normalizar tarde más de 2 s y bloquee Node (AC-17). | Resuelta en 013; test ordinario |
+| ADV-002-02 | Medio | createPrinterDriver se exporta desde index.ts y su print escribe tal cual ESC, GS y NUL si alguien lo usa sin el servicio. | Resuelta en 013; test ordinario |
 | ADV-002-03 | Bajo | El límite de 500 líneas se aplica después de recorrer todo el arreglo (100 000 líneas se leen enteras). | Deuda (Fase 3), test con it.fails |
 | ADV-002-04 | Bajo | En Windows, PRINTER_FILE_DIR como Q:comandas o C: depende de la carpeta actual o cae en la raíz del monorepo. | Deuda (Fase 3), test con it.fails |
 | ADV-002-05 | Bajo | toLimaDateTimeParts confunde años antes y después de Cristo (año 0 y año 1 dan 0001). | Deuda (Fase 3), test con it.fails |

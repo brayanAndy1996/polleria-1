@@ -196,7 +196,7 @@ No mostrar «Impreso» con file. `PRINTER_OUTPUT_FAILED`, `PRINTER_INVALID_DOCUM
 
 ## 9. API aprobada; implementación actual separada
 
-**OpenAPI 0.10.0 contiene el contrato aprobado**, preparado en S-01 antes de los tests. Las tres operaciones de la 013 están implementadas y verificadas mediante integración y E2E file; el principal actualizó `x-implementation-status: implemented` el 2026-10-13. Se conservan las operaciones/formas previas 0.9.0 y los 201/200 estrictos de la 010/011. Esta evidencia corresponde a feat/013-kitchen-printing; la integración a main sigue pendiente de autorización.
+**OpenAPI 0.10.0 contiene el contrato aprobado**, preparado en S-01 antes de los tests. Las tres operaciones de la 013 están implementadas y verificadas mediante integración y E2E file; el principal actualizó `x-implementation-status: implemented` el 2026-10-13. Se conservan las operaciones/formas previas 0.9.0 y los 201/200 estrictos de la 010/011. Esta evidencia corresponde a feat/013-kitchen-printing; integrada a main con autorización del usuario el 2026-10-13 (merge df19019).
 
 Todas las rutas siguientes son **nuevas e implementadas**. Base /api, cookie polleria_session, no-store incluso en errores; ids enteros 1–2147483647. GET de pedido usa lectura coherente (REPEATABLE READ) como la 009. Atención pagina por ticketId ascendente de los últimos estados failed/uncertain, sin duplicar por página/intento. Los estados se releen desde la primera página en cada refresco.
 
