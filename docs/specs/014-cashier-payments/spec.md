@@ -2,7 +2,7 @@
 
 Fecha: 2026-10-13. Fase 4, RF-13 y primer bloque de RF-14; auditoría mínima de RF-27.
 
-**Estado:** alcance aprobado por el usuario el 2026-10-13: un medio por pago (efectivo, Yape, Plin o tarjeta), pre-cuenta imprimible desde el navegador y cierre que libera mesas. Las reglas concretas de este documento son propuestas pendientes de aprobación antes del TDD. No hay código ni contrato implementado de 014.
+**Estado:** alcance aprobado por el usuario el 2026-10-13: un medio por pago (efectivo, Yape, Plin o tarjeta), pre-cuenta imprimible desde el navegador y cierre que libera mesas. Las reglas P-01…P-07 fueron aprobadas por el usuario con la aclaración de que todos los importes visibles y entradas deben estar en soles con decimales. No hay código ni contrato implementado de 014.
 
 Rama: `feat/014-cashier-payments`, desde main `c3021d2`. La preparación de demo permanece en `dev`; no se incluye automáticamente en esta funcionalidad.
 
@@ -10,11 +10,18 @@ Rama: `feat/014-cashier-payments`, desde main `c3021d2`. La preparación de demo
 
 El cajero ve los pedidos abiertos, revisa una pre-cuenta con los precios registrados, recibe un pago completo y confirma el cobro. El pedido queda cerrado y sus mesas libres en una sola transacción. Otra persona o un reintento no pueden cobrarlo dos veces.
 
-Ejemplo: cuarto pierna S/ 17,00 + bebida S/ 4,00 = S/ 21,00. Con efectivo recibido de S/ 30,00 se registra un pago de 2100 céntimos, recibido 3000 y vuelto 900. Con Yape/Plin/tarjeta se registra recibido 2100 y vuelto 0 después de confirmación manual del cajero.
+Ejemplo: cuarto pierna S/ 17,00 + bebida S/ 4,00 = S/ 21,00. Con efectivo, la pantalla muestra **Total S/ 21,00 · Recibido S/ 30,00 · Vuelto S/ 9,00**. Con Yape/Plin/tarjeta muestra **Pago S/ 21,00 · Vuelto S/ 0,00** después de confirmación manual del cajero.
 
-## 2. Alcance y decisiones propuestas
+### Moneda en la interacción con el usuario
 
-| ID | Propuesta |
+- Todos los importes de pantallas, formularios, confirmaciones, mensajes y pre-cuentas impresas se expresan en **soles**, con símbolo S/. Nunca se muestra 2100 como equivalente visible de S/ 21,00 ni se pide al usuario ingresar céntimos.
+- Se permite ingresar `21.5` o `21,5` para veintiún soles con cincuenta céntimos; la presentación normalizada es **S/ 21,50**, siempre con dos decimales. Los campos indican «Monto recibido (S/)», «Total (S/)» y «Vuelto (S/)».
+- La representación interna en API, base de datos y cálculos sigue siendo de enteros en céntimos, conforme a la regla 2 de CLAUDE.md. La conversión desde/hacia soles ocurre en la frontera de la interfaz y no introduce cálculos monetarios con float.
+- El ejemplo visible es 21 soles de total, 30 soles recibidos y 9 soles de vuelto. Recibir 3 soles sería insuficiente; la aclaración del usuario se interpreta con ese ejemplo aritméticamente consistente.
+
+## 2. Alcance y decisiones aprobadas
+
+| ID | Decisión |
 | --- | --- |
 | P-01 | Cobrar cualquier pedido abierto con total positivo e ítems, aunque el mozo aún no haya solicitado cuenta. La lista permite distinguir los que pidieron cuenta. |
 | P-02 | Una anulación pendiente bloquea el cobro hasta su aprobación o rechazo. Ítems anulados no se cobran. El precio proviene del pedido, nunca de la carta actual. |
@@ -118,7 +125,7 @@ Mozo/admin tienen acceso a la pre-cuenta desde el pedido; el mozo no ve formular
 | AC-10 | Auth/roles, sesión revocada, ids/query/body/clave estrictos y no-store en éxito/error; mozo/kitchen no cobran. |
 | AC-11 | Pago/snapshot inmutables y legibles tras renombrar usuarios/mesas/productos y reusar la mesa; no cambian respuestas antiguas. |
 | AC-12 | Lista paginada y polling visible de todas las páginas; carga/vacío/error y 401; atención 013 conservada. |
-| AC-13 | Parsing decimal exacto, revisión/confirmación, doble clic, BILL_CHANGED y reintento con misma clave/cuerpo tras pérdida de respuesta. |
+| AC-13 | Importes visibles/impresos y entradas en soles, nunca céntimos; 21.5/21,5 se muestran S/ 21,50; total S/ 21,00, recibido S/ 30,00 y vuelto S/ 9,00. Parsing decimal exacto, revisión/confirmación, doble clic, BILL_CHANGED y reintento con misma clave/cuerpo tras pérdida de respuesta. |
 | AC-14 | Pre-cuenta e impresión manual no crean pago ni comanda; hoja con etiquetas/detalle/total sin controles. Cocina sigue PrinterService. |
 | AC-15 | E2E desktop cash: pedido mixto, pre-cuenta, cobro/vuelto, mesas libres y lectura del pago; E2E mobile método electrónico, vista 360 px y reintento sin duplicación. No internet. |
 

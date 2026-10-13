@@ -1,11 +1,11 @@
 # Tareas — 014 Pre-cuenta y cobro completo
 
-Estado: alcance aprobado, spec detallada pendiente. Dependencias: 009…013 integradas; rama desde main, demo separada en dev. No iniciar código/tests antes de aprobación de la spec.
+Estado: spec y P-01…P-07 aprobadas el 2026-10-13 con la aclaración de importes visibles e ingresados en soles. Dependencias: 009…013 integradas; rama desde main, demo separada en dev. Siguiente paso: S-01, contrato previo al TDD.
 
 | ID | Responsable | Bloque y evidencia | Depende de |
 | --- | --- | --- | --- |
-| S-01 | Principal | Aprobar P-01…07; actualizar excepción manual de impresión en CLAUDE.md; contrato OpenAPI 0.11.0 pending, schemas estrictos y errores/rutas. | Spec aprobada |
-| T-01 | test-writer Luna medium | Rojo de dinero/parsing, bill/token/total y schemas; fixtures de _test con guardias. AC-02/03/05/06/10/13. | S-01 |
+| S-01 | Principal | P-01…07 aprobadas; actualizar excepción manual de impresión en CLAUDE.md; contrato OpenAPI 0.11.0 pending, schemas estrictos y errores/rutas. | Spec aprobada |
+| T-01 | test-writer Luna medium | Rojo de dinero/parsing en soles (21.5/21,5 → S/ 21,50, vuelto S/ 9,00; céntimos solo internos), bill/token/total y schemas; fixtures de _test con guardias. AC-02/03/05/06/10/13. | S-01 |
 | I-01 | implementer 6.1-sol medium | Dominio/lectura de cuenta/token y shared; verde dirigido sin alterar tests. | T-01 |
 | T-02 | test-writer Luna medium | Rojo migración, cash/electrónico, mesas/snapshot y rollback. AC-01/04/05/06/09/11. | I-01 |
 | I-02 | implementer 6.1-sol medium | Tabla payments, servicio transaccional, snapshot, cierre y guardias. | T-02 |
