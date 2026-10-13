@@ -65,6 +65,8 @@ describe('navegación accesible del rediseño', () => {
 
     show(<LoginScreen />);
     await expectSkipLinkTargetsTheOnlyMain();
+    expect(await screen.findByRole('heading', { level: 1, name: '¿Quién eres?' })).toBeVisible();
+    await expectSkipLinkTargetsTheOnlyMain();
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
   });
 
