@@ -3,6 +3,12 @@
 Documento de traspaso para retomar el trabajo en una conversación nueva. Lo mantiene el orquestador.
 Corte: 2026-10-13. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 
+## Spec 014 en preparación — 2026-10-13
+
+- Usuario pidió desarrollar 014 y aprobó el primer bloque: pago completo con un medio (efectivo/Yape/Plin/tarjeta), pre-cuenta imprimible en navegador y cierre/liberación de mesas. Pagos mixtos/división/apertura-cierre de caja posteriores.
+- Propuesta detallada en docs/specs/014-cashier-payments/spec.md y tasks.md; 15 AC y P-01…07 aprobadas con aclaración: interfaz, entradas e impresos en soles con decimales; céntimos solo internos. Rama feat/014-cashier-payments desde main c3021d2; datos demo permanecen en dev.
+- El principal prepara spec/contrato; todavía sin cambios de producción, tests ni OpenAPI para 014. Siguiente: S-01 y TDD por bloques, Luna medium para test-writer/UI y 6.1-sol medium para cobro/transacciones. No se requiere otra aprobación de estas reglas.
+
 ## Estado actual del flujo reducido — 2026-10-13
 
 - Metodología aprobada y aplicada en AGENTS.md, CLAUDE.md y docs/agents/: principal mantiene specs/contrato y revisa; test-writer Luna medium; único implementer Luna medium para UI y gpt-6.1-sol medium para transacciones/recuperación. Sin rondas independientes de adversarial-tester/reviewer; conservar regresiones existentes y los 14 AC.
@@ -15,7 +21,7 @@ Corte: 2026-10-13. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 
 ## Próxima entrega y pendientes
 
-- Próximo paso: redactar la spec 014 de Caja y cobro (Fase 4), con una propuesta de primer bloque de pre-cuenta y pago completo. Aprobar sus reglas antes de pruebas/implementación; no hay spec 014 aprobada todavía.
+- Próximo paso: preparar contrato 014 (S-01), luego TDD. Spec/reglas aprobadas con importes de interfaz en soles.
 - Caja restante: pagos por efectivo/Yape/Plin/tarjeta, vuelto, pagos mixtos, división de cuenta, apertura/cierre y cuadre, ticket de venta (RF-13…17). Dividir en specs pequeñas para el flujo reducido.
 - Después: inventario de pollo por parte/octavos y bebidas, entradas/consumo, agotados y alertas (Fase 5); reportes, auditoría y datos de demostración (Fase 6).
 - Cocina: 013 completa para archivos; impresión física ESC/POS y detección de fallos/papel requieren marca, modelo y conexión. Barra separada (RF-11) es posterior. RF-12 para llevar/delivery sigue pendiente de asignación a una spec.

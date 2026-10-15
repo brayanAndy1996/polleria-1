@@ -3,6 +3,12 @@
 Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.md (contexto completo y siguiente acción exacta).
 
+## Spec 014 en preparación — 2026-10-13
+
+- Usuario pidió desarrollar 014 y aprobó el primer bloque: pago completo con un medio (efectivo/Yape/Plin/tarjeta), pre-cuenta imprimible en navegador y cierre/liberación de mesas. Pagos mixtos/división/apertura-cierre de caja posteriores.
+- Propuesta detallada en docs/specs/014-cashier-payments/spec.md y tasks.md; 15 AC y P-01…07 aprobadas con aclaración: interfaz, entradas e impresos en soles con decimales; céntimos solo internos. Rama feat/014-cashier-payments desde main c3021d2; datos demo permanecen en dev.
+- El principal prepara spec/contrato; todavía sin cambios de producción, tests ni OpenAPI para 014. Siguiente: S-01 y TDD por bloques, Luna medium para test-writer/UI y 6.1-sol medium para cobro/transacciones. No se requiere otra aprobación de estas reglas.
+
 ## Estado actual del flujo reducido — 2026-10-13
 
 - Metodología aprobada y aplicada en AGENTS.md, CLAUDE.md y docs/agents/: principal mantiene specs/contrato y revisa; test-writer Luna medium; único implementer Luna medium para UI y gpt-6.1-sol medium para transacciones/recuperación. Sin rondas independientes de adversarial-tester/reviewer; conservar regresiones existentes y los 14 AC.
@@ -15,7 +21,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 
 ## Próxima entrega y pendientes
 
-- Próximo paso: redactar la spec 014 de Caja y cobro (Fase 4), con una propuesta de primer bloque de pre-cuenta y pago completo. Aprobar sus reglas antes de pruebas/implementación; no hay spec 014 aprobada todavía.
+- Próximo paso: preparar contrato 014 (S-01), luego TDD. Spec/reglas aprobadas con importes de interfaz en soles.
 - Caja restante: pagos por efectivo/Yape/Plin/tarjeta, vuelto, pagos mixtos, división de cuenta, apertura/cierre y cuadre, ticket de venta (RF-13…17). Dividir en specs pequeñas para el flujo reducido.
 - Después: inventario de pollo por parte/octavos y bebidas, entradas/consumo, agotados y alertas (Fase 5); reportes, auditoría y datos de demostración (Fase 6).
 - Cocina: 013 completa para archivos; impresión física ESC/POS y detección de fallos/papel requieren marca, modelo y conexión. Barra separada (RF-11) es posterior. RF-12 para llevar/delivery sigue pendiente de asignación a una spec.
@@ -65,6 +71,7 @@ Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.
 | 011 | waiter-screens (pantallas del mozo: tablero de mesas con estados, pedido por mesa con acciones del ciclo y comandas, toma de comanda con carrito y envío idempotente, anulación mozo→admin en pantalla; solo apps/web) | 2 | Cerrada (APROBADO en 2.ª vuelta; 24 AC; 30 adversariales con 12 hallazgos corregidos —3 altos, 4 medios, 5 bajos—; integrada a main en el merge 66681f8) | feat/011-waiter-screens | 2026-10-12 |
 | 012 | tables-admin (pantalla /admin/mesas: lista con estado derivado, alta en línea, renombrar por diálogo, activar/desactivar con confirmación; solo apps/web + E2E, contrato 0.9.0 sin cambios) | 2 | Cerrada (APROBADO en 1.ª vuelta; 11 AC; 34 adversariales con 3 hallazgos corregidos —2 medios, 1 bajo—; integrada a main en el merge c26c6c4; pendientes manuales registrados) | feat/012-tables-admin | 2026-10-12 |
 | 013 | kitchen-printing (generación automática file, errores y copias auditadas; hardware posterior) | 3 | Cerrada para file (14 AC); integrada a main, merge df19019; hardware posterior | feat/013-kitchen-printing | 2026-10-13 |
+| 014 | cashier-payments (pre-cuenta y cobro completo con un medio) | 4 | Spec aprobada con importes visibles en soles (15 AC) | feat/014-cashier-payments | — |
 
 La división 004 a 008 es una propuesta del orquestador; cada una se confirma al escribir su spec. La de la Fase 2 (009 a 012) la propuso el spec-writer de la 009.
 
