@@ -1,5 +1,15 @@
 # Progreso del proyecto — Sistema Pollería
 
+## Rediseño FigCraft azul — dev, 2026-10-15
+
+- Solicitud del usuario: continuar en dev usando diseños/colorimetría del documento polleria en FigCraft y Motion. Implementado en frontend; fuente visual y capturas en docs/ui-figcraft, alcance en docs/specs/dev-figcraft-blue.
+- Paleta #EFF8FF/#3B82F6/#60A5FA/#1E3A8A y Nunito local. Cabecera superior desktop, navegación inferior móvil/tablet, mesas en dos columnas, carta con categorías/buscador/productos/resumen, fotos originales locales y acceso/PIN adaptado.
+- Motion14.3.0 y @fontsource-variable/nunito5.3.0 exactos. Movimiento reducido configurado; interacción breve sin retener el editor anterior ni remontar formularios por polling. ADR0003.
+- Separación de roles conservada: Luna escribió pruebas e inició implementación; tras agotarse su cuota, el usuario autorizó explícitamente completar con implementer GPT-6.1-sol medium. Principal revisó/verificó; sin reviewer/adversarial independiente.
+- Evidencia:738/738 pruebas web en42 archivos;116 pruebas dirigidas tras ajustes de markup, tipos globales, lint/formato y build aprobados. QA final passed en design-qa.md; recorrido Playwright con Chrome instalado autorizado por el usuario, 14 capturas a360/390/768/1024/1440, cero pageerrors y sin overflow. Mock de16 rutas validado contra schemas, sin DB real.
+- No se ejecutó cobertura global ni suites API/DB para este cambio visual. Los cambios de setup MotionConfig precedieron su nueva regresión; no se reconstruye rojo retrospectivo. Búsqueda/filtro sí partió de rojo causal documentado.
+- Los módulos funcionales existentes y reglas de permisos/dinero/idempotencia permanecen; no se implementan pagos014, inventario, reportes ni impresión física. No integrar main. Próximo paso: revisión del diseño con el usuario y recorrido con su API/BD real según PROBAR-DEMO.md.
+
 Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.md (contexto completo y siguiente acción exacta).
 
