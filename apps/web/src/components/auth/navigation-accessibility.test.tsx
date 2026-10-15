@@ -57,6 +57,24 @@ beforeEach(() => {
 });
 
 describe('navegación accesible del rediseño', () => {
+  it('AC-02/05: conserva una navegación de áreas única y con nombre accesible', async () => {
+    window.history.replaceState({}, '', '/caja');
+    mockSession(['waiter', 'cashier']);
+    show(<CashierPage />);
+
+    const navigation = await screen.findByRole('navigation', { name: 'Navegación de áreas' });
+    expect(document.querySelectorAll('nav')).toHaveLength(1);
+    expect(
+      within(navigation)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href')),
+    ).toEqual(['/mozo', '/caja']);
+    expect(within(navigation).getByRole('link', { name: 'Caja' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
   it('conecta el skip link al único main en inicio e inicio de sesión', async () => {
     const home = show(<HomePage />);
     await expectSkipLinkTargetsTheOnlyMain();
