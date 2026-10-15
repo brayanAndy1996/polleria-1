@@ -11,3 +11,5 @@ Flujo: spec aprobada → bloque pequeño de pruebas en rojo → implementación 
 Serializa Vitest/cobertura/Playwright si usan polleria_test; evita instalaciones simultáneas y escrituras en los mismos archivos. Tests solo con guardias de DB aislada. Commits separados de tests, producción y docs. Integración a main requiere autorización posterior del usuario.
 
 Usa el checkout existente de la nube; no crees worktrees salvo solicitud explícita. Durante planificación no implementes. Preserva el trabajo parcial previo y retoma desde evidencia real, sin reconstruir TDD retrospectivo.
+
+Skill instalada por solicitud del usuario: design-taste-frontend en .agents/skills/design-taste-frontend/ (origen y hash en skills-lock.json). Leer su SKILL.md antes de aplicarla. Su versión instalada está orientada a páginas públicas/landing pages y excluye dashboards y pantallas de apps; no imponer sus reglas al POS ni sustituir los requisitos, permisos o metodología del proyecto.

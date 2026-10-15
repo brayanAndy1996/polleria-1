@@ -8,3 +8,6 @@ playwright-report/
 test-results/
 tmp/
 dist/
+
+# Skill externa: conservar formato del proveedor.
+.agents/skills/design-taste-frontend/
