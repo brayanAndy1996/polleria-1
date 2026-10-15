@@ -3,13 +3,43 @@
 Lo mantiene el orquestador. Se actualiza al final de cada paso del ciclo.
 Para retomar el trabajo en una conversación nueva, leer primero docs/CONTINUAR.md (contexto completo y siguiente acción exacta).
 
-## Spec 014 en preparación — 2026-10-13
+## Estado vigente y punto de reanudación — 2026-10-15
 
-- Usuario pidió desarrollar 014 y aprobó el primer bloque: pago completo con un medio (efectivo/Yape/Plin/tarjeta), pre-cuenta imprimible en navegador y cierre/liberación de mesas. Pagos mixtos/división/apertura-cierre de caja posteriores.
-- Propuesta detallada en docs/specs/014-cashier-payments/spec.md y tasks.md; 15 AC y P-01…07 aprobadas con aclaración: interfaz, entradas e impresos en soles con decimales; céntimos solo internos. Rama feat/014-cashier-payments desde main c3021d2; datos demo permanecen en dev.
-- El principal prepara spec/contrato; todavía sin cambios de producción, tests ni OpenAPI para 014. Siguiente: S-01 y TDD por bloques, Luna medium para test-writer/UI y 6.1-sol medium para cobro/transacciones. No se requiere otra aprobación de estas reglas.
+**La documentación aprobada de la spec 014 está integrada en main. El cobro todavía NO está implementado.** El usuario autorizó esta integración documental el 2026-10-15. Merge de la rama feat/014-cashier-payments: `40c4631` (origen documental `62e0243`). No confundir publicar la spec con completar la funcionalidad.
 
-## Estado actual del flujo reducido — 2026-10-13
+| Entrega                                                | Estado real al corte                                                        | Ubicación                                                                                         |
+| ------------------------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Funcionalidades 001…013                                | Implementadas; 013 validada con driver file, sin prueba de impresora física | main                                                                                              |
+| 014: spec, P-01…P-07 y 15 AC                           | Aprobados e integrados como documentación                                   | [spec](specs/014-cashier-payments/spec.md), [tareas](specs/014-cashier-payments/tasks.md) en main |
+| 014: contrato, pruebas, migración, backend y UI        | Pendientes; ningún pago funcional ni endpoints nuevos de Caja               | Siguiente desarrollo                                                                              |
+| Datos demo, rediseño visual y corrección SSR del build | Publicados en dev, sin integrar a main                                      | dev, rediseño `18f4b4f`                                                                           |
+| Brief completo para app flow/task flows/UI UX          | Publicado en dev, 27 RF, 14 RNF, 21 task flows y 28 superficies             | dev, `9f6ad9e`                                                                                    |
+| Inventario, reportes, caja avanzada, delivery y SUNAT  | Futuros; no presentarlos como implementados                                 | Planificación y specs futuras                                                                     |
+
+### Decisiones que no hay que volver a preguntar
+
+- Primer bloque 014: pre-cuenta imprimible mediante navegador, pago completo con **un medio** (efectivo/Yape/Plin/tarjeta) y cierre transaccional que libera todas las mesas del pedido.
+- Pantallas, formularios y pre-cuentas en **soles con decimales**. Ejemplo: total S/ 21,00, recibido S/ 30,00, vuelto S/ 9,00; se acepta 21.5 o 21,5. Céntimos enteros solo en representación/cálculo internos.
+- Cobrar no exige solicitud previa de cuenta; una anulación pendiente bloquea el cobro. Medios electrónicos se confirman manualmente, sin conexión bancaria. Imprimir pre-cuenta no paga ni genera comanda.
+- Pagos mixtos/parciales, división, apertura/cierre de caja, ticket de venta, descuentos, devoluciones y reapertura no pertenecen a esta entrega. No ampliar su alcance por un mockup de diseño.
+
+### Siguiente acción exacta para otro chat
+
+1. Leer AGENTS.md, CLAUDE.md, este estado, la spec 014 y tasks.md. No considerar cerrada ninguna tarea de implementación de 014.
+2. Retomar **S-01**: completar/verificar contrato OpenAPI 0.11.0 con estado pending, esquemas y errores antes de TDD. La excepción de impresión manual ya consta en CLAUDE.md; el contrato actual sigue en 0.10.0.
+3. Continuar T-01 → I-01 y siguientes bloques rojo → verde → revisión, conservando todos los AC. Principal mantiene docs/contrato; test-writer gpt-6-luna medium; implementer gpt-6.1-sol medium para pagos/transacciones/concurrencia y gpt-6-luna medium para UI sencilla. Sin reviewer/adversarial independientes.
+4. Desarrollar en rama de funcionalidad desde main actualizado; si se reutiliza la rama 014, incorporar primero el main vigente. La integración documental autorizada aquí no autoriza futuras integraciones de implementación a main. No incorporar automáticamente todo dev.
+5. Validar con DB aislada _test y serializar suites que la usan. No ejecutar migraciones de cobro sobre la base de desarrollo del usuario para probar la funcionalidad.
+
+### Trabajo de diseño y diferencia entre ramas
+
+El usuario dejó el nuevo diseño colaborativo para otra conversación. Referencia solicitada: POS verde/menta con carta y pedido lateral; archivo Figma polleria `AFptvrcQPGhNiFTPUy55Pj`, mediante FigCraft si está disponible. Acceso/edición no verificados; no afirmar que hay diseños editados en Figma.
+
+Material para esa sesión, **en dev**: [brief de diseño y flujos](https://github.com/brayanAndy1996/polleria-1/blob/dev/docs/BRIEF-DISENO-FLOWS-UI-UX.md), [guía de demo](https://github.com/brayanAndy1996/polleria-1/blob/dev/docs/PROBAR-DEMO.md) y [capturas](https://github.com/brayanAndy1996/polleria-1/blob/dev/docs/ui-redesign/README.md). Main conserva la interfaz anterior y su deuda SSR; la corrección getServerSnapshot pertenece al rediseño de dev. Esta integración solo trae documentación de 014, sin demo ni rediseño.
+
+Verificación de esta actualización: revisión del diff, enlaces locales y formato de Markdown; sin cambios de producción ni nuevas pruebas de aplicación. Los resultados de suites indicados más abajo son evidencia histórica de sus entregas, no de una implementación de 014.
+
+## Validación de 013 y flujo reducido — 2026-10-13 (histórico)
 
 - Metodología aprobada y aplicada en AGENTS.md, CLAUDE.md y docs/agents/: principal mantiene specs/contrato y revisa; test-writer Luna medium; único implementer Luna medium para UI y gpt-6.1-sol medium para transacciones/recuperación. Sin rondas independientes de adversarial-tester/reviewer; conservar regresiones existentes y los 14 AC.
 - 013 INTEGRADA a main el 2026-10-13 con autorización del usuario, merge df19019 (sin conflictos). Commits de cierre: a5055f5 (tests) y 2c99b61 (producción). No se migró polleria_dev ni se modificó el .env del usuario durante la validación.

@@ -1,6 +1,6 @@
 # Tareas — 014 Pre-cuenta y cobro completo
 
-Estado: spec y P-01…P-07 aprobadas el 2026-10-13 con la aclaración de importes visibles e ingresados en soles. Dependencias: 009…013 integradas; rama desde main, demo separada en dev. Siguiente paso: S-01, contrato previo al TDD.
+Estado: spec y P-01…P-07 aprobadas el 2026-10-13 con la aclaración de importes visibles e ingresados en soles. Dependencias: 009…013 integradas; rama desde main, demo separada en dev. Publicada en main el 2026-10-15 (integración documental 40c4631). Ningún bloque de implementación está completado. Siguiente paso: S-01, contrato previo al TDD; la excepción manual ya consta en CLAUDE.md, el contrato 0.11.0 aún está pendiente.
 
 | ID | Responsable | Bloque y evidencia | Depende de |
 | --- | --- | --- | --- |

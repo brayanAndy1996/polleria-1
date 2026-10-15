@@ -4,7 +4,7 @@ Fecha: 2026-10-13. Fase 4, RF-13 y primer bloque de RF-14; auditoría mínima de
 
 **Estado:** alcance aprobado por el usuario el 2026-10-13: un medio por pago (efectivo, Yape, Plin o tarjeta), pre-cuenta imprimible desde el navegador y cierre que libera mesas. Las reglas P-01…P-07 fueron aprobadas por el usuario con la aclaración de que todos los importes visibles y entradas deben estar en soles con decimales. No hay código ni contrato implementado de 014.
 
-Rama: `feat/014-cashier-payments`, desde main `c3021d2`. La preparación de demo permanece en `dev`; no se incluye automáticamente en esta funcionalidad.
+Publicación documental: integrada a **main** el 2026-10-15 con autorización del usuario (merge `40c4631`). Origen: `feat/014-cashier-payments`, desde main `c3021d2`. **La implementación sigue pendiente**, empezando por S-01. La preparación demo y el rediseño visual permanecen en `dev`; no se incluyen en esta integración.
 
 ## 1. Resultado esperado
 
