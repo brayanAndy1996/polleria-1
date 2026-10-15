@@ -154,7 +154,7 @@ export function RoleGuard({ area, children }: { area: AreaPath; children: ReactN
     <>
       <SkipLink />
       <div className="app-shell">
-        <aside className="app-sidebar" aria-label="Panel de trabajo">
+        <header className="app-header">
           <a href="/" className="brand-lockup">
             <span className="brand-mark" aria-hidden="true">
               <svg viewBox="0 0 40 40">
@@ -167,7 +167,6 @@ export function RoleGuard({ area, children }: { area: AreaPath; children: ReactN
               <small>Salón y operación</small>
             </span>
           </a>
-          <p className="nav-caption">Áreas de trabajo</p>
           <nav aria-label="Navegación de áreas" className="area-navigation">
             {areas.map((path) => (
               <Link key={path} href={path} aria-current={area === path ? 'page' : undefined}>
@@ -176,19 +175,15 @@ export function RoleGuard({ area, children }: { area: AreaPath; children: ReactN
               </Link>
             ))}
           </nav>
-        </aside>
-        <div className="app-workspace">
-          <header className="workspace-header">
-            <SessionHeader user={session.data.user} canChangeArea={areas.length > 1} />
-          </header>
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className={`workspace-main workspace-${area.slice(1)}`}
-          >
-            {children}
-          </main>
-        </div>
+          <SessionHeader user={session.data.user} canChangeArea={areas.length > 1} />
+        </header>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className={`workspace-main workspace-${area.slice(1)}`}
+        >
+          {children}
+        </main>
       </div>
     </>
   );

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '@polleria/shared';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion } from 'motion/react';
 import { getLoginUsers, getSession, login } from '../../lib/api/auth.ts';
 import { ApiError } from '../../lib/api/client.ts';
 import { readLastWorkstationArea, wasLastAreaAdministration } from '../../lib/auth/last-area.ts';
@@ -149,123 +150,136 @@ export function LoginScreen() {
   return (
     <>
       <SkipLink />
-      <main id="main-content" tabIndex={-1} className="public-screen">
-        <div className="public-panel">
-          <div className="public-brand">
-            <span className="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 40 40">
-                <path d="M20 4 34 12v16L20 36 6 28V12L20 4Z" />
-                <path d="M13 25c1.5-5.5 4-9 7-11 3 2 5.5 5.5 7 11M15 27h10" />
-              </svg>
-            </span>
-            <span>
-              <strong>Sistema Pollería</strong>
-              <small>Acceso del equipo</small>
-            </span>
-          </div>
-          <h1>{selected ? `Hola, ${selected.displayName}` : '¿Quién eres?'}</h1>
-          {selected ? (
-            <>
-              <p aria-live="polite" className="min-h-8 text-center text-xl">
-                {pin ? '•'.repeat(pin.length) : 'PIN de 4 a 6 dígitos'}
-              </p>
-              {message && (
-                <p role="alert" className="text-center text-danger">
-                  {message}
+      <main id="main-content" tabIndex={-1} className="public-screen login-screen">
+        <div className="login-layout">
+          <div className="public-panel login-panel">
+            <div className="public-brand">
+              <span className="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 40 40">
+                  <path d="M20 4 34 12v16L20 36 6 28V12L20 4Z" />
+                  <path d="M13 25c1.5-5.5 4-9 7-11 3 2 5.5 5.5 7 11M15 27h10" />
+                </svg>
+              </span>
+              <span>
+                <strong>Sistema Pollería</strong>
+                <small>Acceso del equipo</small>
+              </span>
+            </div>
+            <h1>{selected ? `Hola, ${selected.displayName}` : '¿Quién eres?'}</h1>
+            {selected ? (
+              <>
+                <p aria-live="polite" className="min-h-8 text-center text-xl">
+                  {pin ? '•'.repeat(pin.length) : 'PIN de 4 a 6 dígitos'}
                 </p>
-              )}
-              <div className="grid grid-cols-3 gap-3" aria-label="Teclado de PIN">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+                {message && (
+                  <p role="alert" className="text-center text-danger">
+                    {message}
+                  </p>
+                )}
+                <div className="grid grid-cols-3 gap-3" aria-label="Teclado de PIN">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+                    <Button
+                      key={digit}
+                      variant="secondary"
+                      className="min-h-14 w-full text-xl"
+                      isDisabled={isPending}
+                      onPress={() => {
+                        addDigit(digit);
+                      }}
+                    >{`${digit} `}</Button>
+                  ))}
                   <Button
-                    key={digit}
+                    variant="secondary"
+                    className="min-h-14 w-full"
+                    isDisabled={isPending}
+                    onPress={eraseDigit}
+                  >
+                    Borrar
+                  </Button>
+                  <Button
                     variant="secondary"
                     className="min-h-14 w-full text-xl"
                     isDisabled={isPending}
                     onPress={() => {
-                      addDigit(digit);
+                      addDigit('0');
                     }}
-                  >{`${digit} `}</Button>
-                ))}
+                  >
+                    {'0 '}
+                  </Button>
+                  <Button
+                    className="col-span-3 min-h-14 w-full min-w-0 rounded-xl px-2 text-xl"
+                    isDisabled={pin.length < PIN_MIN_LENGTH || isPending}
+                    onPress={submit}
+                  >
+                    {isPending ? 'Entrando...' : 'Entrar'}
+                  </Button>
+                </div>
                 <Button
                   variant="secondary"
-                  className="min-h-14 w-full"
-                  isDisabled={isPending}
-                  onPress={eraseDigit}
-                >
-                  Borrar
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="min-h-14 w-full text-xl"
+                  className="min-h-12 w-full"
                   isDisabled={isPending}
                   onPress={() => {
-                    addDigit('0');
-                  }}
-                >
-                  {'0 '}
-                </Button>
-                <Button
-                  className="min-h-14 w-full min-w-0 px-2 text-sm"
-                  isDisabled={pin.length < PIN_MIN_LENGTH || isPending}
-                  onPress={submit}
-                >
-                  {isPending ? 'Entrando...' : 'Entrar'}
-                </Button>
-              </div>
-              <Button
-                variant="secondary"
-                className="min-h-12 w-full"
-                isDisabled={isPending}
-                onPress={() => {
-                  setChosenUsername(null);
-                  setPin('');
-                  reset();
-                }}
-              >
-                Cambiar usuario
-              </Button>
-            </>
-          ) : users.data?.length ? (
-            <div className="login-user-list">
-              {users.data.map((user) => (
-                <Button
-                  key={user.username}
-                  variant="secondary"
-                  aria-label={`${user.displayName} ${user.username}`}
-                  className="login-user-choice min-h-16 w-full min-w-0 gap-3 py-3"
-                  onPress={() => {
-                    setChosenUsername(user.username);
+                    setChosenUsername(null);
                     setPin('');
                     reset();
                   }}
                 >
-                  <span className="user-avatar" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" focusable="false">
-                      <circle cx="12" cy="8" r="3.25" />
-                      <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
-                    </svg>
-                  </span>
-                  <span className="user-choice-copy">
-                    <span className="user-choice-name">{user.displayName}</span>
-                    <span className="user-choice-username">{user.username}</span>
-                  </span>
-                  <svg
-                    className="user-choice-chevron"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path d="m9 5 7 7-7 7" />
-                  </svg>
+                  Cambiar usuario
                 </Button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center">
-              No hay usuarios activos. El administrador debe crear el primero con el comando pnpm
-              users:create-admin.
-            </p>
-          )}
+              </>
+            ) : users.data?.length ? (
+              <div className="login-user-list">
+                {users.data.map((user) => (
+                  <motion.div
+                    key={user.username}
+                    whileTap={{ scale: 0.99 }}
+                    transition={{ duration: 0.12 }}
+                  >
+                    <Button
+                      variant="secondary"
+                      aria-label={`${user.displayName} ${user.username}`}
+                      className="login-user-choice min-h-16 w-full min-w-0 gap-3 py-3"
+                      onPress={() => {
+                        setChosenUsername(user.username);
+                        setPin('');
+                        reset();
+                      }}
+                    >
+                      <span className="user-avatar" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                          <circle cx="12" cy="8" r="3.25" />
+                          <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+                        </svg>
+                      </span>
+                      <span className="user-choice-copy">
+                        <span className="user-choice-name">{user.displayName}</span>
+                        <span className="user-choice-username">{user.username}</span>
+                      </span>
+                      <svg
+                        className="user-choice-chevron"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path d="m9 5 7 7-7 7" />
+                      </svg>
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center">
+                No hay usuarios activos. El administrador debe crear el primero con el comando pnpm
+                users:create-admin.
+              </p>
+            )}
+          </div>
+          <aside className="login-context" aria-labelledby="login-context-title">
+            <h2 id="login-context-title">Acceso personal</h2>
+            <p>Selecciona tu usuario e ingresa tu PIN.</p>
+            <p>Solo se mostrarán las áreas que permita tu cuenta.</p>
+            <p>Prototipo con datos de demostración.</p>
+          </aside>
         </div>
       </main>
     </>

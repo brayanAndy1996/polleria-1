@@ -11,6 +11,7 @@ import { ApiError, apiClient, parseResponse } from '../../lib/api/client.ts';
 import { TABLE_STATE_LABELS } from '../../lib/menu-labels.ts';
 import { WaiterPrintAttention } from '../../components/kitchen-ticket-prints/kitchen-ticket-print-sections.tsx';
 import { ScreenState } from '../../components/auth/screen-state.tsx';
+import { motion } from 'motion/react';
 
 /** Color por estado del salón (spec §59/D-011-04): verde, ámbar, azul, morado. */
 const TABLE_STATE_TEXT_CLASSES: Readonly<Record<string, string>> = {
@@ -72,7 +73,7 @@ function TableCard({ table }: { table: BoardTable }) {
     order !== null && order.billRequestedAt !== null && table.state !== 'bill_requested';
   const voidMark = order?.items.some((item) => item.status === 'void_requested') ?? false;
   return (
-    <li>
+    <motion.li whileTap={{ scale: 0.985 }} transition={{ duration: 0.12 }}>
       <Link
         href={`/mozo/mesas/${table.id}`}
         className="flex min-h-16 flex-col justify-center gap-1 rounded-2xl border border-separator bg-surface px-4 py-3 transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
@@ -94,7 +95,7 @@ function TableCard({ table }: { table: BoardTable }) {
         {billMark && <span className="text-sm font-semibold">Pidió la cuenta</span>}
         {voidMark && <span className="text-sm font-semibold text-danger">Anulación pedida</span>}
       </Link>
-    </li>
+    </motion.li>
   );
 }
 
