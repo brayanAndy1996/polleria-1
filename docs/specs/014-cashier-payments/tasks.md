@@ -1,6 +1,6 @@
 # Tareas — 014 Pre-cuenta y cobro completo
 
-Estado: spec y P-01…P-07 aprobadas el 2026-10-13 con la aclaración de importes visibles e ingresados en soles. Dependencias: 009…013 integradas; rama desde main, demo separada en dev. Publicada en main el 2026-10-15 (integración documental 40c4631). Ningún bloque de implementación está completado. Siguiente paso: S-01, contrato previo al TDD; la excepción manual ya consta en CLAUDE.md, el contrato 0.11.0 aún está pendiente.
+Estado 2026-10-16: spec y P-01…P-07 aprobadas. Dev integrado en main (`5e452c0`) por autorización del usuario; rama 014 actualizada. S-01 redactado en `7ab01f1`: OpenAPI 0.11.0 con cuatro operaciones pending, schemas estrictos y no-store; sintaxis y 598 referencias locales comprobadas. T-01 en rojo causal e I-01 en desarrollo. DB de pruebas pendiente de configuración por el usuario; no se migra desarrollo.
 
 | ID | Responsable | Bloque y evidencia | Depende de |
 | --- | --- | --- | --- |

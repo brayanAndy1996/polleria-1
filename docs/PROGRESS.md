@@ -1,5 +1,14 @@
 # Progreso del proyecto — Sistema Pollería
 
+## 014 en desarrollo — 2026-10-16
+
+- Usuario autorizó integrar dev en main: merge `5e452c0` publicado. Incluye demo y rediseño azul, conserva la skill instalada por separado en main y la spec 014 aprobada. Conflictos resueltos solo en configuración/documentación, conservando ambos aportes.
+- Desarrollo continúa en `feat/014-cashier-payments`, actualizada desde main. La autorización anterior integra dev; no publica automáticamente la futura implementación de cobros en main.
+- S-01: OpenAPI 0.11.0 con cuatro operaciones pending y schemas; sintaxis y 598 referencias locales comprobadas. T-01/I-01: pre-cuenta pura, token canónico, esquemas estrictos y dinero en soles; 66 pruebas dirigidas aprobadas. Refinamiento adicional de snapshot desde rojo causal para rechazar detalle inconsistente.
+- Regresión shared/API unit: 45 archivos, 1318 pruebas aprobadas y 3 fallos esperados existentes; ejecución con sockets locales, sin DB. No se cuentan los fallos esperados como aprobados.
+- T-02/I-02 y demás bloques siguen pendientes. Este checkout no tenía apps/api/.env ni DATABASE_URL_TEST; usuario indicó que configurará la base _test. No se creó ni migró ninguna base de desarrollo. No afirmar cobros funcionales ni cierre de 014 sin integración/DB, UI y E2E.
+- Roles: test-writer Luna medium; implementer GPT-6.1-sol medium para dinero/transacciones; principal contrato/revisión. Sin reviewer ni adversarial independientes.
+
 ## Actualización — 2026-10-16
 
 El usuario autorizó integrar todo dev en main y continuar la 014. El rediseño azul, demo y corrección SSR quedan integrados; las notas inferiores sobre separación de ramas y prohibición de integrar son históricas. La 014 tiene spec aprobada y continúa con contrato y TDD en su rama de funcionalidad; su implementación aún no está autorizada para integrar a main.
