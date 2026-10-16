@@ -168,8 +168,17 @@ describe('014: esquemas compartidos de pre-cuenta y pago', () => {
       }).success,
     ).toBe(false);
     expect(
-      paymentSnapshotSchema.safeParse({ ...payment.snapshot, changeCents: 899 }).success,
+      paymentSnapshotSchema.safeParse({
+        ...payment.snapshot,
+        bill: {
+          ...bill,
+          items: [{ ...billItem, priceCents: 1800 }, billDrink],
+        },
+      }).success,
     ).toBe(false);
+    expect(paymentSnapshotSchema.safeParse({ ...payment.snapshot, changeCents: 899 }).success).toBe(
+      false,
+    );
     expect(
       paymentSnapshotSchema.safeParse({ ...payment.snapshot, receivedCents: 2000 }).success,
     ).toBe(false);
