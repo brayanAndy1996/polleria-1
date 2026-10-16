@@ -164,6 +164,37 @@ describe('014: contrato HTTP de pre-cuenta, Caja y cobro', () => {
     noStore(deniedPayment);
   });
 
+  it.each(['revoked', 'role-removed'] as const)(
+    'AC-10: rechaza sesión %s después del login sin registrar cobro',
+    async (change) => {
+      const bill = await readBill();
+      if (change === 'revoked') {
+        await sequelize.query('DELETE FROM sessions WHERE user_id = $1', {
+          bind: [users.cashier!.id],
+        });
+      } else {
+        await sequelize.query("UPDATE users SET roles = '{waiter}' WHERE id = $1", {
+          bind: [users.cashier!.id],
+        });
+      }
+      for (const path of ['/api/cashier/orders', '/api/payments/1']) {
+        const response = await request(app).get(path).set('Cookie', users.cashier!.cookie);
+        expect(response.status).toBe(change === 'revoked' ? 401 : 403);
+        noStore(response);
+      }
+      const denied = await request(app)
+        .post(`/api/orders/${opened.orderId}/payments`)
+        .set('Cookie', users.cashier!.cookie)
+        .set('Idempotency-Key', `session-${change}-014`)
+        .send(paymentBody(bill));
+      expect(denied.status).toBe(change === 'revoked' ? 401 : 403);
+      noStore(denied);
+      expect(await rowCount('payments')).toBe(0);
+      expect((await models.Order.findByPk(opened.orderId))?.status).toBe('open');
+      expect((await models.Table.findByPk(opened.tables[0]))?.currentOrderId).toBe(opened.orderId);
+    },
+  );
+
   it('AC-10: valida ids, clave y JSON estricto antes de cobrar y conserva no-store en errores', async () => {
     for (const path of ['/api/orders/no/bill', '/api/orders/0/bill']) {
       const invalid = await request(app).get(path).set('Cookie', users.waiter!.cookie);
@@ -236,6 +267,20 @@ describe('014: contrato HTTP de pre-cuenta, Caja y cobro', () => {
     expect(errorResponseSchema.parse(conflict.body as unknown).error.code).toBe(
       'IDEMPOTENCY_CONFLICT',
     );
+    const other = await createPaymentOrderFixture(sequelize, users.waiter!.id, { tableCount: 1 });
+    const otherBill = await readBill(other.orderId);
+    const otherOrderConflict = await request(app)
+      .post(`/api/orders/${other.orderId}/payments`)
+      .set('Cookie', users.cashier!.cookie)
+      .set('Idempotency-Key', 'ack-lost-014')
+      .send(paymentBody(otherBill));
+    expect(otherOrderConflict.status).toBe(409);
+    noStore(otherOrderConflict);
+    expect(errorResponseSchema.parse(otherOrderConflict.body as unknown).error.code).toBe(
+      'IDEMPOTENCY_CONFLICT',
+    );
+    expect((await models.Order.findByPk(other.orderId))?.status).toBe('open');
+    expect((await models.Table.findByPk(other.tables[0]))?.currentOrderId).toBe(other.orderId);
     expect(await rowCount('payments')).toBe(1);
   });
 });

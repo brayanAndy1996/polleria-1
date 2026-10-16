@@ -178,6 +178,84 @@ describe('014: cobro transaccional sobre polleria_test', () => {
     ).toEqual(tables.map(() => ({ current_order_id: orderId })));
   });
 
+  it.each(['empty', 'zero', 'excess', 'closed', 'cancelled', 'merged'] as const)(
+    'AC-06: rechaza cuenta %s sin cambiar pedido, mesas ni clave',
+    async (state) => {
+      const userId = await createCashierUser();
+      const opened = await createPaymentOrderFixture(sequelize, userId, {
+        tableCount: 1,
+        itemPriceCents: state === 'zero' ? 0 : state === 'excess' ? 999999 : 2100,
+        itemQuantity: state === 'excess' ? 99 : 1,
+      });
+      if (state === 'empty') {
+        await sequelize.query('DELETE FROM order_items WHERE order_id = $1', {
+          bind: [opened.orderId],
+        });
+      }
+      if (state === 'excess') {
+        // 22 líneas válidas de 99 × 999999 superan INTEGER sin violar constraints individuales.
+        await sequelize.query(
+          'INSERT INTO order_items (order_id, product_id, product_name, product_category, quantity, ' +
+            'price_cents, status, kitchen_ticket_id, created_by_user_id, created_at, updated_at) ' +
+            'SELECT order_id, product_id, product_name, product_category, quantity, price_cents, ' +
+            'status, kitchen_ticket_id, created_by_user_id, now(), now() FROM order_items ' +
+            'CROSS JOIN generate_series(1, 21) WHERE id = $1',
+          { bind: [opened.itemId] },
+        );
+      }
+      let token = (await service.getBill(opened.orderId, { userId })).billToken;
+      const terminal = ['closed', 'cancelled', 'merged'].includes(state);
+      if (terminal) {
+        const target =
+          state === 'merged'
+            ? await createPaymentOrderFixture(sequelize, userId, { tableCount: 1 })
+            : undefined;
+        await sequelize.query(
+          'UPDATE orders SET status = $1, closed_at = now(), closed_by_user_id = $2, ' +
+            'cancel_reason = $3, merged_into_order_id = $4 WHERE id = $5',
+          {
+            bind: [
+              state,
+              userId,
+              state === 'cancelled' ? 'Cancelado' : null,
+              target?.orderId ?? null,
+              opened.orderId,
+            ],
+          },
+        );
+      } else {
+        const bill = await service.getBill(opened.orderId, { userId });
+        expect(bill.canPay).toBe(false);
+        if (state === 'excess') expect(bill.totalCents).toBeGreaterThan(2147483647);
+        else expect(bill.totalCents).toBe(0);
+        token = bill.billToken;
+      }
+      const beforeOrder = await models.Order.findByPk(opened.orderId, { raw: true });
+      const beforeTables = await rows('SELECT * FROM tables ORDER BY id');
+      const key = `not-payable-${state}-014`;
+      await expect(
+        service.createPayment(
+          opened.orderId,
+          {
+            method: 'cash',
+            receivedCents: 2147483647,
+            billToken: token,
+            confirmedReceived: true,
+          },
+          key,
+          { userId },
+        ),
+      ).rejects.toMatchObject({
+        code: terminal ? 'ORDER_NOT_OPEN' : 'ORDER_NOT_PAYABLE',
+        httpStatus: 409,
+      });
+      expect(await countPayments()).toBe(0);
+      expect(await countPaymentKeys(key)).toBe(0);
+      expect(await models.Order.findByPk(opened.orderId, { raw: true })).toEqual(beforeOrder);
+      expect(await rows('SELECT * FROM tables ORDER BY id')).toEqual(beforeTables);
+    },
+  );
+
   it('AC-11: snapshot conserva nombres, mesas y detalle al renombrar y reusar la mesa', async () => {
     const userId = await createCashierUser();
     const { orderId, tables, productId } = await createPaymentOrderFixture(sequelize, userId, {
@@ -221,7 +299,7 @@ describe('014: cobro transaccional sobre polleria_test', () => {
     );
     expect(stored[0]?.snapshot.bill.tables).toEqual(bill.tables);
     expect(stored[0]?.snapshot.cashier).toEqual({ id: userId, displayName: 'Rosa' });
-    expect(response.payment.snapshot.bill.items[0]?.productName).toBe('Gaseosa congelada');
+    expect(response.payment.snapshot.bill.items).toEqual(bill.items);
   });
 
   it('AC-09: una inserción fallida revierte el cierre, las mesas y la clave idempotente', async () => {

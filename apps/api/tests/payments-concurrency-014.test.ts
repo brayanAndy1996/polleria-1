@@ -106,6 +106,8 @@ describe('014: concurrencia del cobro frente al salón', () => {
       'carrera dos cajeros',
     );
     expect(results.filter((result) => result.ok)).toHaveLength(1);
+    const loser = results.find((result) => !result.ok);
+    expect(loser?.ok === false && loser.error).toMatchObject({ code: 'ORDER_NOT_OPEN' });
     expect(
       await rows<{ count: number }>(
         'SELECT count(*)::int AS count FROM payments WHERE order_id = $1',
@@ -188,6 +190,13 @@ describe('014: concurrencia del cobro frente al salón', () => {
       );
 
       expect(Number(paymentResult.ok) + Number(mutationResult.ok)).toBe(1);
+      if (!mutationResult.ok)
+        expect(mutationResult.error).toMatchObject({ code: 'ORDER_NOT_OPEN' });
+      if (!paymentResult.ok) {
+        expect(paymentResult.error).toMatchObject({
+          code: change === 'send' ? 'BILL_CHANGED' : 'PENDING_VOIDS',
+        });
+      }
       const persisted = await rows<{ status: string }>('SELECT status FROM orders WHERE id = $1', [
         opened.orderId,
       ]);
@@ -219,7 +228,10 @@ describe('014: concurrencia del cobro frente al salón', () => {
   it('AC-08: el cierre y el traslado de mesa tienen un único ganador', async () => {
     const waiterId = await user('race-move-waiter', 'waiter');
     const cashierId = await user('race-move-cashier', 'cashier');
-    const opened = await createPaymentOrderFixture(sequelize, waiterId, { tableCount: 2 });
+    const opened = await createPaymentOrderFixture(sequelize, waiterId, { tableCount: 1 });
+    const destination = await rows<{ id: number }>(
+      "INSERT INTO tables (name, is_active, created_at, updated_at) VALUES ('Destino libre', true, now(), now()) RETURNING id",
+    );
     const bill = await payments.getBill(opened.orderId, { userId: waiterId });
     const [pay, move] = await within(
       Promise.all([
@@ -236,11 +248,13 @@ describe('014: concurrencia del cobro frente al salón', () => {
             { userId: cashierId },
           ),
         ),
-        settle(orders.moveOrder(opened.orderId, opened.tables[1]!, { userId: waiterId })),
+        settle(orders.moveOrder(opened.orderId, destination[0]!.id, { userId: waiterId })),
       ]),
       'carrera payment/move',
     );
     expect(Number(pay.ok) + Number(move.ok)).toBe(1);
+    if (!move.ok) expect(move.error).toMatchObject({ code: 'ORDER_NOT_OPEN' });
+    if (!pay.ok) expect(pay.error).toMatchObject({ code: 'BILL_CHANGED' });
     const persisted = await rows<{ status: string }>('SELECT status FROM orders WHERE id = $1', [
       opened.orderId,
     ]);
@@ -300,6 +314,11 @@ describe('014: concurrencia del cobro frente al salón', () => {
     );
     expect(pay.ok).toBe(false);
     expect(closeVoid.ok).toBe(true);
+    if (!pay.ok) {
+      expect(['PENDING_VOIDS', 'ORDER_NOT_PAYABLE']).toContain(
+        (pay.error as { code?: string }).code,
+      );
+    }
     const persisted = await rows<{ status: string }>('SELECT status FROM orders WHERE id = $1', [
       opened.orderId,
     ]);
@@ -338,6 +357,8 @@ describe('014: concurrencia del cobro frente al salón', () => {
       'carrera payment/join',
     );
     expect(Number(pay.ok) + Number(join.ok)).toBe(1);
+    if (!join.ok) expect(join.error).toMatchObject({ code: 'TABLE_HAS_NO_ORDER' });
+    if (!pay.ok) expect(pay.error).toMatchObject({ code: 'BILL_CHANGED' });
     const persisted = await rows<{ status: string }>('SELECT status FROM orders WHERE id = $1', [
       target.orderId,
     ]);

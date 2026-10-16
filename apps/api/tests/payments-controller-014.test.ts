@@ -52,17 +52,16 @@ function harness(
     body: overrides.body,
     headers: overrides.key === undefined ? {} : { 'idempotency-key': overrides.key },
   } as unknown as Request;
+  const status = vi.fn().mockReturnThis();
   const res = {
     locals: overrides.userId === undefined ? {} : { auth: { user: { id: overrides.userId } } },
-    status: vi.fn(function (this: Response) {
-      return this;
-    }),
+    status,
     json: vi.fn(function (this: Response) {
       return this;
     }),
   } as unknown as Response;
   const next = vi.fn() as NextFunction;
-  return { req, res, next };
+  return { req, res, next, status };
 }
 
 describe('014: controller HTTP de Caja', () => {
@@ -106,7 +105,7 @@ describe('014: controller HTTP de Caja', () => {
       'payment-controller-014',
       { userId: 7 },
     );
-    expect(context.res.status).toHaveBeenCalledExactlyOnceWith(201);
+    expect(context.status).toHaveBeenCalledExactlyOnceWith(201);
     expect(context.res.json).toHaveBeenCalledExactlyOnceWith(created);
     expect(context.next).not.toHaveBeenCalled();
   });
