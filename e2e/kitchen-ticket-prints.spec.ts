@@ -243,9 +243,14 @@ test.describe('013: recorridos file reales sin servicios externos', () => {
       await expect(waiterRow.getByText('No se pudo generar la comanda')).toBeVisible();
       await noOverflow(waiter);
       await login(page, 'Caja E2E', '1357');
-      const row = page.getByRole('listitem').filter({ hasText: table.name });
+      const row = page
+        .getByRole('region', { name: 'Comandas por revisar', exact: true })
+        .getByRole('listitem')
+        .filter({ hasText: table.name });
       await expect(row.getByText('No se pudo generar la comanda')).toBeVisible();
-      await expect(page.getByText('Aquí cobrarás las cuentas.')).toBeVisible();
+      const openOrders = page.getByRole('region', { name: 'Pedidos abiertos', exact: true });
+      const openOrder = openOrders.getByRole('link', { name: new RegExp(`Pedido #${orderId}`) });
+      await expect(openOrder).toBeVisible();
       await noOverflow(page);
       await restore();
       restore = undefined;
@@ -265,6 +270,7 @@ test.describe('013: recorridos file reales sin servicios externos', () => {
       expect(preserved.items).toHaveLength(1);
       expect(preserved.totalCents).toBe(sent.order.totalCents);
       await expect(row).toHaveCount(0);
+      await expect(openOrder).toBeVisible();
       await noOverflow(page);
     } finally {
       if (restore) await restore();
