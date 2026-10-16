@@ -7,6 +7,7 @@ const { apiInternalUrl, allowedDevOrigins } = loadWebServerConfig(process.env);
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@polleria/shared'],
+  devIndicators: false,
 
   // Evita que `next dev` genere AGENTS.md cuando lo corre un agente de IA.
   agentRules: false,

@@ -848,6 +848,28 @@ describe('011: la mesa y su pedido (/mozo/mesas/[tableId])', () => {
     vi.useRealTimers();
   });
 
+  it('AC-04: el polling conserva la interacción abierta y el motivo que se está editando', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let order = makeOrder({ items: [ITEM_POLLO], totalCents: 2800 });
+    server.use(http.get('*/api/orders/41', () => HttpResponse.json(order)));
+    show(<MesaPage />);
+    const row = await screen.findByText(/2 × Pollo a la brasa/).then((name) => name.closest('li'));
+    expect(row).not.toBeNull();
+    fireEvent.click(within(row!).getByRole('button', { name: 'Solicitar anulación' }));
+    const reason = await screen.findByLabelText<HTMLInputElement>('Motivo de la anulación');
+    fireEvent.change(reason, { target: { value: 'El cliente está decidiendo' } });
+
+    order = makeOrder({ items: [ITEM_POLLO, ITEM_CHAUFA_PEDIDA], totalCents: 4200 });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(screen.getByLabelText('Motivo de la anulación')).toBe(reason);
+    expect(reason).toHaveValue('El cliente está decidiendo');
+    expect(await screen.findByText(/Chaufa/)).toBeVisible();
+    vi.useRealTimers();
+  });
+
   it('AC-08: un cajero que entra a la pantalla va a /caja por RoleGuard', async () => {
     server.use(
       http.get('*/api/auth/me', () =>

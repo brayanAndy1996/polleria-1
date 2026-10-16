@@ -84,6 +84,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@fontsource-variable/nunito':
+        specifier: 5.3.0
+        version: 5.3.0
       '@heroui/react':
         specifier: 3.2.6
         version: 3.2.6(@internationalized/date@3.12.4)(@react-aria/ssr@3.10.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@react-aria/utils@3.34.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@react-spectrum/provider@3.11.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-aria-components@1.21.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-aria@3.52.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(tailwindcss@4.3.3)
@@ -105,6 +108,9 @@ importers:
       '@tanstack/react-query':
         specifier: 5.104.1
         version: 5.104.1(react@19.3.0)
+      motion:
+        specifier: 14.3.0
+        version: 14.3.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       next:
         specifier: 16.4.0
         version: 16.4.0(@babel/core@7.29.7)(@playwright/test@1.64.0)(@types/node@24.19.1)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -371,6 +377,9 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@fontsource-variable/nunito@5.3.0':
+    resolution: {integrity: sha512-tw0ch7evIDSwoeUy+0XzocYHfbRWLeCRPJy22KgbrLjDLAbNw/fErBiil10Ssrs3Sjr55zaZrr36a975j8cBkQ==}
 
   '@heroui/react@3.2.6':
     resolution: {integrity: sha512-KBhUUUdX4571SSjwpuBPEFZTYAw/tmGezTIsTnjIOlXDZkjWACfhFe6ibtReO+xTkUcfxCV1r3cF00/3OPlhhw==}
@@ -1681,6 +1690,17 @@ packages:
     resolution: {integrity: sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==}
     engines: {node: '>= 0.6'}
 
+  framer-motion@14.3.0:
+    resolution: {integrity: sha512-d8WCrU0ZQn7ukKMykCsDyIOwb/taZeDqqrDBK0du5GO0AO/ynz8fdR/LIIz9Pyy3n3tGwrneR+n0egyrrLa3fw==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+
   fresh@2.0.0:
     resolution: {integrity: sha512-Rx/WycZ60HOaqLKAi6cHRKKI7zxWbJ31MhntmtwMoaTeF7XFH9hhBp8vITaMidfljRQ6eYWCKkaTK+ykVJHP2A==}
     engines: {node: '>= 0.8'}
@@ -2120,6 +2140,23 @@ packages:
 
   moment@2.31.0:
     resolution: {integrity: sha512-0acOTfMiWOheYS4eoWb80yYMb/JLvVv9SHbs2PehaDzfUG0Bw855SKyk0IKTnPGa5+U2bmi3W68l1+sGLX/pvw==}
+
+  motion-dom@14.3.0:
+    resolution: {integrity: sha512-rcKO4aEJzAqDEsrH6qFzhLZxs7bNqZpiUEuEATz9LaRwt6dG7hZEbcFUSHNR8NECaKYM0Iuw6Iv6NpWEGXDI+w==}
+
+  motion-utils@14.1.1:
+    resolution: {integrity: sha512-3VvN5Uvf8B6qG+OfOui6Nht5EWp+vLuU3IqcAj7ItZGKqtmTjCebl5sGZF7/08gEHRnEl1AP/fIwbcEyVrcQGQ==}
+
+  motion@14.3.0:
+    resolution: {integrity: sha512-yh/nHYjikl68+FTxAMywFYzzj21/oGY7RGCfkqN5zpuT1rk3rp0lKfVU8EUq0A64qQeGnxuKUJWP85MipqdLBw==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
@@ -3171,6 +3208,8 @@ snapshots:
   '@exodus/bytes@1.16.0(@noble/hashes@1.8.0)':
     optionalDependencies:
       '@noble/hashes': 1.8.0
+
+  '@fontsource-variable/nunito@5.3.0': {}
 
   '@heroui/react@3.2.6(@internationalized/date@3.12.4)(@react-aria/ssr@3.10.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@react-aria/utils@3.34.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@react-spectrum/provider@3.11.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-aria-components@1.21.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-aria@3.52.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(tailwindcss@4.3.3)':
     dependencies:
@@ -4430,6 +4469,15 @@ snapshots:
 
   forwarded@0.2.0: {}
 
+  framer-motion@14.3.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
+    dependencies:
+      motion-dom: 14.3.0
+      motion-utils: 14.1.1
+      tslib: 2.8.1
+    optionalDependencies:
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+
   fresh@2.0.0: {}
 
   fs-extra@7.0.1:
@@ -4791,6 +4839,20 @@ snapshots:
       moment: 2.31.0
 
   moment@2.31.0: {}
+
+  motion-dom@14.3.0:
+    dependencies:
+      motion-utils: 14.1.1
+
+  motion-utils@14.1.1: {}
+
+  motion@14.3.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
+    dependencies:
+      framer-motion: 14.3.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      tslib: 2.8.1
+    optionalDependencies:
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
 
   ms@2.1.3: {}
 

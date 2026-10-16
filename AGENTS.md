@@ -13,3 +13,4 @@ Serializa Vitest/cobertura/Playwright si usan polleria_test; evita instalaciones
 Usa el checkout existente de la nube; no crees worktrees salvo solicitud explícita. Durante planificación no implementes. Preserva el trabajo parcial previo y retoma desde evidencia real, sin reconstruir TDD retrospectivo.
 
 Skill instalada por solicitud del usuario: design-taste-frontend en .agents/skills/design-taste-frontend/ (origen y hash en skills-lock.json). Leer su SKILL.md antes de aplicarla. Su versión instalada está orientada a páginas públicas/landing pages y excluye dashboards y pantallas de apps; no imponer sus reglas al POS ni sustituir los requisitos, permisos o metodología del proyecto.
+Para diseño/revisión de interfaz, el usuario instaló frontend-design, web-design-guidelines y ui-ux-pro-max en .agents/skills/. Leer sus SKILL.md y aplicarlos en cambios UI. Su guía visual no sustituye permisos, metodología reducida, contratos ni reglas de dominio de este proyecto.

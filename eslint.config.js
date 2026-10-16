@@ -16,7 +16,7 @@ export default defineConfig([
     '**/next-env.d.ts',
     'docs/',
     '.claude/',
-    '.agents/skills/design-taste-frontend/',
+    '.agents/skills/',
   ]),
 
   js.configs.recommended,

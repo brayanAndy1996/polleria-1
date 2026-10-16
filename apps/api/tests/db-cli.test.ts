@@ -1,4 +1,5 @@
 import type { Sequelize } from 'sequelize';
+import { QueryTypes } from 'sequelize';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { buildChildEnv, killAllChildProcesses, runCli } from './helpers/child-process.ts';
 import {
@@ -12,7 +13,7 @@ import {
   UNREACHABLE_DATABASE_URL,
 } from './helpers/unreachable-database.ts';
 
-const UNKNOWN_COMMAND_MESSAGE = 'Comando desconocido. Usa: migrate, migrate:undo o seed.';
+const UNKNOWN_COMMAND_MESSAGE = 'Comando desconocido. Usa: migrate, migrate:undo, seed o demo.';
 
 describe('Comandos de base de datos (apps/api/src/db/cli.ts)', () => {
   let sequelize: Sequelize;
@@ -58,14 +59,57 @@ describe('Comandos de base de datos (apps/api/src/db/cli.ts)', () => {
   });
 
   it('AC-24: seed dos veces termina con código 0 y la segunda dice que no hay seeds pendientes', async () => {
-    const first = await runCli(['seed'], cliEnv());
-    const second = await runCli(['seed'], cliEnv());
+    // La prueba usa explícitamente polleria_test; seed es dev-only y el entorno de desarrollo
+    // aquí solo autoriza la lógica del seeder, nunca una conexión a polleria_dev.
+    const testSeedEnv = cliEnv({ NODE_ENV: 'development' });
+    const migrations = await runCli(['migrate'], testSeedEnv);
+    expect(migrations.timedOut).toBe(false);
+    expect(migrations.code).toBe(0);
+    const first = await runCli(['seed'], testSeedEnv);
+    const second = await runCli(['seed'], testSeedEnv);
 
     expect(first.timedOut).toBe(false);
     expect(first.code).toBe(0);
     expect(second.timedOut).toBe(false);
     expect(second.code).toBe(0);
     expect(second.stdout).toContain('No hay seeds pendientes.');
+  });
+
+  it('AC-DEMO: demo en development migra y siembra en una sola orden idempotente', async () => {
+    const testDemoEnv = cliEnv({ NODE_ENV: 'development' });
+    const first = await runCli(['demo'], testDemoEnv);
+    const second = await runCli(['demo'], testDemoEnv);
+
+    expect(first.timedOut).toBe(false);
+    expect(first.code).toBe(0);
+    expect(second.timedOut).toBe(false);
+    expect(second.code).toBe(0);
+    expect(second.stdout).toMatch(
+      /no hay migraciones pendientes|ya está aplicado|no hay seeds pendientes/i,
+    );
+    const counts = await sequelize.query<{ users: number; tables: number }>(
+      `SELECT (SELECT count(*)::integer FROM users) AS users,
+              (SELECT count(*)::integer FROM tables) AS tables`,
+      { type: QueryTypes.SELECT },
+    );
+    expect(counts).toEqual([{ users: 4, tables: 6 }]);
+  });
+
+  it('AC-DEMO: rechaza demo en production antes de intentar conectar o migrar', async () => {
+    const result = await runCli(
+      ['demo'],
+      cliEnv({
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgres://user:pass@127.0.0.1:1/must_not_connect',
+      }),
+    );
+
+    expect(result.timedOut).toBe(false);
+    expect(result.code).toBe(1);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/development|desarrollo/i);
+    expect(`${result.stdout}\n${result.stderr}`).not.toContain(
+      'No se pudo conectar con la base de datos.',
+    );
   });
 
   it('AC-24: migrate:undo sin migraciones aplicadas termina con 0 y avisa; luego migrate también termina con 0', async () => {

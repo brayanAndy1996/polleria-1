@@ -30,5 +30,9 @@ export function usePrimaryInstance(): boolean {
       }
     };
   }, []);
-  return useSyncExternalStore(subscribe, () => token.current === activeToken);
+  return useSyncExternalStore(
+    subscribe,
+    () => token.current === activeToken,
+    () => true,
+  );
 }
