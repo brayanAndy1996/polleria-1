@@ -144,13 +144,15 @@ export async function cleanFixtureTables(sequelize: Sequelize): Promise<void> {
  * order_items, idempotency_keys, kitchen_tickets) (D-010-19).
  * Las tablas de la carta van antes que `products` porque la referencian con una FK (combo_items
  * la referencia dos veces). Las cinco de ítems van antes que `orders` y `users` por sus FK
- * (order_items→orders/users/products, order_item_components/sauces→order_items/products,
+ * (payments→orders/users, order_items→orders/users/products,
+ * order_item_components/sauces→order_items/products,
  * kitchen_tickets→orders/users, idempotency_keys→orders). `tables` va antes que `orders`
  * por la FK tables.current_order_id, y ambas antes que `users` por las FK orders→users
  * (D-009-15).
  */
 export async function resetMigrationTables(sequelize: Sequelize): Promise<void> {
   await dropTables(sequelize, [
+    'payments',
     'kitchen_ticket_print_attempts',
     'kitchen_ticket_prints',
     'order_item_sauces',
@@ -222,12 +224,10 @@ export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
 }
 
 /**
- * Vacía las tablas del salón: las cinco de ítems de la spec 010 (order_item_sauces,
- * order_item_components, order_items, idempotency_keys, kitchen_tickets, D-010-19) junto
- * con `orders` y `tables` (spec 009, D-009-15), autorizadas a la limpieza de pruebas igual
+ * Vacía las tablas del salón, pagos incluidos, autorizadas a la limpieza de pruebas igual
  * que `products` y `combo_items`. Llamar después de migrateUp (o de migrateAndClearAuthTables).
  *
- * Las tablas se referencian entre sí (components/sauces→order_items, order_items y
+ * Las tablas se referencian entre sí (components/sauces→order_items, payments y
  * kitchen_tickets→orders, idempotency_keys→orders, tables→orders) y PostgreSQL bloquea
  * `TRUNCATE` sobre una tabla referenciada aunque esté vacía: por eso las que existen se
  * truncan en UN solo comando (mismo criterio que clearMenuTables).
@@ -239,6 +239,7 @@ export async function clearOrderTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
   const existing: string[] = [];
   for (const table of [
+    'payments',
     'kitchen_ticket_print_attempts',
     'kitchen_ticket_prints',
     'order_item_sauces',
