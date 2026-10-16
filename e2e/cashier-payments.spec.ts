@@ -9,7 +9,11 @@ async function login(page: Page, role: 'waiter' | 'cashier' | 'admin') {
   const user = role === 'waiter' ? 'Mozo E2E' : role === 'cashier' ? 'Caja E2E' : 'Admin E2E';
   const pin = role === 'waiter' ? '2468' : role === 'cashier' ? '1357' : '135790';
   const username = role === 'waiter' ? 'e2e.mozo' : role === 'cashier' ? 'e2e.caja' : 'e2e.admin';
-  await page.getByRole('button', { name: `${user} ${username}`, exact: true }).click();
+  const targetUser = page.getByRole('button', { name: `${user} ${username}`, exact: true });
+  const changeUser = page.getByRole('button', { name: 'Cambiar usuario', exact: true });
+  await expect(targetUser.or(changeUser)).toBeVisible();
+  if (await changeUser.isVisible()) await changeUser.click();
+  await targetUser.click();
   for (const digit of pin) await page.getByRole('button', { name: digit, exact: true }).click();
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page).toHaveURL(
