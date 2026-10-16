@@ -60,12 +60,12 @@ El usuario crea las bases a mano; ningún agente crea, borra ni recrea bases de 
 ## Reglas de dominio (no negociables)
 
 1. El pollo se mide en octavos como entero. 1 pollo = 8 octavos = 4 de pecho + 4 de pierna. 1/8 = 1 octavo, 1/4 = 2 octavos de una parte, 1/2 = 4 octavos (por defecto 2 de pecho + 2 de pierna, configurable), entero = 8.
-2. El dinero se guarda y calcula en céntimos de sol como entero (S/ 18.50 = 1850). Prohibido usar float para dinero. Solo se formatea a soles en la interfaz.
+2. El dinero se guarda y calcula en céntimos de sol como entero (S/ 18.50 = 1850). Prohibido usar float para dinero. Todas las entradas e importes visibles se expresan en soles con decimales (21.5 o 21,5 → S/ 21,50); los céntimos enteros quedan internos.
 3. Todo descuento de stock ocurre dentro de una transacción con bloqueo de fila (SELECT ... FOR UPDATE). El stock nunca puede quedar negativo.
 4. El precio de cada ítem se copia al pedido al momento de registrarlo; cambiar el precio de la carta no altera pedidos abiertos.
 5. Enviar un pedido es idempotente: cada envío lleva una clave única (Idempotency-Key) y un reenvío no duplica ítems, comandas ni stock.
 6. Anular un ítem enviado a cocina requiere autorización de un administrador y queda registrado en auditoría con motivo, usuario y hora.
-7. La impresión siempre pasa por PrinterService. Drivers: file (desarrollo y pruebas, escribe en tmp/comandas) y escpos (producción, impresora térmica de red de 80 mm).
+7. La impresión siempre pasa por PrinterService. Drivers: file (desarrollo y pruebas, escribe en tmp/comandas) y escpos (producción, impresora térmica de red de 80 mm). Excepción manual aprobada en la spec 014: la pre-cuenta se imprime mediante el diálogo del navegador y no genera una comanda ni un pago.
 8. Zona horaria America/Lima para fechas, cierres de caja y reportes.
 9. El sistema debe funcionar en la red local sin internet.
 

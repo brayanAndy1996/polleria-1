@@ -8,3 +8,6 @@ playwright-report/
 test-results/
 tmp/
 dist/
+
+# Skills instalados: fuentes externas, conservar su formato original.
+.agents/skills/

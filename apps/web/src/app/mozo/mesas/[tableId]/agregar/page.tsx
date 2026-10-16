@@ -1,6 +1,8 @@
 'use client';
 
 import { Button } from '@heroui/react';
+import Image from 'next/image';
+import { motion } from 'motion/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import {
@@ -24,6 +26,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { Label } from '@heroui/react';
 import { RoleGuard } from '../../../../../components/auth/role-guard.tsx';
+import { ScreenState } from '../../../../../components/auth/screen-state.tsx';
 import { LabeledInput } from '../../../../../components/users/labeled-input.tsx';
 import { apiClient, parseResponse } from '../../../../../lib/api/client.ts';
 import { apiErrorMessage } from '../../../../../lib/api/error-message.ts';
@@ -89,6 +92,23 @@ function unitPrice(product: MenuProduct, portion: Portion | null, cut: Cut | nul
       candidate.portion === portion && (single ? candidate.cut === cut : candidate.cut === null),
   );
   return row?.priceCents ?? 0;
+}
+
+/** Fotos locales de demostración: solo se asocian por nombre a su producto real. */
+function productImage(product: MenuProduct): string | null {
+  const name = product.name.toLocaleLowerCase('es-PE');
+  if (name.includes('chaufa')) return '/images/chaufa-demo.png';
+  if (name.includes('chicha morada')) return '/images/chicha-demo.png';
+  if (name.startsWith('pollo a la brasa')) return '/images/pollo-demo.png';
+  return null;
+}
+
+function productCardPrice(product: MenuProduct): string {
+  if (product.category === 'chicken' && product.portions.length > 0) {
+    const startingCents = Math.min(...product.portions.map((portion) => portion.priceCents));
+    return `Desde ${formatSoles(startingCents)}`;
+  }
+  return formatSoles(product.priceCents);
 }
 
 interface CartSauce {
@@ -522,6 +542,8 @@ function OrderComposer({
   const [sendErrors, setSendErrors] = useState<string[]>([]);
   const [lineErrors, setLineErrors] = useState<Map<number, string[]>>(new Map());
   const [sendFailed, setSendFailed] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'all'>('all');
   const pendingSend = useRef<{ body: unknown; key: string } | null>(null);
   const sending = useRef(false);
   const nextKey = useRef(1);
@@ -655,6 +677,22 @@ function OrderComposer({
   };
 
   const sauces = products.filter((product) => product.category === 'sauce');
+  const normalizedSearch = search
+    .trim()
+    .toLocaleLowerCase('es-PE')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  const filteredProducts = products.filter((product) => {
+    const nameMatches = product.name
+      .toLocaleLowerCase('es-PE')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .includes(normalizedSearch);
+    return nameMatches && (selectedCategory === 'all' || product.category === selectedCategory);
+  });
+  const shownCategories = PRODUCT_CATEGORIES.filter((category) =>
+    filteredProducts.some((product) => product.category === category),
+  );
   return (
     <>
       <h1 className="text-3xl font-bold">Agregar ítems</h1>
@@ -664,90 +702,176 @@ function OrderComposer({
           Volver al pedido
         </Link>
       </p>
-      {products.length === 0 ? (
-        <p>La carta está vacía.</p>
-      ) : (
-        PRODUCT_CATEGORIES.map((category) => {
-          const section = products.filter((product) => product.category === category);
-          if (section.length === 0) return null;
-          return (
-            <section key={category} className="space-y-3">
-              <h2 className="text-xl font-semibold">{PRODUCT_CATEGORY_LABELS[category]}</h2>
-              <ul className="grid grid-cols-2 gap-3">
-                {section.map((product) => (
-                  <li key={product.id}>
-                    <button
-                      type="button"
-                      aria-label={product.name}
-                      className="flex min-h-16 w-full flex-col justify-center gap-1 rounded-2xl border border-separator bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-                      onClick={() => openEditor(product)}
-                    >
-                      <span className="font-semibold wrap-anywhere">{product.name}</span>
-                      <span className="text-sm">{formatSoles(product.priceCents)}</span>
-                    </button>
-                    {editorProductId === product.id && editor !== null && (
-                      <ItemEditor
-                        product={product}
-                        sauces={sauces}
-                        editor={editor}
-                        onChange={setEditor}
-                        onAdd={() => addToCart(product)}
-                      />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        })
-      )}
-      <section className="space-y-3">
-        <CartSection
-          lines={cart}
-          lineErrors={lineErrors}
-          onQuantity={(key, value) => {
-            touchCart(
-              cart.map((line) =>
-                line.key === key
-                  ? { ...line, quantity: Math.max(1, Math.floor(Number(value) || 1)) }
-                  : line,
-              ),
-            );
-          }}
-          onRemove={(key) => {
-            touchCart(cart.filter((line) => line.key !== key));
-          }}
-        />
-        {cartError !== undefined && <p role="alert">{cartError}</p>}
-        {sendFailed && (
-          <div className="space-y-2">
-            <p role="alert">No se pudo enviar el pedido.</p>
-            {sendErrors.map((message) => (
-              <p key={message}>{message}</p>
-            ))}
-          </div>
-        )}
-        {!sendFailed &&
-          sendErrors.map((message) => (
-            <p key={message} role="alert">
-              {message}
-            </p>
-          ))}
-        <div className="flex flex-wrap gap-3">
-          <Button
-            className="min-h-12"
-            isDisabled={cart.length === 0 || send.isPending || orderId === undefined}
-            onPress={doSend}
+      <div className="composer-layout">
+        <nav className="composer-categories" aria-label="Categorías de la carta">
+          <p>Carta</p>
+          <button
+            type="button"
+            aria-pressed={selectedCategory === 'all'}
+            onClick={() => setSelectedCategory('all')}
           >
-            {send.isPending ? 'Enviando...' : `Enviar a cocina (${cart.length})`}
-          </Button>
-          {sendFailed && (
-            <Button className="min-h-12" isDisabled={send.isPending} onPress={doSend}>
-              Reintentar envío
-            </Button>
+            Todo
+          </button>
+          {PRODUCT_CATEGORIES.filter((category) =>
+            products.some((product) => product.category === category),
+          ).map((category) => (
+            <button
+              key={category}
+              type="button"
+              aria-pressed={selectedCategory === category}
+              onClick={() => setSelectedCategory(category)}
+            >
+              {PRODUCT_CATEGORY_LABELS[category]}
+            </button>
+          ))}
+        </nav>
+        <div className="composer-catalog">
+          {products.length === 0 ? (
+            <p>La carta está vacía.</p>
+          ) : (
+            <>
+              <label className="composer-search">
+                <span className="sr-only">Buscar producto</span>
+                <input
+                  type="search"
+                  name="search"
+                  role="searchbox"
+                  aria-label="Buscar producto"
+                  placeholder="Buscar producto…"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </label>
+              {filteredProducts.length === 0 ? (
+                <p className="composer-empty">No hay productos que coincidan con la búsqueda.</p>
+              ) : null}
+              {shownCategories.map((category) => {
+                const section = filteredProducts.filter((product) => product.category === category);
+                if (section.length === 0) return null;
+                return (
+                  <section key={category} className="composer-category-section space-y-3">
+                    <h2 className="sr-only">{PRODUCT_CATEGORY_LABELS[category]}</h2>
+                    <ul className="composer-product-grid" role="list">
+                      {section.map((product) => (
+                        <li key={product.id}>
+                          <motion.button
+                            type="button"
+                            aria-label={product.name}
+                            className="composer-product-card"
+                            whileTap={{ scale: 0.985 }}
+                            transition={{ duration: 0.12 }}
+                            onClick={() => openEditor(product)}
+                          >
+                            {productImage(product) !== null && (
+                              <span className="composer-product-image">
+                                <Image
+                                  src={productImage(product)!}
+                                  alt={product.name}
+                                  width={724}
+                                  height={543}
+                                  sizes="(max-width: 640px) 45vw, (max-width: 1199px) 32vw, 22vw"
+                                />
+                              </span>
+                            )}
+                            <span className="composer-product-name">{product.name}</span>
+                            <span className="composer-product-price">
+                              {product.category === 'chicken' ? (
+                                <>
+                                  <span>{formatSoles(product.priceCents)}</span>
+                                  <small>{productCardPrice(product)}</small>
+                                </>
+                              ) : (
+                                productCardPrice(product)
+                              )}
+                            </span>
+                            <span className="composer-product-action">Elegir</span>
+                          </motion.button>
+                          {editorProductId === product.id && editor !== null && (
+                            <div>
+                              <ItemEditor
+                                product={product}
+                                sauces={sauces}
+                                editor={editor}
+                                onChange={setEditor}
+                                onAdd={() => addToCart(product)}
+                              />
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })}
+            </>
           )}
         </div>
-      </section>
+        <aside className="composer-cart" aria-label="Pedido por enviar">
+          <header className="composer-cart-heading">
+            <p className="composer-cart-title">Tanda sin enviar</p>
+            <p>
+              {table?.name ?? 'Mesa'}
+              {orderId !== undefined ? ` · Pedido #${orderId}` : ''}
+            </p>
+          </header>
+          <section className="space-y-3">
+            <CartSection
+              lines={cart}
+              lineErrors={lineErrors}
+              onQuantity={(key, value) => {
+                touchCart(
+                  cart.map((line) =>
+                    line.key === key
+                      ? { ...line, quantity: Math.max(1, Math.floor(Number(value) || 1)) }
+                      : line,
+                  ),
+                );
+              }}
+              onRemove={(key) => {
+                touchCart(cart.filter((line) => line.key !== key));
+              }}
+            />
+            {cart.length === 0 && (
+              <p className="composer-cart-empty">Agrega productos de la carta.</p>
+            )}
+            <div className="composer-cart-total">
+              <span>Total de tanda</span>
+              <strong>
+                {formatSoles(cart.reduce((total, line) => total + linePrice(line), 0))}
+              </strong>
+            </div>
+            {cartError !== undefined && <p role="alert">{cartError}</p>}
+            {sendFailed && (
+              <div className="space-y-2">
+                <p role="alert">No se pudo enviar el pedido.</p>
+                {sendErrors.map((message) => (
+                  <p key={message}>{message}</p>
+                ))}
+              </div>
+            )}
+            {!sendFailed &&
+              sendErrors.map((message) => (
+                <p key={message} role="alert">
+                  {message}
+                </p>
+              ))}
+            <div className="flex flex-wrap gap-3">
+              <Button
+                className="min-h-12"
+                isDisabled={cart.length === 0 || send.isPending || orderId === undefined}
+                onPress={doSend}
+              >
+                {send.isPending ? 'Enviando...' : `Enviar a cocina (${cart.length})`}
+              </Button>
+              {sendFailed && (
+                <Button className="min-h-12" isDisabled={send.isPending} onPress={doSend}>
+                  Reintentar envío
+                </Button>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
     </>
   );
 }
@@ -765,25 +889,29 @@ export default function Page() {
   });
   if (menu.isPending || tables.isPending)
     return (
-      <p role="status" className="p-6 text-center">
-        Cargando carta...
-      </p>
+      <ScreenState>
+        <p role="status" className="p-6 text-center">
+          Cargando carta...
+        </p>
+      </ScreenState>
     );
   if (menu.isError || tables.isError)
     return (
-      <div className="space-y-4 p-6 text-center">
-        <p role="alert">
-          {tables.isError ? 'No se pudo cargar el salón.' : 'No se pudo cargar la carta.'}
-        </p>
-        <Button
-          className="min-h-12"
-          onPress={() => {
-            void (tables.isError ? tables : menu).refetch();
-          }}
-        >
-          Reintentar
-        </Button>
-      </div>
+      <ScreenState>
+        <div className="space-y-4 p-6 text-center">
+          <p role="alert">
+            {tables.isError ? 'No se pudo cargar el salón.' : 'No se pudo cargar la carta.'}
+          </p>
+          <Button
+            className="min-h-12"
+            onPress={() => {
+              void (tables.isError ? tables : menu).refetch();
+            }}
+          >
+            Reintentar
+          </Button>
+        </div>
+      </ScreenState>
     );
   return (
     <RoleGuard area="/mozo">

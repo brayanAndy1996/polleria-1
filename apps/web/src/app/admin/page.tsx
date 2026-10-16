@@ -5,24 +5,15 @@ export default function Page() {
   return (
     <RoleGuard area="/admin">
       <h1 className="text-3xl font-bold">Administración</h1>
-      <p>Aquí gestionarás los usuarios, la carta y los reportes.</p>
-      <nav aria-label="Administración" className="grid gap-4 sm:grid-cols-2">
-        <Link
-          href="/admin/usuarios"
-          className="flex min-h-16 items-center justify-center rounded-2xl border border-separator bg-surface px-5 py-4 text-xl font-semibold transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-        >
+      <p>Configura el equipo, la carta y el salón de atención.</p>
+      <nav aria-label="Secciones de administración" className="admin-links">
+        <Link href="/admin/usuarios" className="admin-link">
           Usuarios
         </Link>
-        <Link
-          href="/admin/carta"
-          className="flex min-h-16 items-center justify-center rounded-2xl border border-separator bg-surface px-5 py-4 text-xl font-semibold transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-        >
+        <Link href="/admin/carta" className="admin-link">
           Carta
         </Link>
-        <Link
-          href="/admin/mesas"
-          className="flex min-h-16 items-center justify-center rounded-2xl border border-separator bg-surface px-5 py-4 text-xl font-semibold transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-        >
+        <Link href="/admin/mesas" className="admin-link">
           Mesas
         </Link>
       </nav>

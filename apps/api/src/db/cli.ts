@@ -3,7 +3,7 @@ import type { AppConfig } from '../config/env.ts';
 import { migrateDown, migrateUp, seedUp } from './migrator.ts';
 import { createSequelize } from './sequelize.ts';
 
-const UNKNOWN_COMMAND_MESSAGE = 'Comando desconocido. Usa: migrate, migrate:undo o seed.';
+const UNKNOWN_COMMAND_MESSAGE = 'Comando desconocido. Usa: migrate, migrate:undo, seed o demo.';
 
 const COMMANDS = {
   migrate: {
@@ -36,11 +36,19 @@ function isCommandName(value: string | undefined): value is CommandName {
  */
 async function main(args: string[]): Promise<number> {
   const commandName = args[0];
-  if (!isCommandName(commandName)) {
+  const isDemo = commandName === 'demo';
+  if (!isDemo && !isCommandName(commandName)) {
     console.error(UNKNOWN_COMMAND_MESSAGE);
     return 1;
   }
-  const command = COMMANDS[commandName];
+
+  // These guards run before config parsing, Sequelize construction, or any connection.
+  if ((isDemo || commandName === 'seed') && process.env.NODE_ENV !== 'development') {
+    console.error('Este comando solo se permite con NODE_ENV=development.');
+    return 1;
+  }
+
+  const command = isDemo ? undefined : COMMANDS[commandName];
 
   let config: AppConfig;
   try {
@@ -63,13 +71,18 @@ async function main(args: string[]): Promise<number> {
       return 1;
     }
 
-    const names = await command.run(sequelize);
+    if (isDemo) {
+      const migrations = await migrateUp(sequelize);
+      if (migrations.length === 0) console.log('No hay migraciones pendientes.');
+      for (const name of migrations) console.log(`Migración aplicada: ${name}`);
 
-    if (names.length === 0) {
-      console.log(command.nothingToDoMessage);
-    }
-    for (const name of names) {
-      console.log(command.doneMessage(name));
+      const seeds = await seedUp(sequelize);
+      if (seeds.length === 0) console.log('No hay seeds pendientes.');
+      for (const name of seeds) console.log(`Seed aplicado: ${name}`);
+    } else {
+      const names = await command!.run(sequelize);
+      if (names.length === 0) console.log(command!.nothingToDoMessage);
+      for (const name of names) console.log(command!.doneMessage(name));
     }
     return 0;
   } catch (error) {

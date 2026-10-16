@@ -5,11 +5,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PIN_MIN_LENGTH, PIN_MAX_LENGTH } from '@polleria/shared';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion } from 'motion/react';
 import { getLoginUsers, getSession, login } from '../../lib/api/auth.ts';
 import { ApiError } from '../../lib/api/client.ts';
 import { readLastWorkstationArea, wasLastAreaAdministration } from '../../lib/auth/last-area.ts';
 import { readLastUsername, saveLastUsername } from '../../lib/auth/last-user.ts';
 import { resolveLandingPath } from '../../lib/auth/roles.ts';
+import { SkipLink } from './skip-link.tsx';
+import { ScreenState } from './screen-state.tsx';
 
 function loginErrorMessage(error: Error | null): string | undefined {
   if (error === null) return undefined;
@@ -108,6 +111,7 @@ export function LoginScreen() {
         event.preventDefault();
         eraseDigit();
       } else if (event.key === 'Enter') {
+        if (event.target instanceof Element && event.target.closest('a, button')) return;
         event.preventDefault();
         submit();
       }
@@ -120,120 +124,164 @@ export function LoginScreen() {
 
   if (session.data || session.isPending || users.isPending)
     return (
-      <p role="status" className="p-6 text-center">
-        Cargando usuarios...
-      </p>
+      <ScreenState>
+        <p role="status" className="p-6 text-center">
+          Cargando usuarios...
+        </p>
+      </ScreenState>
     );
   if (users.isError)
     return (
-      <div className="space-y-4 p-6 text-center">
-        <p role="alert">No se pudo cargar la lista de usuarios.</p>
-        <Button
-          className="min-h-12"
-          onPress={() => {
-            void users.refetch();
-          }}
-        >
-          Reintentar
-        </Button>
-      </div>
+      <ScreenState>
+        <div className="space-y-4 p-6 text-center">
+          <p role="alert">No se pudo cargar la lista de usuarios.</p>
+          <Button
+            className="min-h-12"
+            onPress={() => {
+              void users.refetch();
+            }}
+          >
+            Reintentar
+          </Button>
+        </div>
+      </ScreenState>
     );
   const message = loginErrorMessage(error);
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-5 py-8">
-      <p className="text-center text-sm font-semibold tracking-wide text-muted">Sistema Pollería</p>
-      <h1 className="text-center text-3xl font-bold">
-        {selected ? `Hola, ${selected.displayName}` : '¿Quién eres?'}
-      </h1>
-      {selected ? (
-        <>
-          <p aria-live="polite" className="min-h-8 text-center text-xl">
-            {pin ? '•'.repeat(pin.length) : 'PIN de 4 a 6 dígitos'}
-          </p>
-          {message && (
-            <p role="alert" className="text-center text-danger">
-              {message}
-            </p>
-          )}
-          <div className="grid grid-cols-3 gap-3" aria-label="Teclado de PIN">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-              <Button
-                key={digit}
-                variant="secondary"
-                className="min-h-14 w-full text-xl"
-                isDisabled={isPending}
-                onPress={() => {
-                  addDigit(digit);
-                }}
-              >{`${digit} `}</Button>
-            ))}
-            <Button
-              variant="secondary"
-              className="min-h-14 w-full"
-              isDisabled={isPending}
-              onPress={eraseDigit}
-            >
-              Borrar
-            </Button>
-            <Button
-              variant="secondary"
-              className="min-h-14 w-full text-xl"
-              isDisabled={isPending}
-              onPress={() => {
-                addDigit('0');
-              }}
-            >
-              {'0 '}
-            </Button>
-            <Button
-              className="min-h-14 w-full min-w-0 px-2 text-sm"
-              isDisabled={pin.length < PIN_MIN_LENGTH || isPending}
-              onPress={submit}
-            >
-              {isPending ? 'Entrando...' : 'Entrar'}
-            </Button>
+    <>
+      <SkipLink />
+      <main id="main-content" tabIndex={-1} className="public-screen login-screen">
+        <div className="login-layout">
+          <div className="public-panel login-panel">
+            <div className="public-brand">
+              <span className="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 40 40">
+                  <path d="M20 4 34 12v16L20 36 6 28V12L20 4Z" />
+                  <path d="M13 25c1.5-5.5 4-9 7-11 3 2 5.5 5.5 7 11M15 27h10" />
+                </svg>
+              </span>
+              <span>
+                <strong>Sistema Pollería</strong>
+                <small>Acceso del equipo</small>
+              </span>
+            </div>
+            <h1>{selected ? `Hola, ${selected.displayName}` : '¿Quién eres?'}</h1>
+            {selected ? (
+              <>
+                <p aria-live="polite" className="min-h-8 text-center text-xl">
+                  {pin ? '•'.repeat(pin.length) : 'PIN de 4 a 6 dígitos'}
+                </p>
+                {message && (
+                  <p role="alert" className="text-center text-danger">
+                    {message}
+                  </p>
+                )}
+                <div className="grid grid-cols-3 gap-3" aria-label="Teclado de PIN">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+                    <Button
+                      key={digit}
+                      variant="secondary"
+                      className="min-h-14 w-full text-xl"
+                      isDisabled={isPending}
+                      onPress={() => {
+                        addDigit(digit);
+                      }}
+                    >{`${digit} `}</Button>
+                  ))}
+                  <Button
+                    variant="secondary"
+                    className="min-h-14 w-full"
+                    isDisabled={isPending}
+                    onPress={eraseDigit}
+                  >
+                    Borrar
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="min-h-14 w-full text-xl"
+                    isDisabled={isPending}
+                    onPress={() => {
+                      addDigit('0');
+                    }}
+                  >
+                    {'0 '}
+                  </Button>
+                  <Button
+                    className="col-span-3 min-h-14 w-full min-w-0 rounded-xl px-2 text-xl"
+                    isDisabled={pin.length < PIN_MIN_LENGTH || isPending}
+                    onPress={submit}
+                  >
+                    {isPending ? 'Entrando...' : 'Entrar'}
+                  </Button>
+                </div>
+                <Button
+                  variant="secondary"
+                  className="min-h-12 w-full"
+                  isDisabled={isPending}
+                  onPress={() => {
+                    setChosenUsername(null);
+                    setPin('');
+                    reset();
+                  }}
+                >
+                  Cambiar usuario
+                </Button>
+              </>
+            ) : users.data?.length ? (
+              <div className="login-user-list">
+                {users.data.map((user) => (
+                  <motion.div
+                    key={user.username}
+                    whileTap={{ scale: 0.99 }}
+                    transition={{ duration: 0.12 }}
+                  >
+                    <Button
+                      variant="secondary"
+                      aria-label={`${user.displayName} ${user.username}`}
+                      className="login-user-choice min-h-16 w-full min-w-0 gap-3 py-3"
+                      onPress={() => {
+                        setChosenUsername(user.username);
+                        setPin('');
+                        reset();
+                      }}
+                    >
+                      <span className="user-avatar" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                          <circle cx="12" cy="8" r="3.25" />
+                          <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+                        </svg>
+                      </span>
+                      <span className="user-choice-copy">
+                        <span className="user-choice-name">{user.displayName}</span>
+                        <span className="user-choice-username">{user.username}</span>
+                      </span>
+                      <svg
+                        className="user-choice-chevron"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path d="m9 5 7 7-7 7" />
+                      </svg>
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center">
+                No hay usuarios activos. El administrador debe crear el primero con el comando pnpm
+                users:create-admin.
+              </p>
+            )}
           </div>
-          <Button
-            variant="secondary"
-            className="min-h-12 w-full"
-            isDisabled={isPending}
-            onPress={() => {
-              setChosenUsername(null);
-              setPin('');
-              reset();
-            }}
-          >
-            Cambiar usuario
-          </Button>
-        </>
-      ) : users.data?.length ? (
-        <div className="flex flex-col gap-3">
-          {users.data.map((user) => (
-            <Button
-              key={user.username}
-              variant="secondary"
-              className="min-h-20 w-full min-w-0 flex-col gap-1 py-3"
-              onPress={() => {
-                setChosenUsername(user.username);
-                setPin('');
-                reset();
-              }}
-            >
-              <span className="w-full text-xl font-semibold wrap-anywhere whitespace-normal">
-                {user.displayName}
-              </span>
-              <span className="w-full text-sm text-muted wrap-anywhere whitespace-normal">
-                {user.username}
-              </span>
-            </Button>
-          ))}
+          <aside className="login-context" aria-labelledby="login-context-title">
+            <h2 id="login-context-title">Acceso personal</h2>
+            <p>Selecciona tu usuario e ingresa tu PIN.</p>
+            <p>Solo se mostrarán las áreas que permita tu cuenta.</p>
+            <p>Prototipo con datos de demostración.</p>
+          </aside>
         </div>
-      ) : (
-        <p className="text-center">
-          No hay usuarios activos. El administrador debe crear el primero con el comando pnpm
-          users:create-admin.
-        </p>
-      )}
-    </main>
+      </main>
+    </>
   );
 }

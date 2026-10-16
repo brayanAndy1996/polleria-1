@@ -1,0 +1,104 @@
+[
+  {
+    "name": "login-desktop",
+    "width": 1440,
+    "height": 900,
+    "scroll": 1440,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "salon-desktop",
+    "width": 1440,
+    "height": 900,
+    "scroll": 1440,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "salon-mobile",
+    "width": 390,
+    "height": 844,
+    "scroll": 390,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "salon-small",
+    "width": 360,
+    "height": 800,
+    "scroll": 360,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "salon-tablet",
+    "width": 768,
+    "height": 1024,
+    "scroll": 768,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "salon-landscape",
+    "width": 1024,
+    "height": 768,
+    "scroll": 1024,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "carta-desktop",
+    "width": 1440,
+    "height": 900,
+    "scroll": 1440,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "carta-mobile",
+    "width": 390,
+    "height": 844,
+    "scroll": 390,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "carta-small",
+    "width": 360,
+    "height": 800,
+    "scroll": 360,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "carta-tablet",
+    "width": 768,
+    "height": 1024,
+    "scroll": 768,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "carta-landscape",
+    "width": 1024,
+    "height": 768,
+    "scroll": 1024,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "configurar-reduced-motion",
+    "width": 1024,
+    "height": 768,
+    "scroll": 1024,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "admin-mobile",
+    "width": 360,
+    "height": 800,
+    "scroll": 360,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "name": "admin-desktop",
+    "width": 1440,
+    "height": 900,
+    "scroll": 1440,
+    "font": "\"Nunito Variable\", Nunito, Arial, sans-serif"
+  },
+  {
+    "interactions": "login, category, search, cart observation persistence, editor, reduced-motion media",
+    "errors": []
+  }
+]

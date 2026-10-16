@@ -10,6 +10,7 @@
     "db:migrate": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts migrate",
     "db:migrate:undo": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts migrate:undo",
     "db:seed": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts seed",
+    "db:demo": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts demo",
     "printer:test": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/print-test-page.ts",
     "users:create-admin": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/create-admin.ts"
   },

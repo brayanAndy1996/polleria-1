@@ -164,7 +164,9 @@ const TICKET_INICIAL = {
 
 function show(node: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  return render(<QueryClientProvider client={client}>{node}</QueryClientProvider>);
+  return Object.assign(render(<QueryClientProvider client={client}>{node}</QueryClientProvider>), {
+    queryClient: client,
+  });
 }
 function mockSession(session: JsonValue = SESSION_WAITER) {
   server.use(http.get('*/api/auth/me', () => HttpResponse.json(session)));
@@ -241,6 +243,35 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     ]);
     const card = screen.getByRole('button', { name: /Pollo a la brasa/ });
     expect(within(card).getByText('S/ 65.00')).toBeVisible();
+  });
+
+  it('AC-02/04: buscar y filtrar la carta conserva el carrito al actualizar productos', async () => {
+    const view = await renderAgregar();
+    await openEditor(/^Chaufa/);
+    fireEvent.change(screen.getByLabelText('Observación'), {
+      target: { value: 'Sin cebolla' },
+    });
+    addToCart();
+    expect(screen.getByText('Sin cebolla')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bebidas' }));
+    expect(screen.getByRole('button', { name: 'Inca Kola' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Chaufa' })).not.toBeInTheDocument();
+    expect(screen.getByText('Sin cebolla')).toBeVisible();
+
+    const search = screen.getByRole('searchbox', { name: 'Buscar producto' });
+    fireEvent.change(search, { target: { value: 'inca' } });
+    expect(screen.getByRole('button', { name: 'Inca Kola' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Chaufa' })).not.toBeInTheDocument();
+    expect(screen.getByText('Sin cebolla')).toBeVisible();
+
+    const refreshedMenu = [...MENU, { ...INCA, id: 11, name: 'Inca Kola sin azúcar' }];
+    server.use(http.get('*/api/menu', () => HttpResponse.json({ products: refreshedMenu })));
+    await view.queryClient.invalidateQueries({ queryKey: ['waiter', 'menu'] });
+
+    expect(await screen.findByRole('button', { name: 'Inca Kola sin azúcar' })).toBeVisible();
+    expect(screen.getByText('Sin cebolla')).toBeVisible();
+    expect(screen.getByRole('button', { name: /Enviar a cocina \(1\)/ })).toBeEnabled();
   });
 
   it('AC-15: Cargando carta..., No se pudo cargar la carta. con Reintentar y La carta está vacía.', async () => {

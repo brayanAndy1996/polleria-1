@@ -1,7 +1,75 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## Actualización — 2026-10-16
+
+El usuario autorizó integrar todo dev en main y continuar la 014. El rediseño azul, demo y corrección SSR quedan integrados; las notas inferiores sobre separación de ramas y prohibición de integrar son históricas. La 014 tiene spec aprobada y continúa con contrato y TDD en su rama de funcionalidad; su implementación aún no está autorizada para integrar a main.
+
+## Rediseño FigCraft azul — dev, 2026-10-15
+
+- Solicitud del usuario: continuar en dev usando diseños/colorimetría del documento polleria en FigCraft y Motion. Implementado en frontend; fuente visual y capturas en docs/ui-figcraft, alcance en docs/specs/dev-figcraft-blue.
+- Paleta #EFF8FF/#3B82F6/#60A5FA/#1E3A8A y Nunito local. Cabecera superior desktop, navegación inferior móvil/tablet, mesas en dos columnas, carta con categorías/buscador/productos/resumen, fotos originales locales y acceso/PIN adaptado.
+- Motion14.3.0 y @fontsource-variable/nunito5.3.0 exactos. Movimiento reducido configurado; interacción breve sin retener el editor anterior ni remontar formularios por polling. ADR0003.
+- Separación de roles conservada: Luna escribió pruebas e inició implementación; tras agotarse su cuota, el usuario autorizó explícitamente completar con implementer GPT-6.1-sol medium. Principal revisó/verificó; sin reviewer/adversarial independiente.
+- Evidencia:738/738 pruebas web en42 archivos;116 pruebas dirigidas tras ajustes de markup, tipos globales, lint/formato y build aprobados. QA final passed en design-qa.md; recorrido Playwright con Chrome instalado autorizado por el usuario, 14 capturas a360/390/768/1024/1440, cero pageerrors y sin overflow. Mock de16 rutas validado contra schemas, sin DB real.
+- No se ejecutó cobertura global ni suites API/DB para este cambio visual. Los cambios de setup MotionConfig precedieron su nueva regresión; no se reconstruye rojo retrospectivo. Búsqueda/filtro sí partió de rojo causal documentado.
+- Los módulos funcionales existentes y reglas de permisos/dinero/idempotencia permanecen; no se implementan pagos014, inventario, reportes ni impresión física. No integrar main. Próximo paso: revisión del diseño con el usuario y recorrido con su API/BD real según PROBAR-DEMO.md.
+
 Documento de traspaso para retomar el trabajo en una conversación nueva. Lo mantiene el orquestador.
-Corte: 2026-10-13. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
+Corte: 2026-10-15. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
+
+## Estado vigente y punto de reanudación — 2026-10-15
+
+**La documentación aprobada de la spec 014 está integrada en main. El cobro todavía NO está implementado.** El usuario autorizó esta integración documental el 2026-10-15. Merge de la rama feat/014-cashier-payments: `40c4631` (origen documental `62e0243`). No confundir publicar la spec con completar la funcionalidad.
+
+| Entrega                                                | Estado real al corte                                                        | Ubicación                                                                                         |
+| ------------------------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Funcionalidades 001…013                                | Implementadas; 013 validada con driver file, sin prueba de impresora física | main                                                                                              |
+| 014: spec, P-01…P-07 y 15 AC                           | Aprobados e integrados como documentación                                   | [spec](specs/014-cashier-payments/spec.md), [tareas](specs/014-cashier-payments/tasks.md) en main |
+| 014: contrato, pruebas, migración, backend y UI        | Pendientes; ningún pago funcional ni endpoints nuevos de Caja               | Siguiente desarrollo                                                                              |
+| Datos demo, rediseño visual y corrección SSR del build | Publicados en dev, sin integrar a main                                      | dev, rediseño `18f4b4f`                                                                           |
+| Brief completo para app flow/task flows/UI UX          | Publicado en dev, 27 RF, 14 RNF, 21 task flows y 28 superficies             | dev, `9f6ad9e`                                                                                    |
+| Inventario, reportes, caja avanzada, delivery y SUNAT  | Futuros; no presentarlos como implementados                                 | Planificación y specs futuras                                                                     |
+
+### Decisiones que no hay que volver a preguntar
+
+- Primer bloque 014: pre-cuenta imprimible mediante navegador, pago completo con **un medio** (efectivo/Yape/Plin/tarjeta) y cierre transaccional que libera todas las mesas del pedido.
+- Pantallas, formularios y pre-cuentas en **soles con decimales**. Ejemplo: total S/ 21,00, recibido S/ 30,00, vuelto S/ 9,00; se acepta 21.5 o 21,5. Céntimos enteros solo en representación/cálculo internos.
+- Cobrar no exige solicitud previa de cuenta; una anulación pendiente bloquea el cobro. Medios electrónicos se confirman manualmente, sin conexión bancaria. Imprimir pre-cuenta no paga ni genera comanda.
+- Pagos mixtos/parciales, división, apertura/cierre de caja, ticket de venta, descuentos, devoluciones y reapertura no pertenecen a esta entrega. No ampliar su alcance por un mockup de diseño.
+
+### Siguiente acción exacta para otro chat
+
+1. Leer AGENTS.md, CLAUDE.md, este estado, la spec 014 y tasks.md. No considerar cerrada ninguna tarea de implementación de 014.
+2. Retomar **S-01**: completar/verificar contrato OpenAPI 0.11.0 con estado pending, esquemas y errores antes de TDD. La excepción de impresión manual ya consta en CLAUDE.md; el contrato actual sigue en 0.10.0.
+3. Continuar T-01 → I-01 y siguientes bloques rojo → verde → revisión, conservando todos los AC. Principal mantiene docs/contrato; test-writer gpt-6-luna medium; implementer gpt-6.1-sol medium para pagos/transacciones/concurrencia y gpt-6-luna medium para UI sencilla. Sin reviewer/adversarial independientes.
+4. Desarrollar en rama de funcionalidad desde main actualizado; si se reutiliza la rama 014, incorporar primero el main vigente. La integración documental autorizada aquí no autoriza futuras integraciones de implementación a main. No incorporar automáticamente todo dev.
+5. Validar con DB aislada _test y serializar suites que la usan. No ejecutar migraciones de cobro sobre la base de desarrollo del usuario para probar la funcionalidad.
+
+### Trabajo de diseño y diferencia entre ramas
+
+El usuario dejó el nuevo diseño colaborativo para otra conversación. Referencia solicitada: POS verde/menta con carta y pedido lateral; archivo Figma polleria `AFptvrcQPGhNiFTPUy55Pj`, mediante FigCraft si está disponible. Acceso/edición no verificados; no afirmar que hay diseños editados en Figma.
+
+Material para esa sesión, **en dev**: [brief de diseño y flujos](https://github.com/brayanAndy1996/polleria-1/blob/dev/docs/BRIEF-DISENO-FLOWS-UI-UX.md), [guía de demo](https://github.com/brayanAndy1996/polleria-1/blob/dev/docs/PROBAR-DEMO.md) y [capturas](https://github.com/brayanAndy1996/polleria-1/blob/dev/docs/ui-redesign/README.md). Main conserva la interfaz anterior y su deuda SSR; la corrección getServerSnapshot pertenece al rediseño de dev. Esta integración solo trae documentación de 014, sin demo ni rediseño.
+
+Verificación de esta actualización: revisión del diff, enlaces locales y formato de Markdown; sin cambios de producción ni nuevas pruebas de aplicación. Los resultados de suites indicados más abajo son evidencia histórica de sus entregas, no de una implementación de 014.
+
+## Validación de 013 y flujo reducido — 2026-10-13 (histórico)
+## Rediseño de interfaz — dev, 2026-10-13
+
+- Prioridad solicitada por el usuario tras probar dev. Instalados y versionados frontend-design, web-design-guidelines y ui-ux-pro-max en .agents/skills/ con skills-lock.json. Alcance: docs/specs/dev-ui-redesign/spec.md; comparación visual: docs/ui-redesign/README.md.
+- Interfaz renovada: acceso/PIN, navegación por áreas, salón, pedido/carrito, administración y estados de caja/cocina. Navegación lateral en PC, cabecera compacta en móvil, mesas legibles, controles táctiles, foco visible y salto al contenido. Sin dependencias nuevas ni cambios de API/BD/dinero; caja/cocina conservan el alcance funcional existente.
+- TDD con los dos roles Luna medium; revisión del principal con las tres skills, capturas reales a 360/768/1440 px, sin desbordamiento horizontal ni errores de página en el recorrido. Se verificaron acceso por teclado y contraste de acciones. Sin auditoría independiente ni nueva cobertura global/API.
+- Build de producción corregido: primary-instance proporciona getServerSnapshot determinista. La deuda SSR documentada en los cortes históricos de abajo queda resuelta por esta entrega.
+- La spec 014 sigue aprobada en feat/014-cashier-payments (62e0243), pendiente de contrato/tests/implementación. UI siempre en soles con decimales; cálculos internos en enteros de céntimos. Retomar ese bloque después de revisar el diseño; no está incluido en dev.
+- Entrega integrada en dev; main permanece sin integrar este rediseño. Verificación final: 734/734 pruebas web (41 archivos), 28 E2E aprobados/12 omitidos, build de producción, tipos, lint y formato aprobados. Evidencia y capturas: docs/ui-redesign/README.md.
+
+## Preparación de demo — rama dev, 2026-10-13
+
+- Solicitada por el usuario para probar una BD local vacía; rama dev creada desde main c3021d2. Guía: docs/PROBAR-DEMO.md; requisitos: docs/specs/dev-demo/spec.md. No integra Caja ni altera main.
+- Nuevo pnpm db:demo: exige development antes de conectar, aplica migraciones y seed explícito con cuatro usuarios/roles, seis mesas y seis productos con presentaciones/mostrito. Solo inserta faltantes; carga transaccional y reintento, conserva existentes. PIN públicos exclusivos de demo; no guardar conexiones en Git.
+- Checks dirigidos: 32/32 (demo, CLI, migrador y lock); tipos API, lint y formato pasan. No se reejecutó suite completa/cobertura/E2E para esta preparación de datos. Rojo inicial causal por ausencia del módulo; sin atribuir assertions ejecutadas en esa colección fallida.
+- Principal ejecutó el comando real dos veces en polleria_dev del entorno: migración 013 y seed aplicados, segunda corrida sin pendientes; login admin y lectura de seis productos/seis mesas aprobados, logout posterior. La BD de la PC del usuario no es accesible desde aquí: debe crear polleria_dev en PostgreSQL si falta, configurar su .env y ejecutar la guía.
+- Siguiente desarrollo funcional sigue siendo spec 014 de Caja. Preparación demo no crea cobros, stock ni pedidos ficticios.
 
 ## Estado actual del flujo reducido — 2026-10-13
 
@@ -15,11 +83,12 @@ Corte: 2026-10-13. Complementa (no reemplaza) a CLAUDE.md y docs/PROGRESS.md.
 
 ## Próxima entrega y pendientes
 
-- Próximo paso: redactar la spec 014 de Caja y cobro (Fase 4), con una propuesta de primer bloque de pre-cuenta y pago completo. Aprobar sus reglas antes de pruebas/implementación; no hay spec 014 aprobada todavía.
+- Próximo paso: preparar contrato 014 (S-01), luego TDD. Spec/reglas aprobadas con importes de interfaz en soles.
+- Próximo paso funcional: retomar la spec 014 ya aprobada en feat/014-cashier-payments; contrato y pruebas del primer bloque de pre-cuenta/pago completo aún pendientes.
 - Caja restante: pagos por efectivo/Yape/Plin/tarjeta, vuelto, pagos mixtos, división de cuenta, apertura/cierre y cuadre, ticket de venta (RF-13…17). Dividir en specs pequeñas para el flujo reducido.
 - Después: inventario de pollo por parte/octavos y bebidas, entradas/consumo, agotados y alertas (Fase 5); reportes, auditoría y datos de demostración (Fase 6).
 - Cocina: 013 completa para archivos; impresión física ESC/POS y detección de fallos/papel requieren marca, modelo y conexión. Barra separada (RF-11) es posterior. RF-12 para llevar/delivery sigue pendiente de asignación a una spec.
-- Preparación de uso real: migración de polleria_dev, recorrido manual y resolver deuda de build por getServerSnapshot. Las regresiones conocidas esperadas/omitidas continúan visibles; ADV-002-01/02 ya están resueltas por 013.
+- Preparación de uso real: preparar polleria_dev según PROBAR-DEMO.md y realizar el recorrido manual. La deuda de build por getServerSnapshot se resolvió en el rediseño de dev. Las regresiones conocidas esperadas/omitidas continúan visibles; ADV-002-01/02 ya están resueltas por 013.
 
 ## Cambio de metodología — 2026-10-12 (histórico)
 
