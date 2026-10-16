@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.10.0
+  version: 0.11.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -139,6 +139,8 @@ servers:
   - url: http://127.0.0.1:4000/api
     description: API directa. Solo accesible desde la misma PC (HOST=127.0.0.1 por defecto).
 tags:
+  - name: cashier
+    description: Pre-cuenta y cobro completo (014); contrato aprobado, implementación pendiente.
   - name: system
     description: Estado del sistema.
   - name: auth
@@ -156,6 +158,423 @@ tags:
   - name: kitchen-ticket-prints
     description: Generación file, atención de fallos y copias de comandas (spec 013 aprobada; operaciones implementadas).
 paths:
+  /cashier/orders:
+    {
+      'get':
+        {
+          'operationId': 'listCashierOrders',
+          'tags': ['cashier'],
+          'summary': 'Roles cashier/admin',
+          'x-implementation-status': 'pending',
+          'x-spec': '014-cashier-payments',
+          'description': 'Roles cashier/admin. Pedidos open por id ascendente, páginas de 50; polling de todas las páginas conserva datos. canPay requiere ítems, total positivo en rango y sin anulaciones pendientes. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              {
+                'name': 'afterOrderId',
+                'in': 'query',
+                'required': false,
+                'schema': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
+                'description': 'Solo dígitos de entero positivo; parámetros desconocidos o duplicados rechazados.',
+              },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Resultado de la operación.',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/CashierOrdersResponse' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'UNAUTHENTICATED',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'FORBIDDEN',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '409':
+                {
+                  'description': 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '500':
+                {
+                  'description': 'INTERNAL_ERROR sin detalles internos',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+            },
+        },
+    }
+  /orders/{orderId}/bill:
+    {
+      'get':
+        {
+          'operationId': 'getOrderBill',
+          'tags': ['cashier'],
+          'summary': 'Roles waiter/cashier/admin',
+          'x-implementation-status': 'pending',
+          'x-spec': '014-cashier-payments',
+          'description': 'Roles waiter/cashier/admin. Lectura REPEATABLE READ de pre-cuenta abierta sin datos privados de anulaciones. Excluye voided, incluye void_requested pero bloquea cobro; cremas suman sus cantidades propias, componentes no vuelven a sumarse. Token SHA-256 canónico de mesas e ítems activos ordenados; excluye generatedAt y marcas operativas. Imprimir no paga ni genera comanda. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters': [{ '$ref': '#/components/parameters/OrderId' }],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Resultado de la operación.',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/BillResponse' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'UNAUTHENTICATED',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'FORBIDDEN',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '409':
+                {
+                  'description': 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '500':
+                {
+                  'description': 'INTERNAL_ERROR sin detalles internos',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+            },
+        },
+    }
+  /orders/{orderId}/payments:
+    {
+      'post':
+        {
+          'operationId': 'createOrderPayment',
+          'tags': ['cashier'],
+          'summary': 'Roles cashier/admin',
+          'x-implementation-status': 'pending',
+          'x-spec': '014-cashier-payments',
+          'description': 'Roles cashier/admin. Pago completo con confirmación manual; cash admite recibido mayor o igual, electrónico exacto y vuelto cero. Scope order_payment: misma clave/pedido/cuerpo normalizado devuelve 201 original incluso tras cierre; distinto cuerpo/pedido produce IDEMPOTENCY_CONFLICT. NO KEY UPDATE pedido y mesas ascendentes; recalcula token/total, snapshot inmutable, cierre y liberación atómicos. Un segundo cobro recibe ORDER_NOT_OPEN. Fallos revierten pago, cierre, mesas y clave. Sin I/O bancario ni impresión en transacción. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/OrderId' },
+              { '$ref': '#/components/parameters/IdempotencyKey' },
+            ],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/PaymentRequest' } },
+                },
+            },
+          'responses':
+            {
+              '201':
+                {
+                  'description': 'Resultado de la operación.',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/CreatePaymentResponse' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'UNAUTHENTICATED',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'FORBIDDEN',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '409':
+                {
+                  'description': 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '422':
+                {
+                  'description': 'INSUFFICIENT_CASH',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '500':
+                {
+                  'description': 'INTERNAL_ERROR sin detalles internos',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+            },
+        },
+    }
+  /payments/{paymentId}:
+    {
+      'get':
+        {
+          'operationId': 'getPayment',
+          'tags': ['cashier'],
+          'summary': 'Roles cashier/admin',
+          'x-implementation-status': 'pending',
+          'x-spec': '014-cashier-payments',
+          'description': 'Roles cashier/admin. Pago y snapshot históricos inmutables aun al renombrar usuarios/mesas/carta o reutilizar mesas. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              {
+                'name': 'paymentId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
+              },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Resultado de la operación.',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/PaymentResponse' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'UNAUTHENTICATED',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'FORBIDDEN',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '409':
+                {
+                  'description': 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+              '500':
+                {
+                  'description': 'INTERNAL_ERROR sin detalles internos',
+                  'headers':
+                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
+                    },
+                },
+            },
+        },
+    }
   /health:
     get:
       tags: [system]
@@ -2433,7 +2852,8 @@ paths:
                   completedPages: 0
                   errorCode: null
         '400':
-          description: VALIDATION_ERROR con issues en ticketId, idempotencyKey o reason; INVALID_JSON/INVALID_BODY
+          description:
+            VALIDATION_ERROR con issues en ticketId, idempotencyKey o reason; INVALID_JSON/INVALID_BODY
             al leer el cuerpo.
           headers:
             Cache-Control:
@@ -2531,6 +2951,216 @@ components:
         Token de sesión aleatorio de 43 caracteres (base64url) que crea POST /auth/login. Cookie
         HttpOnly, SameSite=Strict, Path=/, Max-Age=57600, sin Secure (el local usa HTTP en la red).
   schemas:
+    PaymentMethod: { 'type': 'string', 'enum': ['cash', 'yape', 'plin', 'card'] }
+    PaymentCents: { 'type': 'integer', 'minimum': 0, 'maximum': 2147483647 }
+    BillToken: { 'type': 'string', 'pattern': '^[0-9a-f]{64}$' }
+    BillItem:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'id',
+            'productId',
+            'productName',
+            'productCategory',
+            'quantity',
+            'priceCents',
+            'portion',
+            'cut',
+            'breastEighths',
+            'legEighths',
+            'notes',
+            'sauces',
+            'components',
+            'status',
+          ],
+        'properties':
+          {
+            'id': { '$ref': '#/components/schemas/OrderItem/properties/id' },
+            'productId': { '$ref': '#/components/schemas/OrderItem/properties/productId' },
+            'productName': { '$ref': '#/components/schemas/OrderItem/properties/productName' },
+            'productCategory':
+              { '$ref': '#/components/schemas/OrderItem/properties/productCategory' },
+            'quantity': { '$ref': '#/components/schemas/OrderItem/properties/quantity' },
+            'priceCents': { '$ref': '#/components/schemas/OrderItem/properties/priceCents' },
+            'portion': { '$ref': '#/components/schemas/OrderItem/properties/portion' },
+            'cut': { '$ref': '#/components/schemas/OrderItem/properties/cut' },
+            'breastEighths': { '$ref': '#/components/schemas/OrderItem/properties/breastEighths' },
+            'legEighths': { '$ref': '#/components/schemas/OrderItem/properties/legEighths' },
+            'notes': { '$ref': '#/components/schemas/OrderItem/properties/notes' },
+            'sauces': { '$ref': '#/components/schemas/OrderItem/properties/sauces' },
+            'components': { '$ref': '#/components/schemas/OrderItem/properties/components' },
+            'status': { 'type': 'string', 'enum': ['sent', 'void_requested'] },
+          },
+      }
+    Bill:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'orderId',
+            'tables',
+            'items',
+            'totalCents',
+            'hasPendingVoids',
+            'canPay',
+            'billToken',
+            'generatedAt',
+          ],
+        'properties':
+          {
+            'orderId': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
+            'tables': { 'type': 'array', 'items': { '$ref': '#/components/schemas/TableRef' } },
+            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/BillItem' } },
+            'totalCents': { 'type': 'integer', 'minimum': 0, 'maximum': 9007199254740991 },
+            'hasPendingVoids': { 'type': 'boolean' },
+            'canPay': { 'type': 'boolean' },
+            'billToken': { '$ref': '#/components/schemas/BillToken' },
+            'generatedAt': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    BillResponse:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['bill'],
+        'properties': { 'bill': { '$ref': '#/components/schemas/Bill' } },
+      }
+    PaymentRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['method', 'receivedCents', 'billToken', 'confirmedReceived'],
+        'properties':
+          {
+            'method': { '$ref': '#/components/schemas/PaymentMethod' },
+            'receivedCents': { '$ref': '#/components/schemas/PaymentCents' },
+            'billToken': { '$ref': '#/components/schemas/BillToken' },
+            'confirmedReceived': { 'type': 'boolean', 'const': true },
+          },
+      }
+    PaymentSnapshot:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'version',
+            'bill',
+            'cashier',
+            'method',
+            'amountCents',
+            'receivedCents',
+            'changeCents',
+            'paidAt',
+          ],
+        'properties':
+          {
+            'version': { 'type': 'integer', 'const': 1 },
+            'bill': { '$ref': '#/components/schemas/Bill' },
+            'cashier': { '$ref': '#/components/schemas/UserRef' },
+            'method': { '$ref': '#/components/schemas/PaymentMethod' },
+            'amountCents': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
+            'receivedCents': { '$ref': '#/components/schemas/PaymentCents' },
+            'changeCents': { '$ref': '#/components/schemas/PaymentCents' },
+            'paidAt': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    Payment:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'id',
+            'orderId',
+            'method',
+            'amountCents',
+            'receivedCents',
+            'changeCents',
+            'cashier',
+            'paidAt',
+            'snapshot',
+          ],
+        'properties':
+          {
+            'id': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
+            'orderId': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
+            'method': { '$ref': '#/components/schemas/PaymentMethod' },
+            'amountCents': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
+            'receivedCents': { '$ref': '#/components/schemas/PaymentCents' },
+            'changeCents': { '$ref': '#/components/schemas/PaymentCents' },
+            'cashier': { '$ref': '#/components/schemas/UserRef' },
+            'paidAt': { 'type': 'string', 'format': 'date-time' },
+            'snapshot': { '$ref': '#/components/schemas/PaymentSnapshot' },
+          },
+      }
+    PaymentResponse:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['payment'],
+        'properties': { 'payment': { '$ref': '#/components/schemas/Payment' } },
+      }
+    CreatePaymentResponse:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['order', 'payment'],
+        'properties':
+          {
+            'order': { '$ref': '#/components/schemas/Order' },
+            'payment': { '$ref': '#/components/schemas/Payment' },
+          },
+      }
+    CashierOrderSummary:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'id',
+            'tables',
+            'totalCents',
+            'openedAt',
+            'billRequestedAt',
+            'hasPendingVoids',
+            'canPay',
+          ],
+        'properties':
+          {
+            'id': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
+            'tables': { 'type': 'array', 'items': { '$ref': '#/components/schemas/TableRef' } },
+            'totalCents': { 'type': 'integer', 'minimum': 0, 'maximum': 9007199254740991 },
+            'openedAt': { 'type': 'string', 'format': 'date-time' },
+            'billRequestedAt':
+              { 'oneOf': [{ 'type': 'string', 'format': 'date-time' }, { 'type': 'null' }] },
+            'hasPendingVoids': { 'type': 'boolean' },
+            'canPay': { 'type': 'boolean' },
+          },
+      }
+    CashierOrdersResponse:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['orders', 'nextAfterOrderId'],
+        'properties':
+          {
+            'orders':
+              {
+                'type': 'array',
+                'items': { '$ref': '#/components/schemas/CashierOrderSummary' },
+                'maxItems': 50,
+              },
+            'nextAfterOrderId':
+              {
+                'oneOf':
+                  [{ 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 }, { 'type': 'null' }],
+              },
+          },
+      }
     HealthStatus:
       type: string
       enum: [ok, error]
@@ -3357,7 +3987,8 @@ components:
         - succeeded
         - failed
         - uncertain
-      description: Estado persistido del intento file. succeeded acredita todos los archivos completos; nunca
+      description:
+        Estado persistido del intento file. succeeded acredita todos los archivos completos; nunca
         papel ni recepción por cocina. uncertain puede seguir activo si finishedAt es null.
     KitchenTicketPrintStatus:
       type: string
@@ -3368,7 +3999,8 @@ components:
         - failed
         - uncertain
         - not_tracked
-      description: Estado del último intento; not_tracked deriva de ausencia de snapshot de la 013, sin reconstrucción
+      description:
+        Estado del último intento; not_tracked deriva de ausencia de snapshot de la 013, sin reconstrucción
         ni autoimpresión del historial anterior.
     KitchenTicketPrintErrorCode:
       type: string
@@ -3378,7 +4010,8 @@ components:
         - PRINTER_EMPTY_DOCUMENT
         - PRINT_TIMEOUT
         - PRINT_OUTPUT_UNCERTAIN
-      description: Código seguro del resultado de generación. Es un campo de estado, no un error HTTP del
+      description:
+        Código seguro del resultado de generación. Es un campo de estado, no un error HTTP del
         envío de ítems. No incluye rutas, causas ni stack.
     KitchenTicketPrintAttemptView:
       type: object
@@ -3395,7 +4028,8 @@ components:
         - pageCount
         - completedPages
         - errorCode
-      description: Resumen público del intento, sin motivo de copia/void, documentos, jobId, ruta, huella
+      description:
+        Resumen público del intento, sin motivo de copia/void, documentos, jobId, ruta, huella
         de carpeta, propietario o causa privada. Los instantes no nulos son UTC con Z. La respuesta 202 conserva
         la vista queued original; GET devuelve estado actual.
       properties:
@@ -3416,7 +4050,8 @@ components:
           $ref: '#/components/schemas/KitchenTicketPrintAttemptStatus'
         requestedBy:
           $ref: '#/components/schemas/UserRef'
-          description: Nombre copiado al solicitar. En el primer intento es el autor del envío/anulación;
+          description:
+            Nombre copiado al solicitar. En el primer intento es el autor del envío/anulación;
             en una copia, el solicitante.
         createdAt:
           type: string
@@ -3433,7 +4068,8 @@ components:
             - type: string
               format: date-time
             - type: 'null'
-          description: Hora UTC de fin. null en queued/printing y uncertain aún activo; no debe fingirse fin
+          description:
+            Hora UTC de fin. null en queued/printing y uncertain aún activo; no debe fingirse fin
             tras un timeout o pérdida de lock.
         pageCount:
           oneOf:
@@ -3441,13 +4077,15 @@ components:
               minimum: 1
               maximum: 2147483647
             - type: 'null'
-          description: Número de documentos completos previstos, de al menos una página; null hasta persistir
+          description:
+            Número de documentos completos previstos, de al menos una página; null hasta persistir
             su preparación.
         completedPages:
           type: integer
           minimum: 0
           maximum: 2147483647
-          description: Páginas completas confirmadas; no supera pageCount cuando existe. En succeeded coincide
+          description:
+            Páginas completas confirmadas; no supera pageCount cuando existe. En succeeded coincide
             con pageCount.
         errorCode:
           oneOf:
@@ -3464,7 +4102,8 @@ components:
         - status
         - lastAttempt
         - canReprint
-      description: 'Una vista por comanda. Solo resumen de generación: no devuelve ítems ni motivos. El mozo
+      description:
+        'Una vista por comanda. Solo resumen de generación: no devuelve ítems ni motivos. El mozo
         puede conocer que un void falló sin ver su detalle ni solicitar copia. lastAttempt.ticketId coincide
         con ticketId y su status con el status público.'
       properties:
@@ -3476,7 +4115,8 @@ components:
           type: integer
           minimum: 1
           maximum: 2147483647
-          description: Pedido actual por kitchen_tickets.order_id; puede cambiar tras una unión sin alterar
+          description:
+            Pedido actual por kitchen_tickets.order_id; puede cambiar tras una unión sin alterar
             el snapshot.
         kind:
           $ref: '#/components/schemas/KitchenTicketKind'
@@ -3484,7 +4124,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TableRef'
-          description: Mesas y nombres copiados al emitir, por id ascendente. [] en not_tracked; no se reconstruyen
+          description:
+            Mesas y nombres copiados al emitir, por id ascendente. [] en not_tracked; no se reconstruyen
             nombres históricos.
         status:
           $ref: '#/components/schemas/KitchenTicketPrintStatus'
@@ -3495,7 +4136,8 @@ components:
           description: Último intento, consistente con status. null exclusivamente en not_tracked.
         canReprint:
           type: boolean
-          description: Depende de sesión/rol/tipo, snapshot y ausencia de intento activo. Si el destino está
+          description:
+            Depende de sesión/rol/tipo, snapshot y ausencia de intento activo. Si el destino está
             suspendido por I/O/propietario sin fin confirmado, false en TODOS los tickets, aunque este sea
             succeeded. Un replay anterior sigue devolviendo su 202.
       allOf:
@@ -3522,7 +4164,8 @@ components:
       additionalProperties: false
       required:
         - prints
-      description: Estados de todas las comandas del pedido actual, ticketId ascendente, incluidos los not_tracked;
+      description:
+        Estados de todas las comandas del pedido actual, ticketId ascendente, incluidos los not_tracked;
         [] si no hay comandas.
       properties:
         prints:
@@ -3535,7 +4178,8 @@ components:
       required:
         - prints
         - nextAfterTicketId
-      description: Página fija de atención. Los estados pueden cambiar entre llamadas; el refresco siempre
+      description:
+        Página fija de atención. Los estados pueden cambiar entre llamadas; el refresco siempre
         parte de la primera página.
       properties:
         prints:
@@ -3543,7 +4187,8 @@ components:
           maxItems: 50
           items:
             $ref: '#/components/schemas/KitchenTicketPrintView'
-          description: Una vista por ticket cuyo último intento es failed/uncertain, ticketId ascendente;
+          description:
+            Una vista por ticket cuyo último intento es failed/uncertain, ticketId ascendente;
             [] si no hay pendientes.
         nextAfterTicketId:
           oneOf:
@@ -3551,14 +4196,16 @@ components:
               minimum: 1
               maximum: 2147483647
             - type: 'null'
-          description: Último ticketId de esta página si hay más; null en la última o vacía. El cursor es
+          description:
+            Último ticketId de esta página si hay más; null en la última o vacía. El cursor es
             exclusivo.
     ReprintKitchenTicketRequest:
       type: object
       additionalProperties: false
       required:
         - reason
-      description: Cuerpo JSON estricto; solo reason. El motivo validado forma parte del hash junto a ticketId
+      description:
+        Cuerpo JSON estricto; solo reason. El motivo validado forma parte del hash junto a ticketId
         y se guarda en auditoría, sin exponerse en los resúmenes públicos.
       properties:
         reason:
@@ -3566,7 +4213,8 @@ components:
           minLength: 1
           maxLength: 200
           x-max-utf16-length: 200
-          description: Una sola línea, recortada antes de validar; 1–200 unidades UTF-16 (String.length),
+          description:
+            Una sola línea, recortada antes de validar; 1–200 unidades UTF-16 (String.length),
             sin categorías Unicode Cc/Cf/Zl/Zp. maxLength es un límite adicional de puntos de código; el límite
             UTF-16 se comprueba en el dominio. Blanco, controles o más de 200 unidades dan VALIDATION_ERROR
             con issue en reason.
@@ -3575,7 +4223,8 @@ components:
       additionalProperties: false
       required:
         - attempt
-      description: Body 202 original almacenado para replay. attempt.status es queued, pageCount null, completedPages
+      description:
+        Body 202 original almacenado para replay. attempt.status es queued, pageCount null, completedPages
         0, startedAt/finishedAt/errorCode null. Consultar GET para estado actual.
       properties:
         attempt:
@@ -3968,6 +4617,8 @@ components:
         - PRINT_SNAPSHOT_UNAVAILABLE (409, spec 013): comanda anterior sin snapshot original.
         En reimpresión (spec 013), IDEMPOTENCY_CONFLICT también indica clave de copia reutilizada
         con otro ticketId o motivo validado; no altera los scopes/cuerpos de la spec 010.
+        Spec 014: BILL_CHANGED (409), PENDING_VOIDS (409), ORDER_NOT_PAYABLE (409),
+        INSUFFICIENT_CASH (422), PAYMENT_NOT_FOUND (404).
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
       examples: [NOT_FOUND]
     ValidationIssue:
@@ -4116,7 +4767,8 @@ components:
       name: ticketId
       in: path
       required: true
-      description: 'Identificador de comanda: un único valor en dígitos, entero 1–2147483647. Forma/percent-encoding
+      description:
+        'Identificador de comanda: un único valor en dígitos, entero 1–2147483647. Forma/percent-encoding
         inválidos: 400 VALIDATION_ERROR, issue ticketId, mensaje El identificador de la comanda no es válido.'
       schema:
         type: integer
@@ -4127,7 +4779,8 @@ components:
       name: afterTicketId
       in: query
       required: false
-      description: 'Cursor exclusivo: un único entero positivo en dígitos, 1–2147483647. Ausente empieza la
+      description:
+        'Cursor exclusivo: un único entero positivo en dígitos, 1–2147483647. Ausente empieza la
         primera página. Valor inválido o repetido: 400 VALIDATION_ERROR, issue afterTicketId. No agrega un
         límite configurable: la página tiene hasta 50 tickets.'
       schema:
@@ -4139,7 +4792,8 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      description: 'Clave de copia global entre tickets, separada de las claves/scopes de la spec 010. Un
+      description:
+        'Clave de copia global entre tickets, separada de las claves/scopes de la spec 010. Un
         único valor de 1–128 caracteres ASCII visibles sin espacios; falta, duplicado o mala forma: 400 VALIDATION_ERROR,
         issue idempotencyKey. Misma clave + ticketId + reason validado devuelve el 202 original antes de las
         guardias de actividad/suspensión; otro ticket/motivo da 409 IDEMPOTENCY_CONFLICT.'
@@ -4753,7 +5407,8 @@ components:
               message: Esa comanda no existe.
               details: null
     KitchenTicketPrintConflict:
-      description: 'No se aceptó una copia nueva (spec 013). PRINT_IN_PROGRESS: el ticket tiene una generación
+      description:
+        'No se aceptó una copia nueva (spec 013). PRINT_IN_PROGRESS: el ticket tiene una generación
         activa o todo el destino está suspendido por I/O/propietario sin fin confirmado, incluso si otro ticket
         succeeded. PRINT_SNAPSHOT_UNAVAILABLE: comanda anterior sin snapshot original. IDEMPOTENCY_CONFLICT:
         clave de copia reutilizada con otro ticketId o motivo validado. Replay de una solicitud ya aceptada
@@ -4778,7 +5433,8 @@ components:
               value:
                 error:
                   code: PRINT_SNAPSHOT_UNAVAILABLE
-                  message: Esta comanda es anterior a la generación de archivos y no tiene una copia original
+                  message:
+                    Esta comanda es anterior a la generación de archivos y no tiene una copia original
                     guardada.
                   details: null
             idempotencyConflict:
