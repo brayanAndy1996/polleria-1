@@ -2,9 +2,9 @@
 
 Fecha: 2026-10-13. Fase 4, RF-13 y primer bloque de RF-14; auditoría mínima de RF-27.
 
-**Estado:** alcance aprobado por el usuario el 2026-10-13: un medio por pago (efectivo, Yape, Plin o tarjeta), pre-cuenta imprimible desde el navegador y cierre que libera mesas. Las reglas P-01…P-07 fueron aprobadas por el usuario con la aclaración de que todos los importes visibles y entradas deben estar en soles con decimales. Implementación desarrollada el 2026-10-16 en feat/014-cashier-payments, con OpenAPI 0.11.0 preparado. La validación transaccional/E2E contra PostgreSQL y el cierre C-01 siguen pendientes; la funcionalidad no está cerrada.
+**Estado:** alcance aprobado por el usuario el 2026-10-13: un medio por pago (efectivo, Yape, Plin o tarjeta), pre-cuenta imprimible desde el navegador y cierre que libera mesas. Las reglas P-01…P-07 fueron aprobadas con la aclaración de que los importes visibles y entradas deben estar en soles con decimales. Implementación y C-01 completados el 2026-10-16 en feat/014-cashier-payments, con OpenAPI0.11.0 implemented. Validación transaccional, cobertura y E2E contra polleria_test aprobados; evidencia y límites en verification.md. Pendiente revisión del usuario y autorización posterior para integrar a main/dev.
 
-Publicación documental: integrada a **main** el 2026-10-15 con autorización del usuario (merge `40c4631`). Origen: `feat/014-cashier-payments`, desde main `c3021d2`. **La implementación sigue pendiente**, empezando por S-01. La preparación demo y el rediseño azul fueron integrados posteriormente de dev a main el 2026-10-16 por autorización del usuario (merge `5e452c0`). La implementación de 014 permanece separada en su rama.
+Publicación documental: integrada a **main** el 2026-10-15 con autorización del usuario (merge `40c4631`). Origen: `feat/014-cashier-payments`, desde main `c3021d2`; en ese corte la implementación estaba pendiente. La preparación demo y el rediseño azul fueron integrados posteriormente de dev a main el 2026-10-16 por autorización del usuario (merge `5e452c0`). La implementación de014 permanece separada en su rama.
 
 ## 1. Resultado esperado
 
@@ -93,7 +93,7 @@ CHECK adicional: métodos no efectivo exigen recibido = amount y change = 0. Sin
 
 ## 6. API propuesta — contrato después de aprobar
 
-Base `/api`; no-store también en errores, incluidos rechazos del lector global. OpenAPI 0.11.0 preparado en S-01, con operaciones pending hasta completar las verificaciones de C-01. No se amplían esquemas antiguos de respuesta.
+Base `/api`; no-store también en errores, incluidos rechazos del lector global. OpenAPI0.11.0 preparado en S-01; sus cuatro operaciones están implemented tras las verificaciones de C-01. No se amplían esquemas antiguos de respuesta.
 
 | Método y ruta                      | Roles                | Respuesta                                                                                                                                                                                                       |
 | ---------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

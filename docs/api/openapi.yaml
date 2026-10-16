@@ -140,7 +140,7 @@ servers:
     description: API directa. Solo accesible desde la misma PC (HOST=127.0.0.1 por defecto).
 tags:
   - name: cashier
-    description: Pre-cuenta y cobro completo (014); contrato aprobado, implementación pendiente.
+    description: Pre-cuenta y cobro completo (014); implementado y validado con PostgreSQL aislado.
   - name: system
     description: Estado del sistema.
   - name: auth
@@ -163,7 +163,7 @@ paths:
       operationId: 'listCashierOrders'
       tags: ['cashier']
       summary: 'Roles cashier/admin'
-      x-implementation-status: 'pending'
+      x-implementation-status: 'implemented'
       x-spec: '014-cashier-payments'
       description: 'Roles cashier/admin. Pedidos open por id ascendente, páginas de 50; polling de todas las páginas conserva datos. canPay requiere ítems, total positivo en rango y sin anulaciones pendientes. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.'
       security:
@@ -246,7 +246,7 @@ paths:
       operationId: 'getOrderBill'
       tags: ['cashier']
       summary: 'Roles waiter/cashier/admin'
-      x-implementation-status: 'pending'
+      x-implementation-status: 'implemented'
       x-spec: '014-cashier-payments'
       description: 'Roles waiter/cashier/admin. Lectura REPEATABLE READ de pre-cuenta abierta sin datos privados de anulaciones. Excluye voided, incluye void_requested pero bloquea cobro; cremas suman sus cantidades propias, componentes no vuelven a sumarse. Token SHA-256 canónico de mesas e ítems activos ordenados; excluye generatedAt y marcas operativas. Imprimir no paga ni genera comanda. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.'
       security:
@@ -322,7 +322,7 @@ paths:
       operationId: 'createOrderPayment'
       tags: ['cashier']
       summary: 'Roles cashier/admin'
-      x-implementation-status: 'pending'
+      x-implementation-status: 'implemented'
       x-spec: '014-cashier-payments'
       description: 'Roles cashier/admin. Pago completo con confirmación manual; cash admite recibido mayor o igual, electrónico exacto y vuelto cero. Scope order_payment: misma clave/pedido/cuerpo normalizado devuelve 201 original incluso tras cierre; distinto cuerpo/pedido produce IDEMPOTENCY_CONFLICT. NO KEY UPDATE pedido y mesas ascendentes; recalcula token/total, snapshot inmutable, cierre y liberación atómicos. Un segundo cobro recibe ORDER_NOT_OPEN. Fallos revierten pago, cierre, mesas y clave. Sin I/O bancario ni impresión en transacción. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.'
       security:
@@ -414,7 +414,7 @@ paths:
       operationId: 'getPayment'
       tags: ['cashier']
       summary: 'Roles cashier/admin'
-      x-implementation-status: 'pending'
+      x-implementation-status: 'implemented'
       x-spec: '014-cashier-payments'
       description: 'Roles cashier/admin. Pago y snapshot históricos inmutables aun al renombrar usuarios/mesas/carta o reutilizar mesas. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.'
       security:

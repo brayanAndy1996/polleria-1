@@ -1,13 +1,14 @@
 # Progreso del proyecto — Sistema Pollería
 
-## 014 desarrollada, pendiente de DB — 2026-10-16
+## 014 implementada y validada — 2026-10-16
 
 - Dev integrado y publicado en main por autorización del usuario: merge `5e452c0`. El desarrollo nuevo está en `feat/014-cashier-payments`, sin integrar cobros a main.
-- Código I-01…I-04 desarrollado: schemas/dinero en soles, pre-cuenta/token, migración/modelo Payment, cierre transaccional/replay, cuatro endpoints, lista paginada/polling, confirmación/reintento, histórico e impresión manual. No declarar la 014 cerrada sin verificar PostgreSQL.
+- S-01…C-01 completados: schemas/dinero en soles, pre-cuenta/token, migración/modelo Payment, cierre transaccional/replay, cuatro endpoints, lista paginada/polling, confirmación/reintento, histórico e impresión manual. Validado con PostgreSQL17.5/polleria_test del usuario; ningún cambio en polleria_dev.
 - Principal verificó regresión sin DB: 92 archivos, 2076 pruebas aprobadas y 3 fallos esperados existentes. Controller 8/8 adicional; dirigido cliente/componentes/controller 28/28. Builds Turbopack y Webpack aprobados; caché antigua preservada fuera de ruta activa para resolver fallo inicial de PostCSS.
 - QA visual con fixtures interceptadas: 11 capturas a360/768/1440, sin overflow/pageerrors; foco/cancelación y retry con misma clave/cuerpo aprobados. Hoja print sin controles. Evidencia en docs/specs/014-cashier-payments/verification.md y qa/.
-- OpenAPI0.11.0: YAML y598 referencias locales comprobadas. Operaciones pending hasta C-01. Pruebas DB/E2E redactadas; cobertura global y ejecución real pendientes de DATABASE_URL_TEST. El checkout aún no tenía apps/api/.env; usuario indicó que configurará la conexión. No falta otra aprobación, no crear bases/roles ni tocar polleria_dev.
-- Reanudación: comprobar conexión exclusivamente _test sin imprimir credenciales; ejecutar integración/cobertura y E2E serializados, reparar hallazgos mediante roles separados y actualizar evidencia. No integrar 014 a main/dev sin la autorización correspondiente posterior a revisión.
+- Cierre:149 archivos/2880 pruebas aprobadas,5 fallos esperados previos separados; cobertura de líneas96,71 %, shared99,32 %, servicios de pagos90,62 %. Umbrales existentes sin cambios. Integración dirigida014:42/42. E2E reales:30 aprobados/14 no aplicables en ejecuciones serializadas separadas. Tipos/lint globales y builds Turbopack/Webpack aprobados. OpenAPI0.11:cuatro operaciones implemented,598 referencias verificadas.
+- Copia real del usuario: `C:\Users\braya\Desktop\proyectos1\polleria - copia`, permanece limpia en main. Se leyó exclusivamente DATABASE_URL_TEST de su .env sin copiar credenciales. Sus cuatro commits locales y pruebas se preservaron en la rama014 con merge `a06b4df`; conflictos de tests y fixtures antiguos conciliados. No se crearon bases/roles.
+- Siguiente paso: revisión del usuario de `feat/014-cashier-payments`; no integrar014 a main/dev sin autorización posterior. Sin prueba física, integración bancaria, pagos parciales/mixtos, caja avanzada ni comprobante fiscal. Evidencia detallada en verification.md de014.
 - Usuario reemplazó Luna por GPT-6.1-sol low para test-writer/trabajo sencillo. Implementación compleja mantiene6.1-sol medium. Principal mantiene docs/contrato y revisión; sin reviewer ni adversarial independientes. Ver AGENTS.md y docs/agents/modelos-codex.md.
 
 ## Actualización — 2026-10-16
