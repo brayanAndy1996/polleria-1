@@ -13,7 +13,7 @@ import {
   migrateAndClearAuthTables,
 } from './helpers/test-database.ts';
 
-const SEEDER_GLOB = `${import.meta.dirname}/../src/db/seeders/*.ts`;
+const SEEDER_GLOB = `${import.meta.dirname}/../src/db/seeders/*.ts`.replaceAll('\\', '/');
 
 describe('DEMO: datos de demostración sobre polleria_test', () => {
   let sequelize: Sequelize;

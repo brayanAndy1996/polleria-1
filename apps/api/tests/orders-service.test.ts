@@ -20,7 +20,6 @@ import {
   createOrderNotOpenError,
   createOrderService,
 } from '../src/services/orders/order.service.ts';
-import { createProductService } from '../src/services/products/product.service.ts';
 import {
   clearMenuTables,
   clearOrderTables,
@@ -415,7 +414,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     await expect(service.moveOrder(999999, mesa3, { userId: juan.id })).rejects.toMatchObject(
       ORDER_NOT_FOUND,
     );
-    await service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id, roles: juan.roles });
+    await service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id });
     await expect(service.moveOrder(p.id, mesa3, { userId: juan.id })).rejects.toMatchObject(
       ORDER_NOT_OPEN,
     );
@@ -546,7 +545,6 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
     await service.cancelOrder(p.id, 'Mesa abierta por error', {
       userId: juan.id,
-      roles: juan.roles,
     });
     // Mesa 3 quedó libre tras cancelar: unir hacia ella es TABLE_HAS_NO_ORDER.
     const mesa5 = await insertTable('Mesa 5');
@@ -657,7 +655,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
     const { tableId: mesa4, order: q } = await tableWithOrder('Mesa 4', juan.id);
     await service.joinTable(mesa4, mesa3, { userId: juan.id }); // Q queda merged en P.
-    await service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id, roles: juan.roles });
+    await service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id });
     // merged y cancelled son pedidos no abiertos: las tres señales dan ORDER_NOT_OPEN.
     for (const orderId of [p.id, q.id]) {
       await expect(service.requestBill(orderId, { userId: juan.id })).rejects.toMatchObject(
@@ -689,7 +687,6 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
 
     const cancelled = await service.cancelOrder(p.id, '  Se sentaron por error  ', {
       userId: dueno.id,
-      roles: dueno.roles,
     });
     expect(orderSchema.safeParse(cancelled).success).toBe(true);
     expect(cancelled).toMatchObject({
@@ -726,9 +723,9 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const juan = await createUser('salon.juan', 'Juan');
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
     for (const reason of ['', '   ', 'x'.repeat(201)])
-      await expect(
-        service.cancelOrder(p.id, reason, { userId: juan.id, roles: juan.roles }),
-      ).rejects.toBeInstanceOf(ZodError);
+      await expect(service.cancelOrder(p.id, reason, { userId: juan.id })).rejects.toBeInstanceOf(
+        ZodError,
+      );
     // El pedido sigue abierto y la mesa sigue ocupada.
     expect((await orderRow(p.id))[0]?.status).toBe('open');
     expect(await tableRow(mesa3)).toEqual([
@@ -741,13 +738,12 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const { order: p } = await tableWithOrder('Mesa 3', juan.id);
     await service.cancelOrder(p.id, 'Se sentaron por error', {
       userId: juan.id,
-      roles: juan.roles,
     });
     await expect(
-      service.cancelOrder(p.id, 'Otro motivo', { userId: juan.id, roles: juan.roles }),
+      service.cancelOrder(p.id, 'Otro motivo', { userId: juan.id }),
     ).rejects.toMatchObject(ORDER_NOT_OPEN);
     await expect(
-      service.cancelOrder(999999, 'Otro motivo', { userId: juan.id, roles: juan.roles }),
+      service.cancelOrder(999999, 'Otro motivo', { userId: juan.id }),
     ).rejects.toMatchObject(ORDER_NOT_FOUND);
     // El motivo y el cierre originales quedaron intactos (no se reescribió nada).
     expect((await orderRow(p.id))[0]).toMatchObject({
@@ -769,8 +765,8 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
   it('AC-12 (010): cancelar con un ítem sent o una solicitud pendiente responde 409 a todos', async () => {
     const juan = await createUser('salon.juan', 'Juan');
     const dueno = await createUser('salon.dueno', 'Do\u00F1a Luz', ['admin']);
-    const mozo = { userId: juan.id, roles: juan.roles };
-    const admin = { userId: dueno.id, roles: dueno.roles };
+    const mozo = { userId: juan.id };
+    const admin = { userId: dueno.id };
     const producto = await seedDrink();
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
     const ticket = await insertTicket(p.id, juan.id);
@@ -801,8 +797,8 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
   it('AC-12 (010): con todos los ítems anulados solo el admin puede cancelar', async () => {
     const juan = await createUser('salon.juan', 'Juan');
     const dueno = await createUser('salon.dueno', 'Do\u00F1a Luz', ['admin']);
-    const mozo = { userId: juan.id, roles: juan.roles };
-    const admin = { userId: dueno.id, roles: dueno.roles };
+    const mozo = { userId: juan.id };
+    const admin = { userId: dueno.id };
     const producto = await seedDrink();
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
     const ticket = await insertTicket(p.id, juan.id);
@@ -835,7 +831,6 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     // Sin una sola fila en order_items no hay guardia nueva: el mozo cancela (009).
     const cancelled = await service.cancelOrder(p.id, 'Se sentaron por error', {
       userId: juan.id,
-      roles: juan.roles,
     });
     expect(cancelled.status).toBe('cancelled');
   });
@@ -890,13 +885,6 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     ]);
   });
 });
-
-const ORDER_HAS_ACTIVE_ITEMS = {
-  code: 'ORDER_HAS_ACTIVE_ITEMS',
-  httpStatus: 409,
-  message: 'El pedido tiene \u00EDtems sin anular; un administrador debe anularlos primero.',
-};
-const FORBIDDEN = { code: 'FORBIDDEN', httpStatus: 403 };
 
 // AC-12 y AC-13 de la spec 010: las guardias y el merge con ítems. Va EN ROJO hasta
 // que T-09/T-10 creen order-item.service.ts y amplíen order.service.ts.

@@ -64,7 +64,7 @@ test.describe('014: cobro completo de Caja', () => {
     const { orderId, tableId } = await prepareOrder(page, ['E2E Pollo', 'E2E Gaseosa']);
     await page.addInitScript("Object.defineProperty(window, 'print', { value: () => undefined })");
     await page.goto(`/mozo/pedidos/${orderId}/cuenta`);
-    await expect(page.getByText('PRE-CUENTA')).toBeVisible();
+    await expect(page.getByText('PRE-CUENTA', { exact: true })).toBeVisible();
     await expect(page.getByText('No es comprobante de pago')).toBeVisible();
     await expect(page.getByRole('button', { name: /revisar cobro|cobrar/i })).toHaveCount(0);
     await page.getByRole('button', { name: /imprimir pre-cuenta/i }).click();

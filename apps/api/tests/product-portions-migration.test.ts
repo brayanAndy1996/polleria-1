@@ -18,6 +18,7 @@ const MIGRATIONS = [
   '20261010120000-create-tables-orders.ts',
   '20261011120000-create-order-items.ts',
   '20261012150000-create-kitchen-ticket-prints.ts',
+  '20261016120000-create-payments.ts',
 ];
 const PRODUCT_PORTIONS_MIGRATION = '20261009120000-create-product-portions.ts';
 const COMBO_ITEMS_MIGRATION = '20261009180000-create-combo-items.ts';
@@ -262,6 +263,10 @@ describe('006: tabla product_portions y su migración sobre polleria_test', () =
 
     // La última aplicada es la de la spec 010: revierte primero ella, luego la
     // de la 009 (tables y orders), la de la 007 (combo_items) y la de la 006.
+    expect(await tableExists(sequelize, 'payments')).toBe(true);
+    expect(await migrateDown(sequelize)).toEqual(['20261016120000-create-payments.ts']);
+    expect(await tableExists(sequelize, 'payments')).toBe(false);
+    expect(await tableExists(sequelize, 'kitchen_ticket_prints')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([
       '20261012150000-create-kitchen-ticket-prints.ts',
     ]);
@@ -287,6 +292,7 @@ describe('006: tabla product_portions y su migración sobre polleria_test', () =
       TABLES_ORDERS_MIGRATION,
       ORDER_ITEMS_MIGRATION,
       '20261012150000-create-kitchen-ticket-prints.ts',
+      '20261016120000-create-payments.ts',
     ]);
     expect(await tableExists(sequelize, 'product_portions')).toBe(true);
     expect(await tableExists(sequelize, 'combo_items')).toBe(true);

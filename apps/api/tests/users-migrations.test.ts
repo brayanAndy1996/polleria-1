@@ -24,6 +24,7 @@ const MIGRATIONS = [
   '20261010120000-create-tables-orders.ts',
   '20261011120000-create-order-items.ts',
   '20261012150000-create-kitchen-ticket-prints.ts',
+  '20261016120000-create-payments.ts',
 ];
 
 describe('003: migraciones de usuarios y sesiones', () => {
@@ -265,6 +266,10 @@ describe('003: migraciones de usuarios y sesiones', () => {
     // completa en orden inverso (ítems de la 010, tables/orders de la 009, combo_items,
     // product_portions, products, sessions, users).
     await assertConnectedToTestDatabase(sequelize);
+    expect(await tableExists(sequelize, 'payments')).toBe(true);
+    expect(await migrateDown(sequelize)).toEqual(['20261016120000-create-payments.ts']);
+    expect(await tableExists(sequelize, 'payments')).toBe(false);
+    expect(await tableExists(sequelize, 'kitchen_ticket_prints')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([
       '20261012150000-create-kitchen-ticket-prints.ts',
     ]);

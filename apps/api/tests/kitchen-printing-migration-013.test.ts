@@ -99,9 +99,16 @@ describe('013: migración durable de generación file en polleria_test', () => {
       kind: 'initial',
       createdByUserId: seed.waiter.id,
     });
+    expect(await tableExists(sequelize, 'payments')).toBe(true);
+    expect(await migrateDown(sequelize)).toEqual(['20261016120000-create-payments.ts']);
+    expect(await tableExists(sequelize, 'payments')).toBe(false);
     expect(await migrateDown(sequelize)).toEqual([PRINT_MIGRATION]);
     expect(await seed.models.KitchenTicket.count()).toBe(1);
-    expect(await migrateUp(sequelize)).toEqual([PRINT_MIGRATION]);
+    expect(await migrateUp(sequelize)).toEqual([
+      PRINT_MIGRATION,
+      '20261016120000-create-payments.ts',
+    ]);
+    expect(await tableExists(sequelize, 'payments')).toBe(true);
     expect(await sqlRows(sequelize, 'SELECT * FROM kitchen_ticket_prints')).toEqual([]);
     expect(await sqlRows(sequelize, 'SELECT * FROM kitchen_ticket_print_attempts')).toEqual([]);
     expect((await seed.models.KitchenTicket.findByPk(old.id))?.orderId).toBe(seed.order.id);
