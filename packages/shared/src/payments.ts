@@ -71,6 +71,14 @@ export const paymentSnapshotSchema = z
       !snapshot.bill.hasPendingVoids &&
       snapshot.bill.items.length > 0 &&
       snapshot.bill.items.every((item) => item.status === 'sent') &&
+      snapshot.bill.totalCents ===
+        snapshot.bill.items.reduce(
+          (total, item) =>
+            total +
+            item.quantity * item.priceCents +
+            item.sauces.reduce((sum, sauce) => sum + sauce.quantity * sauce.priceCents, 0),
+          0,
+        ) &&
       snapshot.amountCents === snapshot.bill.totalCents &&
       snapshot.receivedCents >= snapshot.amountCents &&
       snapshot.changeCents === snapshot.receivedCents - snapshot.amountCents &&
