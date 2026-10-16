@@ -35,7 +35,7 @@ const payment = {
     paidAt: '2026-10-16T15:00:00.000Z',
   },
 } satisfies Payment;
-const created = { order: { id: 41 }, payment } as CreatePaymentResponse;
+const created = { order: { id: 41 }, payment } as unknown as CreatePaymentResponse;
 
 function harness(
   overrides: {

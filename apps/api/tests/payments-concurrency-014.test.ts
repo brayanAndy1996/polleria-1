@@ -92,14 +92,26 @@ describe('014: concurrencia del cobro frente al salón', () => {
     };
     const results = await within(
       Promise.all([
-        settle(payments.createPayment(opened.orderId, body, 'two-cashiers-a-014', { userId: firstCashier })),
-        settle(payments.createPayment(opened.orderId, body, 'two-cashiers-b-014', { userId: secondCashier })),
+        settle(
+          payments.createPayment(opened.orderId, body, 'two-cashiers-a-014', {
+            userId: firstCashier,
+          }),
+        ),
+        settle(
+          payments.createPayment(opened.orderId, body, 'two-cashiers-b-014', {
+            userId: secondCashier,
+          }),
+        ),
       ]),
       'carrera dos cajeros',
     );
     expect(results.filter((result) => result.ok)).toHaveLength(1);
-    expect(await rows<{ count: number }>('SELECT count(*)::int AS count FROM payments WHERE order_id = $1', [opened.orderId]))
-      .toEqual([{ count: 1 }]);
+    expect(
+      await rows<{ count: number }>(
+        'SELECT count(*)::int AS count FROM payments WHERE order_id = $1',
+        [opened.orderId],
+      ),
+    ).toEqual([{ count: 1 }]);
   });
 
   it('AC-07: misma clave/cuerpo concurrente devuelve el mismo 201 original', async () => {
@@ -116,14 +128,22 @@ describe('014: concurrencia del cobro frente al salón', () => {
     };
     const [first, replay] = await within(
       Promise.all([
-        payments.createPayment(opened.orderId, body, 'same-key-concurrent-014', { userId: firstCashier }),
-        payments.createPayment(opened.orderId, body, 'same-key-concurrent-014', { userId: secondCashier }),
+        payments.createPayment(opened.orderId, body, 'same-key-concurrent-014', {
+          userId: firstCashier,
+        }),
+        payments.createPayment(opened.orderId, body, 'same-key-concurrent-014', {
+          userId: secondCashier,
+        }),
       ]),
       'replay concurrente',
     );
     expect(replay).toEqual(first);
-    expect(await rows<{ count: number }>('SELECT count(*)::int AS count FROM payments WHERE order_id = $1', [opened.orderId]))
-      .toEqual([{ count: 1 }]);
+    expect(
+      await rows<{ count: number }>(
+        'SELECT count(*)::int AS count FROM payments WHERE order_id = $1',
+        [opened.orderId],
+      ),
+    ).toEqual([{ count: 1 }]);
   });
 
   it.each(['send', 'request-void'] as const)(
