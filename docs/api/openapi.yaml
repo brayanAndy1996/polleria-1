@@ -159,422 +159,338 @@ tags:
     description: Generación file, atención de fallos y copias de comandas (spec 013 aprobada; operaciones implementadas).
 paths:
   /cashier/orders:
-    {
-      'get':
-        {
-          'operationId': 'listCashierOrders',
-          'tags': ['cashier'],
-          'summary': 'Roles cashier/admin',
-          'x-implementation-status': 'pending',
-          'x-spec': '014-cashier-payments',
-          'description': 'Roles cashier/admin. Pedidos open por id ascendente, páginas de 50; polling de todas las páginas conserva datos. canPay requiere ítems, total positivo en rango y sin anulaciones pendientes. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.',
-          'security': [{ 'sessionCookie': [] }],
-          'parameters':
-            [
-              {
-                'name': 'afterOrderId',
-                'in': 'query',
-                'required': false,
-                'schema': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
-                'description': 'Solo dígitos de entero positivo; parámetros desconocidos o duplicados rechazados.',
-              },
-            ],
-          'responses':
-            {
-              '200':
-                {
-                  'description': 'Resultado de la operación.',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/CashierOrdersResponse' } },
-                    },
-                },
-              '400':
-                {
-                  'description': 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '401':
-                {
-                  'description': 'UNAUTHENTICATED',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '403':
-                {
-                  'description': 'FORBIDDEN',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '404':
-                {
-                  'description': 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '409':
-                {
-                  'description': 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '500':
-                {
-                  'description': 'INTERNAL_ERROR sin detalles internos',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-            },
-        },
-    }
+    get:
+      operationId: 'listCashierOrders'
+      tags: ['cashier']
+      summary: 'Roles cashier/admin'
+      x-implementation-status: 'pending'
+      x-spec: '014-cashier-payments'
+      description: 'Roles cashier/admin. Pedidos open por id ascendente, páginas de 50; polling de todas las páginas conserva datos. canPay requiere ítems, total positivo en rango y sin anulaciones pendientes. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.'
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: 'afterOrderId'
+          in: 'query'
+          required: false
+          schema:
+            type: 'integer'
+            minimum: 1
+            maximum: 2147483647
+          description: 'Solo dígitos de entero positivo; parámetros desconocidos o duplicados rechazados.'
+      responses:
+        200:
+          description: 'Resultado de la operación.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashierOrdersResponse'
+        400:
+          description: 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: 'UNAUTHENTICATED'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          description: 'FORBIDDEN'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        404:
+          description: 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        409:
+          description: 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: 'INTERNAL_ERROR sin detalles internos'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /orders/{orderId}/bill:
-    {
-      'get':
-        {
-          'operationId': 'getOrderBill',
-          'tags': ['cashier'],
-          'summary': 'Roles waiter/cashier/admin',
-          'x-implementation-status': 'pending',
-          'x-spec': '014-cashier-payments',
-          'description': 'Roles waiter/cashier/admin. Lectura REPEATABLE READ de pre-cuenta abierta sin datos privados de anulaciones. Excluye voided, incluye void_requested pero bloquea cobro; cremas suman sus cantidades propias, componentes no vuelven a sumarse. Token SHA-256 canónico de mesas e ítems activos ordenados; excluye generatedAt y marcas operativas. Imprimir no paga ni genera comanda. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.',
-          'security': [{ 'sessionCookie': [] }],
-          'parameters': [{ '$ref': '#/components/parameters/OrderId' }],
-          'responses':
-            {
-              '200':
-                {
-                  'description': 'Resultado de la operación.',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/BillResponse' } },
-                    },
-                },
-              '400':
-                {
-                  'description': 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '401':
-                {
-                  'description': 'UNAUTHENTICATED',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '403':
-                {
-                  'description': 'FORBIDDEN',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '404':
-                {
-                  'description': 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '409':
-                {
-                  'description': 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '500':
-                {
-                  'description': 'INTERNAL_ERROR sin detalles internos',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-            },
-        },
-    }
+    get:
+      operationId: 'getOrderBill'
+      tags: ['cashier']
+      summary: 'Roles waiter/cashier/admin'
+      x-implementation-status: 'pending'
+      x-spec: '014-cashier-payments'
+      description: 'Roles waiter/cashier/admin. Lectura REPEATABLE READ de pre-cuenta abierta sin datos privados de anulaciones. Excluye voided, incluye void_requested pero bloquea cobro; cremas suman sus cantidades propias, componentes no vuelven a sumarse. Token SHA-256 canónico de mesas e ítems activos ordenados; excluye generatedAt y marcas operativas. Imprimir no paga ni genera comanda. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.'
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        200:
+          description: 'Resultado de la operación.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillResponse'
+        400:
+          description: 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: 'UNAUTHENTICATED'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          description: 'FORBIDDEN'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        404:
+          description: 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        409:
+          description: 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: 'INTERNAL_ERROR sin detalles internos'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /orders/{orderId}/payments:
-    {
-      'post':
-        {
-          'operationId': 'createOrderPayment',
-          'tags': ['cashier'],
-          'summary': 'Roles cashier/admin',
-          'x-implementation-status': 'pending',
-          'x-spec': '014-cashier-payments',
-          'description': 'Roles cashier/admin. Pago completo con confirmación manual; cash admite recibido mayor o igual, electrónico exacto y vuelto cero. Scope order_payment: misma clave/pedido/cuerpo normalizado devuelve 201 original incluso tras cierre; distinto cuerpo/pedido produce IDEMPOTENCY_CONFLICT. NO KEY UPDATE pedido y mesas ascendentes; recalcula token/total, snapshot inmutable, cierre y liberación atómicos. Un segundo cobro recibe ORDER_NOT_OPEN. Fallos revierten pago, cierre, mesas y clave. Sin I/O bancario ni impresión en transacción. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.',
-          'security': [{ 'sessionCookie': [] }],
-          'parameters':
-            [
-              { '$ref': '#/components/parameters/OrderId' },
-              { '$ref': '#/components/parameters/IdempotencyKey' },
-            ],
-          'requestBody':
-            {
-              'required': true,
-              'content':
-                {
-                  'application/json':
-                    { 'schema': { '$ref': '#/components/schemas/PaymentRequest' } },
-                },
-            },
-          'responses':
-            {
-              '201':
-                {
-                  'description': 'Resultado de la operación.',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/CreatePaymentResponse' } },
-                    },
-                },
-              '400':
-                {
-                  'description': 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '401':
-                {
-                  'description': 'UNAUTHENTICATED',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '403':
-                {
-                  'description': 'FORBIDDEN',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '404':
-                {
-                  'description': 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '409':
-                {
-                  'description': 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '422':
-                {
-                  'description': 'INSUFFICIENT_CASH',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '500':
-                {
-                  'description': 'INTERNAL_ERROR sin detalles internos',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-            },
-        },
-    }
+    post:
+      operationId: 'createOrderPayment'
+      tags: ['cashier']
+      summary: 'Roles cashier/admin'
+      x-implementation-status: 'pending'
+      x-spec: '014-cashier-payments'
+      description: 'Roles cashier/admin. Pago completo con confirmación manual; cash admite recibido mayor o igual, electrónico exacto y vuelto cero. Scope order_payment: misma clave/pedido/cuerpo normalizado devuelve 201 original incluso tras cierre; distinto cuerpo/pedido produce IDEMPOTENCY_CONFLICT. NO KEY UPDATE pedido y mesas ascendentes; recalcula token/total, snapshot inmutable, cierre y liberación atómicos. Un segundo cobro recibe ORDER_NOT_OPEN. Fallos revierten pago, cierre, mesas y clave. Sin I/O bancario ni impresión en transacción. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.'
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        201:
+          description: 'Resultado de la operación.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatePaymentResponse'
+        400:
+          description: 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: 'UNAUTHENTICATED'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          description: 'FORBIDDEN'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        404:
+          description: 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        409:
+          description: 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        422:
+          description: 'INSUFFICIENT_CASH'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: 'INTERNAL_ERROR sin detalles internos'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /payments/{paymentId}:
-    {
-      'get':
-        {
-          'operationId': 'getPayment',
-          'tags': ['cashier'],
-          'summary': 'Roles cashier/admin',
-          'x-implementation-status': 'pending',
-          'x-spec': '014-cashier-payments',
-          'description': 'Roles cashier/admin. Pago y snapshot históricos inmutables aun al renombrar usuarios/mesas/carta o reutilizar mesas. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.',
-          'security': [{ 'sessionCookie': [] }],
-          'parameters':
-            [
-              {
-                'name': 'paymentId',
-                'in': 'path',
-                'required': true,
-                'schema': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
-              },
-            ],
-          'responses':
-            {
-              '200':
-                {
-                  'description': 'Resultado de la operación.',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/PaymentResponse' } },
-                    },
-                },
-              '400':
-                {
-                  'description': 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '401':
-                {
-                  'description': 'UNAUTHENTICATED',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '403':
-                {
-                  'description': 'FORBIDDEN',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '404':
-                {
-                  'description': 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '409':
-                {
-                  'description': 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-              '500':
-                {
-                  'description': 'INTERNAL_ERROR sin detalles internos',
-                  'headers':
-                    { 'Cache-Control': { '$ref': '#/components/headers/CacheControlNoStore' } },
-                  'content':
-                    {
-                      'application/json':
-                        { 'schema': { '$ref': '#/components/schemas/ErrorResponse' } },
-                    },
-                },
-            },
-        },
-    }
+    get:
+      operationId: 'getPayment'
+      tags: ['cashier']
+      summary: 'Roles cashier/admin'
+      x-implementation-status: 'pending'
+      x-spec: '014-cashier-payments'
+      description: 'Roles cashier/admin. Pago y snapshot históricos inmutables aun al renombrar usuarios/mesas/carta o reutilizar mesas. Todas las respuestas, incluidos errores del lector global, llevan Cache-Control: no-store.'
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: 'paymentId'
+          in: 'path'
+          required: true
+          schema:
+            type: 'integer'
+            minimum: 1
+            maximum: 2147483647
+      responses:
+        200:
+          description: 'Resultado de la operación.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        400:
+          description: 'VALIDATION_ERROR; JSON, ids, query, cuerpo y clave estrictos.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        401:
+          description: 'UNAUTHENTICATED'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        403:
+          description: 'FORBIDDEN'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        404:
+          description: 'ORDER_NOT_FOUND o PAYMENT_NOT_FOUND'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        409:
+          description: 'ORDER_NOT_OPEN, BILL_CHANGED, PENDING_VOIDS, ORDER_NOT_PAYABLE o IDEMPOTENCY_CONFLICT'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        500:
+          description: 'INTERNAL_ERROR sin detalles internos'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /health:
     get:
       tags: [system]
@@ -2951,216 +2867,267 @@ components:
         Token de sesión aleatorio de 43 caracteres (base64url) que crea POST /auth/login. Cookie
         HttpOnly, SameSite=Strict, Path=/, Max-Age=57600, sin Secure (el local usa HTTP en la red).
   schemas:
-    PaymentMethod: { 'type': 'string', 'enum': ['cash', 'yape', 'plin', 'card'] }
-    PaymentCents: { 'type': 'integer', 'minimum': 0, 'maximum': 2147483647 }
-    BillToken: { 'type': 'string', 'pattern': '^[0-9a-f]{64}$' }
+    PaymentMethod:
+      type: 'string'
+      enum: ['cash', 'yape', 'plin', 'card']
+    PaymentCents:
+      type: 'integer'
+      minimum: 0
+      maximum: 2147483647
+    BillToken:
+      type: 'string'
+      pattern: '^[0-9a-f]{64}$'
     BillItem:
-      {
-        'type': 'object',
-        'additionalProperties': false,
-        'required':
-          [
-            'id',
-            'productId',
-            'productName',
-            'productCategory',
-            'quantity',
-            'priceCents',
-            'portion',
-            'cut',
-            'breastEighths',
-            'legEighths',
-            'notes',
-            'sauces',
-            'components',
-            'status',
-          ],
-        'properties':
-          {
-            'id': { '$ref': '#/components/schemas/OrderItem/properties/id' },
-            'productId': { '$ref': '#/components/schemas/OrderItem/properties/productId' },
-            'productName': { '$ref': '#/components/schemas/OrderItem/properties/productName' },
-            'productCategory':
-              { '$ref': '#/components/schemas/OrderItem/properties/productCategory' },
-            'quantity': { '$ref': '#/components/schemas/OrderItem/properties/quantity' },
-            'priceCents': { '$ref': '#/components/schemas/OrderItem/properties/priceCents' },
-            'portion': { '$ref': '#/components/schemas/OrderItem/properties/portion' },
-            'cut': { '$ref': '#/components/schemas/OrderItem/properties/cut' },
-            'breastEighths': { '$ref': '#/components/schemas/OrderItem/properties/breastEighths' },
-            'legEighths': { '$ref': '#/components/schemas/OrderItem/properties/legEighths' },
-            'notes': { '$ref': '#/components/schemas/OrderItem/properties/notes' },
-            'sauces': { '$ref': '#/components/schemas/OrderItem/properties/sauces' },
-            'components': { '$ref': '#/components/schemas/OrderItem/properties/components' },
-            'status': { 'type': 'string', 'enum': ['sent', 'void_requested'] },
-          },
-      }
+      type: 'object'
+      additionalProperties: false
+      required:
+        [
+          'id',
+          'productId',
+          'productName',
+          'productCategory',
+          'quantity',
+          'priceCents',
+          'portion',
+          'cut',
+          'breastEighths',
+          'legEighths',
+          'notes',
+          'sauces',
+          'components',
+          'status',
+        ]
+      properties:
+        id:
+          $ref: '#/components/schemas/OrderItem/properties/id'
+        productId:
+          $ref: '#/components/schemas/OrderItem/properties/productId'
+        productName:
+          $ref: '#/components/schemas/OrderItem/properties/productName'
+        productCategory:
+          $ref: '#/components/schemas/OrderItem/properties/productCategory'
+        quantity:
+          $ref: '#/components/schemas/OrderItem/properties/quantity'
+        priceCents:
+          $ref: '#/components/schemas/OrderItem/properties/priceCents'
+        portion:
+          $ref: '#/components/schemas/OrderItem/properties/portion'
+        cut:
+          $ref: '#/components/schemas/OrderItem/properties/cut'
+        breastEighths:
+          $ref: '#/components/schemas/OrderItem/properties/breastEighths'
+        legEighths:
+          $ref: '#/components/schemas/OrderItem/properties/legEighths'
+        notes:
+          $ref: '#/components/schemas/OrderItem/properties/notes'
+        sauces:
+          $ref: '#/components/schemas/OrderItem/properties/sauces'
+        components:
+          $ref: '#/components/schemas/OrderItem/properties/components'
+        status:
+          type: 'string'
+          enum: ['sent', 'void_requested']
     Bill:
-      {
-        'type': 'object',
-        'additionalProperties': false,
-        'required':
-          [
-            'orderId',
-            'tables',
-            'items',
-            'totalCents',
-            'hasPendingVoids',
-            'canPay',
-            'billToken',
-            'generatedAt',
-          ],
-        'properties':
-          {
-            'orderId': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
-            'tables': { 'type': 'array', 'items': { '$ref': '#/components/schemas/TableRef' } },
-            'items': { 'type': 'array', 'items': { '$ref': '#/components/schemas/BillItem' } },
-            'totalCents': { 'type': 'integer', 'minimum': 0, 'maximum': 9007199254740991 },
-            'hasPendingVoids': { 'type': 'boolean' },
-            'canPay': { 'type': 'boolean' },
-            'billToken': { '$ref': '#/components/schemas/BillToken' },
-            'generatedAt': { 'type': 'string', 'format': 'date-time' },
-          },
-      }
+      type: 'object'
+      additionalProperties: false
+      required:
+        [
+          'orderId',
+          'tables',
+          'items',
+          'totalCents',
+          'hasPendingVoids',
+          'canPay',
+          'billToken',
+          'generatedAt',
+        ]
+      properties:
+        orderId:
+          type: 'integer'
+          minimum: 1
+          maximum: 2147483647
+        tables:
+          type: 'array'
+          items:
+            $ref: '#/components/schemas/TableRef'
+        items:
+          type: 'array'
+          items:
+            $ref: '#/components/schemas/BillItem'
+        totalCents:
+          type: 'integer'
+          minimum: 0
+          maximum: 9007199254740991
+        hasPendingVoids:
+          type: 'boolean'
+        canPay:
+          type: 'boolean'
+        billToken:
+          $ref: '#/components/schemas/BillToken'
+        generatedAt:
+          type: 'string'
+          format: 'date-time'
     BillResponse:
-      {
-        'type': 'object',
-        'additionalProperties': false,
-        'required': ['bill'],
-        'properties': { 'bill': { '$ref': '#/components/schemas/Bill' } },
-      }
+      type: 'object'
+      additionalProperties: false
+      required: ['bill']
+      properties:
+        bill:
+          $ref: '#/components/schemas/Bill'
     PaymentRequest:
-      {
-        'type': 'object',
-        'additionalProperties': false,
-        'required': ['method', 'receivedCents', 'billToken', 'confirmedReceived'],
-        'properties':
-          {
-            'method': { '$ref': '#/components/schemas/PaymentMethod' },
-            'receivedCents': { '$ref': '#/components/schemas/PaymentCents' },
-            'billToken': { '$ref': '#/components/schemas/BillToken' },
-            'confirmedReceived': { 'type': 'boolean', 'const': true },
-          },
-      }
+      type: 'object'
+      additionalProperties: false
+      required: ['method', 'receivedCents', 'billToken', 'confirmedReceived']
+      properties:
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        receivedCents:
+          $ref: '#/components/schemas/PaymentCents'
+        billToken:
+          $ref: '#/components/schemas/BillToken'
+        confirmedReceived:
+          type: 'boolean'
+          const: true
     PaymentSnapshot:
-      {
-        'type': 'object',
-        'additionalProperties': false,
-        'required':
-          [
-            'version',
-            'bill',
-            'cashier',
-            'method',
-            'amountCents',
-            'receivedCents',
-            'changeCents',
-            'paidAt',
-          ],
-        'properties':
-          {
-            'version': { 'type': 'integer', 'const': 1 },
-            'bill': { '$ref': '#/components/schemas/Bill' },
-            'cashier': { '$ref': '#/components/schemas/UserRef' },
-            'method': { '$ref': '#/components/schemas/PaymentMethod' },
-            'amountCents': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
-            'receivedCents': { '$ref': '#/components/schemas/PaymentCents' },
-            'changeCents': { '$ref': '#/components/schemas/PaymentCents' },
-            'paidAt': { 'type': 'string', 'format': 'date-time' },
-          },
-      }
+      type: 'object'
+      additionalProperties: false
+      required:
+        [
+          'version',
+          'bill',
+          'cashier',
+          'method',
+          'amountCents',
+          'receivedCents',
+          'changeCents',
+          'paidAt',
+        ]
+      properties:
+        version:
+          type: 'integer'
+          const: 1
+        bill:
+          $ref: '#/components/schemas/Bill'
+        cashier:
+          $ref: '#/components/schemas/UserRef'
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amountCents:
+          type: 'integer'
+          minimum: 1
+          maximum: 2147483647
+        receivedCents:
+          $ref: '#/components/schemas/PaymentCents'
+        changeCents:
+          $ref: '#/components/schemas/PaymentCents'
+        paidAt:
+          type: 'string'
+          format: 'date-time'
+      description: 'Registro histórico validado antes de escribir: cuenta cobrable y sin anulaciones pendientes, suma exacta de ítems y cremas igual al total y amountCents; receivedCents >= amountCents, changeCents es su diferencia. Para medios electrónicos ambos importes coinciden y vuelto es cero.'
     Payment:
-      {
-        'type': 'object',
-        'additionalProperties': false,
-        'required':
-          [
-            'id',
-            'orderId',
-            'method',
-            'amountCents',
-            'receivedCents',
-            'changeCents',
-            'cashier',
-            'paidAt',
-            'snapshot',
-          ],
-        'properties':
-          {
-            'id': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
-            'orderId': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
-            'method': { '$ref': '#/components/schemas/PaymentMethod' },
-            'amountCents': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
-            'receivedCents': { '$ref': '#/components/schemas/PaymentCents' },
-            'changeCents': { '$ref': '#/components/schemas/PaymentCents' },
-            'cashier': { '$ref': '#/components/schemas/UserRef' },
-            'paidAt': { 'type': 'string', 'format': 'date-time' },
-            'snapshot': { '$ref': '#/components/schemas/PaymentSnapshot' },
-          },
-      }
+      type: 'object'
+      additionalProperties: false
+      required:
+        [
+          'id',
+          'orderId',
+          'method',
+          'amountCents',
+          'receivedCents',
+          'changeCents',
+          'cashier',
+          'paidAt',
+          'snapshot',
+        ]
+      properties:
+        id:
+          type: 'integer'
+          minimum: 1
+          maximum: 2147483647
+        orderId:
+          type: 'integer'
+          minimum: 1
+          maximum: 2147483647
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        amountCents:
+          type: 'integer'
+          minimum: 1
+          maximum: 2147483647
+        receivedCents:
+          $ref: '#/components/schemas/PaymentCents'
+        changeCents:
+          $ref: '#/components/schemas/PaymentCents'
+        cashier:
+          $ref: '#/components/schemas/UserRef'
+        paidAt:
+          type: 'string'
+          format: 'date-time'
+        snapshot:
+          $ref: '#/components/schemas/PaymentSnapshot'
+      description: 'Los campos duplicados de pedido, cajero, medio, importes y fecha deben coincidir con el snapshot inmutable.'
     PaymentResponse:
-      {
-        'type': 'object',
-        'additionalProperties': false,
-        'required': ['payment'],
-        'properties': { 'payment': { '$ref': '#/components/schemas/Payment' } },
-      }
+      type: 'object'
+      additionalProperties: false
+      required: ['payment']
+      properties:
+        payment:
+          $ref: '#/components/schemas/Payment'
     CreatePaymentResponse:
-      {
-        'type': 'object',
-        'additionalProperties': false,
-        'required': ['order', 'payment'],
-        'properties':
-          {
-            'order': { '$ref': '#/components/schemas/Order' },
-            'payment': { '$ref': '#/components/schemas/Payment' },
-          },
-      }
+      type: 'object'
+      additionalProperties: false
+      required: ['order', 'payment']
+      properties:
+        order:
+          $ref: '#/components/schemas/Order'
+        payment:
+          $ref: '#/components/schemas/Payment'
     CashierOrderSummary:
-      {
-        'type': 'object',
-        'additionalProperties': false,
-        'required':
-          [
-            'id',
-            'tables',
-            'totalCents',
-            'openedAt',
-            'billRequestedAt',
-            'hasPendingVoids',
-            'canPay',
-          ],
-        'properties':
-          {
-            'id': { 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 },
-            'tables': { 'type': 'array', 'items': { '$ref': '#/components/schemas/TableRef' } },
-            'totalCents': { 'type': 'integer', 'minimum': 0, 'maximum': 9007199254740991 },
-            'openedAt': { 'type': 'string', 'format': 'date-time' },
-            'billRequestedAt':
-              { 'oneOf': [{ 'type': 'string', 'format': 'date-time' }, { 'type': 'null' }] },
-            'hasPendingVoids': { 'type': 'boolean' },
-            'canPay': { 'type': 'boolean' },
-          },
-      }
+      type: 'object'
+      additionalProperties: false
+      required:
+        ['id', 'tables', 'totalCents', 'openedAt', 'billRequestedAt', 'hasPendingVoids', 'canPay']
+      properties:
+        id:
+          type: 'integer'
+          minimum: 1
+          maximum: 2147483647
+        tables:
+          type: 'array'
+          items:
+            $ref: '#/components/schemas/TableRef'
+        totalCents:
+          type: 'integer'
+          minimum: 0
+          maximum: 9007199254740991
+        openedAt:
+          type: 'string'
+          format: 'date-time'
+        billRequestedAt:
+          oneOf:
+            - type: 'string'
+              format: 'date-time'
+            - type: 'null'
+        hasPendingVoids:
+          type: 'boolean'
+        canPay:
+          type: 'boolean'
     CashierOrdersResponse:
-      {
-        'type': 'object',
-        'additionalProperties': false,
-        'required': ['orders', 'nextAfterOrderId'],
-        'properties':
-          {
-            'orders':
-              {
-                'type': 'array',
-                'items': { '$ref': '#/components/schemas/CashierOrderSummary' },
-                'maxItems': 50,
-              },
-            'nextAfterOrderId':
-              {
-                'oneOf':
-                  [{ 'type': 'integer', 'minimum': 1, 'maximum': 2147483647 }, { 'type': 'null' }],
-              },
-          },
-      }
+      type: 'object'
+      additionalProperties: false
+      required: ['orders', 'nextAfterOrderId']
+      properties:
+        orders:
+          type: 'array'
+          items:
+            $ref: '#/components/schemas/CashierOrderSummary'
+          maxItems: 50
+        nextAfterOrderId:
+          oneOf:
+            - type: 'integer'
+              minimum: 1
+              maximum: 2147483647
+            - type: 'null'
     HealthStatus:
       type: string
       enum: [ok, error]
