@@ -1,13 +1,14 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
-## 014 en desarrollo — 2026-10-16
+## 014 desarrollada, pendiente de DB — 2026-10-16
 
-- Usuario autorizó integrar dev en main: merge `5e452c0` publicado. Incluye demo y rediseño azul, conserva la skill instalada por separado en main y la spec 014 aprobada. Conflictos resueltos solo en configuración/documentación, conservando ambos aportes.
-- Desarrollo continúa en `feat/014-cashier-payments`, actualizada desde main. La autorización anterior integra dev; no publica automáticamente la futura implementación de cobros en main.
-- S-01: OpenAPI 0.11.0 con cuatro operaciones pending y schemas; sintaxis y 598 referencias locales comprobadas. T-01/I-01: pre-cuenta pura, token canónico, esquemas estrictos y dinero en soles; 66 pruebas dirigidas aprobadas. Refinamiento adicional de snapshot desde rojo causal para rechazar detalle inconsistente.
-- Regresión shared/API unit: 45 archivos, 1318 pruebas aprobadas y 3 fallos esperados existentes; ejecución con sockets locales, sin DB. No se cuentan los fallos esperados como aprobados.
-- T-02/I-02 y demás bloques siguen pendientes. Este checkout no tenía apps/api/.env ni DATABASE_URL_TEST; usuario indicó que configurará la base _test. No se creó ni migró ninguna base de desarrollo. No afirmar cobros funcionales ni cierre de 014 sin integración/DB, UI y E2E.
-- Roles: test-writer Luna medium; implementer GPT-6.1-sol medium para dinero/transacciones; principal contrato/revisión. Sin reviewer ni adversarial independientes.
+- Dev integrado y publicado en main por autorización del usuario: merge `5e452c0`. El desarrollo nuevo está en `feat/014-cashier-payments`, sin integrar cobros a main.
+- Código I-01…I-04 desarrollado: schemas/dinero en soles, pre-cuenta/token, migración/modelo Payment, cierre transaccional/replay, cuatro endpoints, lista paginada/polling, confirmación/reintento, histórico e impresión manual. No declarar la 014 cerrada sin verificar PostgreSQL.
+- Principal verificó regresión sin DB: 92 archivos, 2076 pruebas aprobadas y 3 fallos esperados existentes. Controller 8/8 adicional; dirigido cliente/componentes/controller 28/28. Builds Turbopack y Webpack aprobados; caché antigua preservada fuera de ruta activa para resolver fallo inicial de PostCSS.
+- QA visual con fixtures interceptadas: 11 capturas a360/768/1440, sin overflow/pageerrors; foco/cancelación y retry con misma clave/cuerpo aprobados. Hoja print sin controles. Evidencia en docs/specs/014-cashier-payments/verification.md y qa/.
+- OpenAPI0.11.0: YAML y598 referencias locales comprobadas. Operaciones pending hasta C-01. Pruebas DB/E2E redactadas; cobertura global y ejecución real pendientes de DATABASE_URL_TEST. El checkout aún no tenía apps/api/.env; usuario indicó que configurará la conexión. No falta otra aprobación, no crear bases/roles ni tocar polleria_dev.
+- Reanudación: comprobar conexión exclusivamente _test sin imprimir credenciales; ejecutar integración/cobertura y E2E serializados, reparar hallazgos mediante roles separados y actualizar evidencia. No integrar 014 a main/dev sin la autorización correspondiente posterior a revisión.
+- Usuario reemplazó Luna por GPT-6.1-sol low para test-writer/trabajo sencillo. Implementación compleja mantiene6.1-sol medium. Principal mantiene docs/contrato y revisión; sin reviewer ni adversarial independientes. Ver AGENTS.md y docs/agents/modelos-codex.md.
 
 ## Actualización — 2026-10-16
 
