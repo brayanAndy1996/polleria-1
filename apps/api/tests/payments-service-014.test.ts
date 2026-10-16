@@ -1,18 +1,19 @@
 // AC-04, AC-05, AC-09 y AC-11. Requiere exclusivamente DATABASE_URL_TEST (polleria_test).
 import { QueryTypes, Sequelize } from 'sequelize';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPaymentResponseSchema } from '@polleria/shared';
 import type { PaymentRequest } from '@polleria/shared';
 import { defineModels } from '../src/models/index.ts';
 import type { Models } from '../src/models/index.ts';
 import { createPaymentService } from '../src/services/payments/payment.service.ts';
+import { createPaymentOrderFixture } from './helpers/payment-fixtures.ts';
+import { migrateUp } from '../src/db/migrator.ts';
 import {
   clearAuthTables,
   clearMenuTables,
   clearOrderTables,
   closeTestDatabase,
   connectTestDatabase,
-  migrateUp,
 } from './helpers/test-database.ts';
 
 const NOW = new Date('2026-10-16T15:00:00.000Z');
@@ -24,52 +25,25 @@ async function rows<T extends object>(sql: string, bind?: unknown[]): Promise<T[
   return sequelize.query<T>(sql, { type: QueryTypes.SELECT, bind });
 }
 
-async function createOpenOrderWithItem(tableCount = 2) {
+async function createCashierUser() {
   const userRows = await rows<{ id: number }>(
     'INSERT INTO users (username, display_name, pin_hash, roles, created_at, updated_at) ' +
       "VALUES ($1, 'Rosa', $2, '{cashier}', now(), now()) RETURNING id",
     ['cashier.test', 'x'.repeat(60)],
   );
-  const userId = userRows[0]!.id;
-  const tables: number[] = [];
-  for (let index = 0; index < tableCount; index += 1) {
-    const tableRows = await rows<{ id: number }>(
-      'INSERT INTO tables (name, is_active, created_at, updated_at) ' +
-        'VALUES ($1, true, now(), now()) RETURNING id',
-      [`Mesa pago ${index + 1}`],
-    );
-    tables.push(tableRows[0]!.id);
-  }
-  const orderRows = await rows<{ id: number }>(
-    'INSERT INTO orders (status, opened_by_user_id, opened_at, created_at, updated_at) ' +
-      "VALUES ('open', $1, now(), now(), now()) RETURNING id",
-    [userId],
-  );
-  const orderId = orderRows[0]!.id;
-  await sequelize.query('UPDATE tables SET current_order_id = $1 WHERE id = ANY($2::int[])', {
-    bind: [orderId, tables],
-  });
-  const productRows = await rows<{ id: number }>(
-    'INSERT INTO products (name, category, price_cents, is_active, created_at, updated_at) ' +
-      "VALUES ('Gaseosa congelada', 'drink', 2100, true, now(), now()) RETURNING id",
-  );
-  const productId = productRows[0]!.id;
-  const ticketRows = await rows<{ id: number }>(
-    'INSERT INTO kitchen_tickets (order_id, kind, created_by_user_id, created_at, updated_at) ' +
-      "VALUES ($1, 'initial', $2, now(), now()) RETURNING id",
-    [orderId, userId],
-  );
-  const itemRows = await rows<{ id: number }>(
-    'INSERT INTO order_items (order_id, product_id, product_name, product_category, quantity, ' +
-      'price_cents, status, kitchen_ticket_id, created_by_user_id, created_at, updated_at) ' +
-      "VALUES ($1,$2,'Gaseosa congelada','drink',1,2100,'sent',$3,$4,now(),now()) RETURNING id",
-    [orderId, productId, ticketRows[0]!.id, userId],
-  );
-  return { orderId, userId, tables, productId, itemId: itemRows[0]!.id };
+  return userRows[0]!.id;
 }
 
 async function countPayments(): Promise<number> {
   const result = await rows<{ count: number }>('SELECT count(*)::int AS count FROM payments');
+  return result[0]!.count;
+}
+
+async function countPaymentKeys(key: string): Promise<number> {
+  const result = await rows<{ count: number }>(
+    "SELECT count(*)::int AS count FROM idempotency_keys WHERE scope = 'order_payment' AND key = $1",
+    [key],
+  );
   return result[0]!.count;
 }
 
@@ -78,6 +52,9 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await closeTestDatabase(sequelize);
+});
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 beforeEach(async () => {
   await migrateUp(sequelize);
@@ -90,7 +67,8 @@ beforeEach(async () => {
 
 describe('014: cobro transaccional sobre polleria_test', () => {
   it('AC-04: efectivo registra total/vuelto, cierra pedido y libera todas las mesas', async () => {
-    const { orderId, userId, tables } = await createOpenOrderWithItem();
+    const userId = await createCashierUser();
+    const { orderId, tables } = await createPaymentOrderFixture(sequelize, userId);
     const bill = await service.getBill(orderId, { userId });
     const request: PaymentRequest = {
       method: 'cash',
@@ -125,7 +103,8 @@ describe('014: cobro transaccional sobre polleria_test', () => {
   it.each(['yape', 'plin', 'card'] as const)(
     'AC-05: %s requiere confirmación y registra recibido exacto sin vuelto',
     async (method) => {
-      const { orderId, userId } = await createOpenOrderWithItem(1);
+      const userId = await createCashierUser();
+      const { orderId } = await createPaymentOrderFixture(sequelize, userId, { tableCount: 1 });
       const bill = await service.getBill(orderId, { userId });
       const response = await service.createPayment(
         orderId,
@@ -150,7 +129,8 @@ describe('014: cobro transaccional sobre polleria_test', () => {
   );
 
   it('AC-06: rechaza recibido insuficiente, token vencido y anulación pendiente sin mutar', async () => {
-    const { orderId, userId, tables, itemId } = await createOpenOrderWithItem();
+    const userId = await createCashierUser();
+    const { orderId, tables, itemId } = await createPaymentOrderFixture(sequelize, userId);
     const bill = await service.getBill(orderId, { userId });
     const underpaid: PaymentRequest = {
       method: 'cash',
@@ -199,7 +179,10 @@ describe('014: cobro transaccional sobre polleria_test', () => {
   });
 
   it('AC-11: snapshot conserva nombres, mesas y detalle al renombrar y reusar la mesa', async () => {
-    const { orderId, userId, tables, productId } = await createOpenOrderWithItem(1);
+    const userId = await createCashierUser();
+    const { orderId, tables, productId } = await createPaymentOrderFixture(sequelize, userId, {
+      tableCount: 1,
+    });
     const bill = await service.getBill(orderId, { userId });
     const response = await service.createPayment(
       orderId,
@@ -242,7 +225,8 @@ describe('014: cobro transaccional sobre polleria_test', () => {
   });
 
   it('AC-09: una inserción fallida revierte el cierre, las mesas y la clave idempotente', async () => {
-    const { orderId, userId, tables } = await createOpenOrderWithItem();
+    const userId = await createCashierUser();
+    const { orderId, tables } = await createPaymentOrderFixture(sequelize, userId);
     const bill = await service.getBill(orderId, { userId });
     const request: PaymentRequest = {
       method: 'cash',
@@ -272,4 +256,74 @@ describe('014: cobro transaccional sobre polleria_test', () => {
       service.createPayment(orderId, request, 'rollback-insert-001', { userId }),
     ).resolves.toMatchObject({ order: { status: 'closed' } });
   });
+
+  it.each([
+    [
+      'order update',
+      () => {
+        vi.spyOn(models.Order.prototype, 'update').mockRejectedValueOnce(
+          new Error('fallo forzado al cerrar pedido'),
+        );
+        return 'fallo forzado al cerrar pedido';
+      },
+    ],
+    [
+      'table release',
+      () => {
+        vi.spyOn(models.Table, 'update').mockRejectedValueOnce(
+          new Error('fallo forzado al liberar mesas'),
+        );
+        return 'fallo forzado al liberar mesas';
+      },
+    ],
+    [
+      'idempotency response',
+      () => {
+        const query = sequelize.query.bind(sequelize);
+        vi.spyOn(sequelize, 'query').mockImplementation(((sql: string, options?: unknown) => {
+          if (sql.startsWith('UPDATE idempotency_keys SET response_status'))
+            return Promise.reject(new Error('fallo forzado al guardar respuesta'));
+          return query(sql, options as never);
+        }) as typeof sequelize.query);
+        return 'fallo forzado al guardar respuesta';
+      },
+    ],
+  ])(
+    'AC-09: %s fallido revierte todas las mutaciones y permite reintentar',
+    async (_phase, installFailure) => {
+      const userId = await createCashierUser();
+      const { orderId, tables } = await createPaymentOrderFixture(sequelize, userId);
+      const bill = await service.getBill(orderId, { userId });
+      const request: PaymentRequest = {
+        method: 'cash',
+        receivedCents: 3000,
+        billToken: bill.billToken,
+        confirmedReceived: true,
+      };
+      const key = `rollback-${String(_phase).replaceAll(' ', '-')}-014`;
+      const message = installFailure();
+
+      await expect(service.createPayment(orderId, request, key, { userId })).rejects.toThrow(
+        message,
+      );
+      expect(await countPayments()).toBe(0);
+      expect(await countPaymentKeys(key)).toBe(0);
+      expect(
+        await rows<{ status: string }>('SELECT status FROM orders WHERE id = $1', [orderId]),
+      ).toEqual([{ status: 'open' }]);
+      expect(
+        await rows<{ current_order_id: number | null }>(
+          'SELECT current_order_id FROM tables WHERE id = ANY($1::int[]) ORDER BY id',
+          [tables],
+        ),
+      ).toEqual(tables.map(() => ({ current_order_id: orderId })));
+
+      vi.restoreAllMocks();
+      await expect(service.createPayment(orderId, request, key, { userId })).resolves.toMatchObject(
+        { order: { status: 'closed' } },
+      );
+      expect(await countPayments()).toBe(1);
+      expect(await countPaymentKeys(key)).toBe(1);
+    },
+  );
 });
