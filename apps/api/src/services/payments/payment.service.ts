@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { QueryTypes, Transaction } from 'sequelize';
+import { Op, QueryTypes, Transaction } from 'sequelize';
 import {
   createPaymentResponseSchema,
   hasAnyRole,
@@ -8,7 +8,13 @@ import {
   paymentSchema,
   paymentSnapshotSchema,
 } from '@polleria/shared';
-import type { Bill, CreatePaymentResponse, Payment, UserRole } from '@polleria/shared';
+import type {
+  Bill,
+  CashierOrdersResponse,
+  CreatePaymentResponse,
+  Payment,
+  UserRole,
+} from '@polleria/shared';
 import { AppError } from '../../errors/app-error.ts';
 import type { Models, OrderModel, PaymentModel } from '../../models/index.ts';
 import { loadOrderViews } from '../orders/order-view.ts';
@@ -24,6 +30,10 @@ export interface PaymentActor {
   userId: number;
 }
 export interface PaymentService {
+  listCashierOrders(
+    afterOrderId: number | undefined,
+    actor: PaymentActor,
+  ): Promise<CashierOrdersResponse>;
   getBill(orderId: number, actor: PaymentActor): Promise<Bill>;
   createPayment(
     orderId: number,
@@ -81,6 +91,43 @@ export function createPaymentService({
   }
 
   return {
+    async listCashierOrders(afterOrderId, actor) {
+      return sequelize.transaction(
+        { isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ },
+        async (transaction) => {
+          await authorizedUser(actor, ['cashier', 'admin'], transaction);
+          const rows = await models.Order.findAll({
+            where: {
+              status: 'open',
+              ...(afterOrderId === undefined ? {} : { id: { [Op.gt]: afterOrderId } }),
+            },
+            order: [['id', 'ASC']],
+            limit: 51,
+            transaction,
+          });
+          const page = rows.slice(0, 50);
+          const views = await loadOrderViews(models, page, { transaction });
+          const generatedAt = now().toISOString();
+          return {
+            orders: page.map((row) => {
+              const order = views.get(row.id);
+              if (order === undefined) throw new Error('No se pudo leer el pedido.');
+              const bill = buildBill(order, generatedAt);
+              return {
+                id: row.id,
+                tables: bill.tables,
+                totalCents: bill.totalCents,
+                openedAt: order.openedAt,
+                billRequestedAt: order.billRequestedAt,
+                hasPendingVoids: bill.hasPendingVoids,
+                canPay: bill.canPay,
+              };
+            }),
+            nextAfterOrderId: rows.length > 50 ? page[page.length - 1]!.id : null,
+          };
+        },
+      );
+    },
     async getBill(orderId, actor) {
       return sequelize.transaction(
         { isolationLevel: Transaction.ISOLATION_LEVELS.REPEATABLE_READ },
