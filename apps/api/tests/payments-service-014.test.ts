@@ -358,10 +358,13 @@ describe('014: cobro transaccional sobre polleria_test', () => {
       'idempotency response',
       () => {
         const query = sequelize.query.bind(sequelize);
-        vi.spyOn(sequelize, 'query').mockImplementation(((sql: string, options?: unknown) => {
-          if (sql.startsWith('UPDATE idempotency_keys SET response_status'))
+        vi.spyOn(sequelize, 'query').mockImplementation(((sql: unknown, options?: unknown) => {
+          if (
+            typeof sql === 'string' &&
+            sql.startsWith('UPDATE idempotency_keys SET response_status')
+          )
             return Promise.reject(new Error('fallo forzado al guardar respuesta'));
-          return query(sql, options as never);
+          return query(sql as Parameters<typeof sequelize.query>[0], options as never);
         }) as typeof sequelize.query);
         return 'fallo forzado al guardar respuesta';
       },
