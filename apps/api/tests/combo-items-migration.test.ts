@@ -270,6 +270,11 @@ describe('007: tabla combo_items y su migración sobre polleria_test', () => {
       'combo_items',
       'orders',
       'tables',
+      'kitchen_tickets',
+      'order_items',
+      'order_item_components',
+      'order_item_sauces',
+      'idempotency_keys',
     ])
       expect(await tableExists(sequelize, table)).toBe(true);
     // El up deja el CHECK aceptando 'combo'. La fila se borra antes del down: con

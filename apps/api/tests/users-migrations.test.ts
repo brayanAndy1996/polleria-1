@@ -13,8 +13,8 @@ import {
 
 // La lista completa del migrador crece con cada spec que agrega una migración
 // (la 005 sumó create-products, la 006 create-product-portions, la 007
-// create-combo-items y la 009 create-tables-orders): AC-07 verifica que todo
-// corre en orden, no un recorte.
+// create-combo-items, la 009 create-tables-orders y la 010 create-order-items):
+// AC-07 verifica que todo corre en orden, no un recorte.
 const MIGRATIONS = [
   '20261008120000-create-users.ts',
   '20261008120100-create-sessions.ts',

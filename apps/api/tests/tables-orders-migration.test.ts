@@ -609,6 +609,11 @@ describe('009: tablas orders y tables con su migración sobre polleria_test', ()
       'combo_items',
       'orders',
       'tables',
+      'kitchen_tickets',
+      'order_items',
+      'order_item_components',
+      'order_item_sauces',
+      'idempotency_keys',
     ])
       expect(await tableExists(sequelize, table)).toBe(true);
 
@@ -636,6 +641,7 @@ describe('009: tablas orders y tables con su migración sobre polleria_test', ()
     ]);
     expect(await tableExists(sequelize, 'orders')).toBe(true);
     expect(await tableExists(sequelize, 'tables')).toBe(true);
+    expect(await tableExists(sequelize, 'order_items')).toBe(true);
     const userId = await insertUser('mozo.migra');
     const orderId = await insertOrder({ openedBy: userId });
     await insertTable('Mesa 1', { currentOrderId: orderId });

@@ -175,7 +175,9 @@ export async function resetMigrationTables(sequelize: Sequelize): Promise<void> 
  * Vacía usuarios y sesiones. El CASCADE también alcanza `orders` y `tables` desde la spec 009
  * (FK orders→users y tables→orders): truncar usuarios vacía pedidos y mesas — efecto buscado
  * en las pruebas de auth, que igual llaman a `clearOrderTables` de forma explícita (D-009-15:
- * se documenta, no se depende del CASCADE).
+ * se documenta, no se depende del CASCADE). Desde la spec 010 el mismo CASCADE alcanza
+ * `kitchen_tickets`, `order_items`, `order_item_components`, `order_item_sauces` e
+ * `idempotency_keys`, que cuelgan de pedidos y usuarios por FK (D-010-19/§12).
  */
 export async function clearAuthTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
@@ -197,7 +199,9 @@ export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<v
  * `combo_id` y `product_id`) y PostgreSQL bloquea `TRUNCATE` sobre una tabla referenciada, aunque
  * esté vacía: por eso todas las que existen se truncan en UN solo comando (un TRUNCATE por tabla
  * falla con "cannot truncate a table referenced in a foreign key constraint"). Ninguna puede
- * existir sin `products` por esa misma FK.
+ * existir sin `products` por esa misma FK. Desde la spec 010, `order_items`, `order_item_components`
+ * y `order_item_sauces` también referencian `products` (D-010-02/D-010-06): entran al mismo
+ * TRUNCATE para que la carta pueda vaciarse con ítems históricos presentes.
  *
  * Cada tabla va detrás de su `tableExists`: en la fase roja, cuando la migración de la tabla aún
  * no está escrita, se trunca solo lo que hay; si ninguna existe no hace nada: así la prueba falla

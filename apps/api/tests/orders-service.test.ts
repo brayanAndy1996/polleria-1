@@ -7,12 +7,13 @@ import type { Sequelize } from 'sequelize';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 import { orderSchema } from '@polleria/shared';
-import type { UserRole } from '@polleria/shared';
+import type { OrderItem, UserRole } from '@polleria/shared';
 import { defineModels } from '../src/models/index.ts';
 import type { Models } from '../src/models/index.ts';
 import { createBcryptPinHasher } from '../src/services/auth/pin-hasher.ts';
 import type { PinHasher } from '../src/services/auth/pin-hasher.ts';
 import { createUserService } from '../src/services/users/user.service.ts';
+import { createProductService } from '../src/services/products/product.service.ts';
 import {
   createOrderNeedsTableError,
   createOrderNotFoundError,
@@ -62,6 +63,17 @@ const ORDER_NEEDS_TABLE = {
   code: 'ORDER_NEEDS_TABLE',
   httpStatus: 409,
   message: 'El pedido necesita al menos una mesa; canc\u00E9lalo o ci\u00E9rralo.',
+};
+// Errores que la spec 010 suma al ciclo del pedido (D-010-11, D-010-17).
+const ORDER_HAS_ACTIVE_ITEMS = {
+  code: 'ORDER_HAS_ACTIVE_ITEMS',
+  httpStatus: 409,
+  message: 'El pedido tiene \u00EDtems sin anular; un administrador debe anularlos primero.',
+};
+const FORBIDDEN = {
+  code: 'FORBIDDEN',
+  httpStatus: 403,
+  message: 'No tienes permiso para realizar esta acci\u00F3n.',
 };
 const TABLE_DOES_NOT_EXIST_MESSAGE = 'Esa mesa no existe.';
 const SAME_TABLE_MESSAGE = 'La mesa de destino debe ser otra.';
@@ -127,12 +139,92 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     return { tableId, order };
   };
 
+  // --- Fixtures de ítems de la spec 010 (AC-12/AC-13): filas directas por SQL ---
+  // El servicio bajo prueba es el de pedidos; los ítems se siembran con INSERTs que
+  // respetan el CHECK order_items_void_consistent para no depender del servicio
+  // de ítems (spec 010, T-09).
+  const insertTicket = (orderId: number, userId: number, kind = 'initial') =>
+    sequelize
+      .query<{ id: number }>(
+        'INSERT INTO kitchen_tickets (order_id, kind, created_by_user_id) VALUES ($1, $2, $3) RETURNING id',
+        { type: QueryTypes.SELECT, bind: [orderId, kind, userId] },
+      )
+      .then((result) => result[0]?.id ?? -1);
+  /** Ítem 'sent' mínimo: 1 Inca Kola de 800 céntimos en la comanda dada. */
+  const insertSentItem = (
+    orderId: number,
+    productId: number,
+    ticketId: number,
+    userId: number,
+    orderedAtTableId: number,
+  ) =>
+    sequelize.query(
+      'INSERT INTO order_items (order_id, product_id, product_name, product_category, ' +
+        'quantity, price_cents, status, kitchen_ticket_id, ordered_at_table_id, ' +
+        'created_by_user_id) ' +
+        "VALUES ($1, $2, 'Inca Kola 1L', 'drink', 1, 800, 'sent', $3, $4, $5)",
+      { bind: [orderId, productId, ticketId, orderedAtTableId, userId] },
+    );
+  /** Ítem 'void_requested': la fila exige el triple de solicitud y nada de anulación. */
+  const insertRequestedItem = (
+    orderId: number,
+    productId: number,
+    ticketId: number,
+    userId: number,
+    orderedAtTableId: number,
+  ) =>
+    sequelize.query(
+      'INSERT INTO order_items (order_id, product_id, product_name, product_category, ' +
+        'quantity, price_cents, status, kitchen_ticket_id, ordered_at_table_id, ' +
+        'created_by_user_id, void_requested_at, void_requested_by_user_id, ' +
+        "void_request_reason) VALUES ($1, $2, 'Inca Kola 1L', 'drink', 1, 800, " +
+        "'void_requested', $3, $4, $5, now(), $5, 'Se equivoc\u00F3 el cliente')",
+      { bind: [orderId, productId, ticketId, orderedAtTableId, userId] },
+    );
+  /** Ítem 'voided': exige los cuatro campos de anulación; la solicitud va libre. */
+  const insertVoidedItem = (
+    orderId: number,
+    productId: number,
+    ticketId: number,
+    voidTicketId: number,
+    userId: number,
+    orderedAtTableId: number,
+  ) =>
+    sequelize.query(
+      'INSERT INTO order_items (order_id, product_id, product_name, product_category, ' +
+        'quantity, price_cents, status, kitchen_ticket_id, void_ticket_id, ' +
+        'ordered_at_table_id, created_by_user_id, voided_at, voided_by_user_id, ' +
+        "void_reason) VALUES ($1, $2, 'Inca Kola 1L', 'drink', 1, 800, 'voided', $3, $4, " +
+        "$5, $6, now(), $6, 'Error del cliente')",
+      { bind: [orderId, productId, ticketId, voidTicketId, orderedAtTableId, userId] },
+    );
+  const itemRows = (orderId: number) =>
+    rows<{ id: number; status: string; ordered_at_table_id: number | null }>(
+      'SELECT id, status, ordered_at_table_id FROM order_items WHERE order_id = $1 ORDER BY id',
+      [orderId],
+    );
+  const ticketRows = (orderId: number) =>
+    rows<{ id: number; kind: string }>(
+      'SELECT id, kind FROM kitchen_tickets WHERE order_id = $1 ORDER BY id',
+      [orderId],
+    );
+  /** Producto 'drink' de carta mínimo para las FK de los ítems sembrados. */
+  const seedDrink = async () =>
+    (
+      await createProductService({ models }).createProduct({
+        name: 'Inca Kola 1L',
+        category: 'drink',
+        priceCents: 800,
+      })
+    ).id;
+
   beforeAll(async () => {
     sequelize = await connectTestDatabase();
   });
   beforeEach(async () => {
     await migrateAndClearAuthTables(sequelize);
     await clearOrderTables(sequelize);
+    await clearMenuTables(sequelize);
     models = defineModels(sequelize);
     pinHasher = createBcryptPinHasher({ cost: 4 });
     service = createOrderService({ models });
@@ -323,7 +415,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     await expect(service.moveOrder(999999, mesa3, { userId: juan.id })).rejects.toMatchObject(
       ORDER_NOT_FOUND,
     );
-    await service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id });
+    await service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id, roles: juan.roles });
     await expect(service.moveOrder(p.id, mesa3, { userId: juan.id })).rejects.toMatchObject(
       ORDER_NOT_OPEN,
     );
@@ -452,7 +544,10 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
   it('AC-11: unir hacia una mesa cuyo pedido ya no está abierto responde TABLE_HAS_NO_ORDER', async () => {
     const juan = await createUser('salon.juan', 'Juan');
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
-    await service.cancelOrder(p.id, 'Mesa abierta por error', { userId: juan.id });
+    await service.cancelOrder(p.id, 'Mesa abierta por error', {
+      userId: juan.id,
+      roles: juan.roles,
+    });
     // Mesa 3 quedó libre tras cancelar: unir hacia ella es TABLE_HAS_NO_ORDER.
     const mesa5 = await insertTable('Mesa 5');
     await expect(service.joinTable(mesa5, mesa3, { userId: juan.id })).rejects.toMatchObject(
@@ -562,7 +657,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
     const { tableId: mesa4, order: q } = await tableWithOrder('Mesa 4', juan.id);
     await service.joinTable(mesa4, mesa3, { userId: juan.id }); // Q queda merged en P.
-    await service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id });
+    await service.cancelOrder(p.id, 'Se fueron sin pedir', { userId: juan.id, roles: juan.roles });
     // merged y cancelled son pedidos no abiertos: las tres señales dan ORDER_NOT_OPEN.
     for (const orderId of [p.id, q.id]) {
       await expect(service.requestBill(orderId, { userId: juan.id })).rejects.toMatchObject(
@@ -594,6 +689,7 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
 
     const cancelled = await service.cancelOrder(p.id, '  Se sentaron por error  ', {
       userId: dueno.id,
+      roles: dueno.roles,
     });
     expect(orderSchema.safeParse(cancelled).success).toBe(true);
     expect(cancelled).toMatchObject({
@@ -630,9 +726,9 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     const juan = await createUser('salon.juan', 'Juan');
     const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
     for (const reason of ['', '   ', 'x'.repeat(201)])
-      await expect(service.cancelOrder(p.id, reason, { userId: juan.id })).rejects.toBeInstanceOf(
-        ZodError,
-      );
+      await expect(
+        service.cancelOrder(p.id, reason, { userId: juan.id, roles: juan.roles }),
+      ).rejects.toBeInstanceOf(ZodError);
     // El pedido sigue abierto y la mesa sigue ocupada.
     expect((await orderRow(p.id))[0]?.status).toBe('open');
     expect(await tableRow(mesa3)).toEqual([
@@ -643,12 +739,15 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
   it('AC-14: cancelar un pedido no abierto o inexistente responde su código', async () => {
     const juan = await createUser('salon.juan', 'Juan');
     const { order: p } = await tableWithOrder('Mesa 3', juan.id);
-    await service.cancelOrder(p.id, 'Se sentaron por error', { userId: juan.id });
+    await service.cancelOrder(p.id, 'Se sentaron por error', {
+      userId: juan.id,
+      roles: juan.roles,
+    });
     await expect(
-      service.cancelOrder(p.id, 'Otro motivo', { userId: juan.id }),
+      service.cancelOrder(p.id, 'Otro motivo', { userId: juan.id, roles: juan.roles }),
     ).rejects.toMatchObject(ORDER_NOT_OPEN);
     await expect(
-      service.cancelOrder(999999, 'Otro motivo', { userId: juan.id }),
+      service.cancelOrder(999999, 'Otro motivo', { userId: juan.id, roles: juan.roles }),
     ).rejects.toMatchObject(ORDER_NOT_FOUND);
     // El motivo y el cierre originales quedaron intactos (no se reescribió nada).
     expect((await orderRow(p.id))[0]).toMatchObject({
@@ -661,6 +760,134 @@ describe('009: servicio de pedidos sobre polleria_test', () => {
     expect(createOrderNotFoundError()).toMatchObject(ORDER_NOT_FOUND);
     expect(createOrderNotOpenError()).toMatchObject(ORDER_NOT_OPEN);
     expect(createOrderNeedsTableError()).toMatchObject(ORDER_NEEDS_TABLE);
+  });
+
+  // --- Spec 010 (RN-010-07/RN-010-08): cancel y join con ítems registrados ---
+  // Las filas se siembran por SQL respetando order_items_void_consistent; los AC
+  // repiten su número porque se prueban dentro del mismo servicio.
+
+  it('AC-12 (010): cancelar con un ítem sent o una solicitud pendiente responde 409 a todos', async () => {
+    const juan = await createUser('salon.juan', 'Juan');
+    const dueno = await createUser('salon.dueno', 'Do\u00F1a Luz', ['admin']);
+    const mozo = { userId: juan.id, roles: juan.roles };
+    const admin = { userId: dueno.id, roles: dueno.roles };
+    const producto = await seedDrink();
+    const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
+    const ticket = await insertTicket(p.id, juan.id);
+    const { tableId: mesa4, order: q } = await tableWithOrder('Mesa 4', juan.id);
+    const ticketQ = await insertTicket(q.id, juan.id);
+    await insertSentItem(p.id, producto, ticket, juan.id, mesa3);
+    // Una SOLICITUD pendiente también bloquea la cancelación (RN-010-07).
+    await insertRequestedItem(q.id, producto, ticketQ, juan.id, mesa4);
+
+    for (const actor of [mozo, admin]) {
+      await expect(service.cancelOrder(p.id, 'Se fueron', actor)).rejects.toMatchObject(
+        ORDER_HAS_ACTIVE_ITEMS,
+      );
+      await expect(service.cancelOrder(q.id, 'Se fueron', actor)).rejects.toMatchObject(
+        ORDER_HAS_ACTIVE_ITEMS,
+      );
+    }
+    // Nada cambió: ambos pedidos siguen abiertos y sus mesas ocupadas.
+    for (const [orderId, tableId] of [
+      [p.id, mesa3],
+      [q.id, mesa4],
+    ] as const) {
+      expect((await orderRow(orderId))[0]?.status).toBe('open');
+      expect((await tableRow(tableId))[0]?.current_order_id).toBe(orderId);
+    }
+  });
+
+  it('AC-12 (010): con todos los ítems anulados solo el admin puede cancelar', async () => {
+    const juan = await createUser('salon.juan', 'Juan');
+    const dueno = await createUser('salon.dueno', 'Do\u00F1a Luz', ['admin']);
+    const mozo = { userId: juan.id, roles: juan.roles };
+    const admin = { userId: dueno.id, roles: dueno.roles };
+    const producto = await seedDrink();
+    const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
+    const ticket = await insertTicket(p.id, juan.id);
+    const voidTicket = await insertTicket(p.id, dueno.id, 'void');
+    await insertVoidedItem(p.id, producto, ticket, voidTicket, juan.id, mesa3);
+
+    // El pedido tuvo venta real: el mozo ya no puede cerrarlo sin cobrar (403).
+    await expect(service.cancelOrder(p.id, 'Se fueron sin pagar', mozo)).rejects.toMatchObject(
+      FORBIDDEN,
+    );
+    expect((await orderRow(p.id))[0]?.status).toBe('open');
+
+    // El admin sí: cancelled con motivo, mesa liberada y el historial intacto.
+    const cancelled = await service.cancelOrder(p.id, 'Se fueron sin pagar', admin);
+    expect(cancelled).toMatchObject({ status: 'cancelled', tables: [], totalCents: 0 });
+    expect(cancelled.items).toHaveLength(1);
+    expect(cancelled.items[0]).toMatchObject({ status: 'voided' });
+    expect((await tableRow(mesa3))[0]?.current_order_id).toBeNull();
+    // Los ítems y comandas quedan como historial del pedido cancelado.
+    expect(await itemRows(p.id)).toHaveLength(1);
+    expect(await ticketRows(p.id)).toEqual([
+      { id: ticket, kind: 'initial' },
+      { id: voidTicket, kind: 'void' },
+    ]);
+  });
+
+  it('AC-12 (010): el pedido que nunca tuvo ítems lo cancela mozo o admin igual que antes', async () => {
+    const juan = await createUser('salon.juan', 'Juan');
+    const { order: p } = await tableWithOrder('Mesa 3', juan.id);
+    // Sin una sola fila en order_items no hay guardia nueva: el mozo cancela (009).
+    const cancelled = await service.cancelOrder(p.id, 'Se sentaron por error', {
+      userId: juan.id,
+      roles: juan.roles,
+    });
+    expect(cancelled.status).toBe('cancelled');
+  });
+
+  it('AC-13 (010): unir mueve ítems y comandas al destino conservando la mesa de origen', async () => {
+    const juan = await createUser('salon.juan', 'Juan');
+    const ana = await createUser('salon.ana', 'Ana');
+    const producto = await seedDrink();
+    const { tableId: mesa3, order: p } = await tableWithOrder('Mesa 3', juan.id);
+    const { tableId: mesa4, order: q } = await tableWithOrder('Mesa 4', ana.id);
+    const ticketP = await insertTicket(p.id, juan.id);
+    const ticketQ = await insertTicket(q.id, ana.id);
+    await insertSentItem(p.id, producto, ticketP, juan.id, mesa3);
+    // Q lleva dos ítems (uno ya anulado por admin): ambos viajan al destino.
+    const voidTicketQ = await insertTicket(q.id, juan.id, 'void');
+    await insertSentItem(q.id, producto, ticketQ, ana.id, mesa4);
+    await insertVoidedItem(q.id, producto, ticketQ, voidTicketQ, juan.id, mesa4);
+
+    const merged = await service.joinTable(mesa4, mesa3, { userId: juan.id });
+    // El pedido destino devuelto trae los tres ítems ordenados, con su mesa de
+    // origen intacta: los dos de Q siguen señalando a Mesa 4 (RN-010-08).
+    expect(merged.id).toBe(p.id);
+    expect(merged.items).toHaveLength(3);
+    expect(merged.items.map((item: OrderItem) => item.orderedAtTable?.id)).toEqual([
+      mesa3,
+      mesa4,
+      mesa4,
+    ]);
+    // totalCents = la suma de ambos pedidos; los voided no cuentan (RN-010-10).
+    expect(merged.totalCents).toBe(800 + 800);
+    // Las comandas de Q se repointaron a P; el kind 'initial' de Q es historia.
+    expect(await ticketRows(p.id)).toEqual([
+      { id: ticketP, kind: 'initial' },
+      { id: ticketQ, kind: 'initial' },
+      { id: voidTicketQ, kind: 'void' },
+    ]);
+    expect(await ticketRows(q.id)).toHaveLength(0);
+    // El pedido absorbido queda merged, sin mesas ni ítems y con total 0.
+    const absorbed = await service.getOrder(q.id);
+    expect(absorbed).toMatchObject({ status: 'merged', tables: [], totalCents: 0 });
+    expect(absorbed.items).toEqual([]);
+    // Separar una mesa después no arrastra ítems: siguen en P con su mesa origen.
+    const mesa7 = await insertTable('Mesa 7');
+    await service.joinTable(mesa7, mesa3, { userId: juan.id });
+    await service.leaveTable(mesa4, { userId: juan.id });
+    const after = await service.getOrder(p.id);
+    expect(after.items).toHaveLength(3);
+    expect(after.items.map((item: OrderItem) => item.orderedAtTable?.id)).toEqual([
+      mesa3,
+      mesa4,
+      mesa4,
+    ]);
   });
 });
 
