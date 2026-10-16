@@ -37,6 +37,11 @@ export function formatSoles(cents: number): string {
   return `S/ ${soles}.${centsText}`;
 }
 
+/** Formato de Caja aprobado en la 014: soles con dos decimales y coma decimal. */
+export function formatCashierSoles(cents: number): string {
+  return formatSoles(cents).replace('.', ',');
+}
+
 /**
  * Texto del campo Precio -> entero de céntimos ('18' -> 1800, '18.5' -> 1850,
  * '18,50' -> 1850, con espacios solo alrededor). Acepta uno o más dígitos con un
