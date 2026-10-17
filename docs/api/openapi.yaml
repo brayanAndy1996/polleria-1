@@ -3368,6 +3368,7 @@ components:
                 maximum: 2147483647
               productName:
                 type: string
+                minLength: 1
               enabled: *id002
               quantity:
                 type: integer
@@ -3406,6 +3407,7 @@ components:
           type:
           - string
           - 'null'
+          minLength: 1
         type:
           type: string
           enum:
@@ -3440,6 +3442,7 @@ components:
               maximum: 2147483647
             displayName:
               type: string
+              minLength: 1
         ticketId: *id003
         createdAt: *id004
       description: Solo drink lleva producto/nombre; consumption lleva ticketId positivo. Solo control admite delta0
