@@ -152,6 +152,10 @@ export async function cleanFixtureTables(sequelize: Sequelize): Promise<void> {
  */
 export async function resetMigrationTables(sequelize: Sequelize): Promise<void> {
   await dropTables(sequelize, [
+    'inventory_commands',
+    'inventory_movements',
+    'inventory_drinks',
+    'inventory_state',
     'payments',
     'kitchen_ticket_print_attempts',
     'kitchen_ticket_prints',
@@ -181,7 +185,15 @@ export async function resetMigrationTables(sequelize: Sequelize): Promise<void> 
  */
 export async function clearAuthTables(sequelize: Sequelize): Promise<void> {
   await assertConnectedToTestDatabase(sequelize);
-  await sequelize.query('TRUNCATE sessions, users RESTART IDENTITY CASCADE');
+  const existing = ['inventory_commands', 'inventory_movements', 'inventory_drinks'];
+  const inventoryTables: string[] = [];
+  for (const table of existing) {
+    if (await tableExists(sequelize, table)) inventoryTables.push(table);
+  }
+  await sequelize.query(
+    `TRUNCATE sessions, users${inventoryTables.length ? `, ${inventoryTables.join(', ')}` : ''} RESTART IDENTITY CASCADE`,
+  );
+  await resetInventoryBalances(sequelize);
 }
 
 export async function migrateAndClearAuthTables(sequelize: Sequelize): Promise<void> {
@@ -213,6 +225,8 @@ export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
   // order_items y sus hijas referencian products desde la spec 010: mismo
   // criterio de un solo TRUNCATE que en clearOrderTables.
   for (const table of [
+    'inventory_movements',
+    'inventory_drinks',
     'order_item_sauces',
     'order_item_components',
     'order_items',
@@ -225,6 +239,7 @@ export async function clearMenuTables(sequelize: Sequelize): Promise<void> {
   if (tables.length > 0) {
     await sequelize.query(`TRUNCATE ${tables.join(', ')} RESTART IDENTITY`);
   }
+  await resetInventoryBalances(sequelize);
 }
 
 /**
@@ -244,6 +259,7 @@ export async function clearOrderTables(sequelize: Sequelize): Promise<void> {
   const existing: string[] = [];
   for (const table of [
     'payments',
+    'inventory_movements',
     'kitchen_ticket_print_attempts',
     'kitchen_ticket_prints',
     'order_item_sauces',
@@ -258,6 +274,19 @@ export async function clearOrderTables(sequelize: Sequelize): Promise<void> {
   }
   if (existing.length > 0) {
     await sequelize.query(`TRUNCATE ${existing.join(', ')} RESTART IDENTITY`);
+  }
+  await resetInventoryBalances(sequelize);
+}
+
+/** Mantiene los saldos fuera del estado entre pruebas, incluso al limpiar una sola área. */
+async function resetInventoryBalances(sequelize: Sequelize): Promise<void> {
+  if (await tableExists(sequelize, 'inventory_state')) {
+    await sequelize.query(
+      'UPDATE inventory_state SET chicken_enabled = false, breast_eighths = 0, leg_eighths = 0 WHERE id = 1',
+    );
+  }
+  if (await tableExists(sequelize, 'inventory_drinks')) {
+    await sequelize.query('UPDATE inventory_drinks SET enabled = false, quantity = 0');
   }
 }
 

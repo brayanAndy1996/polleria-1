@@ -20,6 +20,7 @@ const MIGRATIONS = [
   '20261011120000-create-order-items.ts',
   '20261012150000-create-kitchen-ticket-prints.ts',
   '20261016120000-create-payments.ts',
+  '20261017120000-create-inventory.ts',
 ];
 
 let sequelize: Sequelize;
@@ -704,6 +705,9 @@ describe('010: migración de ítems del pedido sobre polleria_test', () => {
       expect(await tableExists(sequelize, table)).toBe(true);
     // Un solo down revierte solo la migración nueva.
     expect(await tableExists(sequelize, 'payments')).toBe(true);
+    expect(await migrateDown(sequelize)).toEqual(['20261017120000-create-inventory.ts']);
+    expect(await tableExists(sequelize, 'inventory_state')).toBe(false);
+    expect(await tableExists(sequelize, 'payments')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual(['20261016120000-create-payments.ts']);
     expect(await tableExists(sequelize, 'payments')).toBe(false);
     expect(await tableExists(sequelize, 'kitchen_ticket_prints')).toBe(true);
@@ -726,6 +730,7 @@ describe('010: migración de ítems del pedido sobre polleria_test', () => {
       '20261011120000-create-order-items.ts',
       '20261012150000-create-kitchen-ticket-prints.ts',
       '20261016120000-create-payments.ts',
+      '20261017120000-create-inventory.ts',
     ]);
     const userId = await insertUser();
     const orderId = await insertOrder(userId);
