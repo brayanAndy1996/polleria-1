@@ -4,6 +4,8 @@ Fecha: 2026-10-13. Fase 4, RF-13 y primer bloque de RF-14; auditoría mínima de
 
 **Estado:** alcance aprobado por el usuario el 2026-10-13: un medio por pago (efectivo, Yape, Plin o tarjeta), pre-cuenta imprimible desde el navegador y cierre que libera mesas. Las reglas P-01…P-07 fueron aprobadas con la aclaración de que los importes visibles y entradas deben estar en soles con decimales. Implementación y C-01 completados el 2026-10-16 en feat/014-cashier-payments, con OpenAPI0.11.0 implemented. Validación transaccional, cobertura y E2E contra polleria_test aprobados; evidencia y límites en verification.md. Pendiente revisión del usuario y autorización posterior para integrar a main/dev.
 
+Actualización 2026-10-17: integración en main autorizada por el usuario y realizada con merge `2e2202f`, desde el cierre `965c877`. La autorización pendiente indicada arriba corresponde al corte histórico del 2026-10-16.
+
 Publicación documental: integrada a **main** el 2026-10-15 con autorización del usuario (merge `40c4631`). Origen: `feat/014-cashier-payments`, desde main `c3021d2`; en ese corte la implementación estaba pendiente. La preparación demo y el rediseño azul fueron integrados posteriormente de dev a main el 2026-10-16 por autorización del usuario (merge `5e452c0`). La implementación de014 permanece separada en su rama.
 
 ## 1. Resultado esperado

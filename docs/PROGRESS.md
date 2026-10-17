@@ -1,6 +1,13 @@
 # Progreso del proyecto — Sistema Pollería
 
-## 014 implementada y validada — 2026-10-16
+## 014 integrada en main; preparación de 015 — 2026-10-17
+
+- Usuario autorizó integrar 014 y continuar con 015. Merge de 014 en main: `2e2202f`, desde el cierre validado `965c877`. Sin conflictos; el árbol del merge coincide con la rama probada antes de esta actualización documental. Se conserva la evidencia de 149 archivos, 2880 pruebas aprobadas, 5 fallos esperados anteriores, cobertura de líneas 96,71 % y 30 E2E aplicables aprobados en ejecuciones separadas. No se repiten suites por un merge sin cambios de código.
+- Siguiente bloque propuesto: 015, inventario básico de pollo por parte/octavos y bebidas compradas por unidad, conforme a la recomendación aceptada de continuar después de 014. Preparar spec y decisiones antes de código; aún no existe alcance 015 aprobado. Caja avanzada, reportes y delivery conservan sus entregas posteriores.
+- El usuario restableció Luna para pruebas y trabajo sencillo; GPT-6.1-sol medium solo para implementación compleja. Ver AGENTS.md y docs/agents/modelos-codex.md. La sustitución temporal de 014 ya no es la política vigente.
+- La copia del usuario en Desktop permanece separada; no cambiar su checkout ni ejecutar migraciones en polleria_dev para integrar Git. No crear bases/roles ni usar credenciales en documentación.
+
+## 014 implementada y validada — 2026-10-16 (histórico)
 
 - Dev integrado y publicado en main por autorización del usuario: merge `5e452c0`. El desarrollo nuevo está en `feat/014-cashier-payments`, sin integrar cobros a main.
 - S-01…C-01 completados: schemas/dinero en soles, pre-cuenta/token, migración/modelo Payment, cierre transaccional/replay, cuatro endpoints, lista paginada/polling, confirmación/reintento, histórico e impresión manual. Validado con PostgreSQL17.5/polleria_test del usuario; ningún cambio en polleria_dev.

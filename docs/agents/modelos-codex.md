@@ -1,14 +1,14 @@
 # Metodología y modelos en Codex
 
-Política reducida aprobada por el usuario el 2026-10-12 tras alcanzar el límite de uso. Sustituye la asignación anterior de siete roles para trabajo nuevo, incluida la spec 013 en curso. Conserva los resultados y las pruebas producidos por el equipo anterior. Actualización del usuario del 2026-10-16: «usa el gpt 6.1 sol low para reemplazar a luna»; se aplica a test-writer y trabajo sencillo.
+Política reducida aprobada por el usuario el 2026-10-12. Sustituye la asignación anterior de siete roles y conserva los resultados y las pruebas anteriores. Actualización vigente del 2026-10-17: el usuario restableció Luna para los procesos sencillos, como se había planeado. El reemplazo temporal por GPT-6.1-sol low del 2026-10-16 se conserva como historia de la 014.
 
 | Función                                  | Ejecutor         | Modelo / razonamiento                                                          |
 | ---------------------------------------- | ---------------- | ------------------------------------------------------------------------------ |
 | Orquestación, specs, OpenAPI y revisión  | Agente principal | Modelo de la sesión; sin subagentes adicionales                                |
-| test-writer                              | Un subagente     | gpt-6.1-sol / low                                                              |
-| implementer (backend, frontend y shared) | Un subagente     | gpt-6.1-sol / low en tareas sencillas; gpt-6.1-sol / medium en lógica compleja |
+| test-writer                              | Un subagente     | gpt-6-luna / medium                                                             |
+| implementer (backend, frontend y shared) | Un subagente     | gpt-6-luna / medium en tareas sencillas; gpt-6.1-sol / medium en lógica compleja |
 
-Luna fue la elección inicial para test-writer; el usuario la reemplazó por gpt-6.1-sol low al agotarse su cuota. Los bloques complejos de implementación reservan gpt-6.1-sol. Explicar el modelo al delegar; si su cuota impide trabajar, informar y continuar tareas independientes, sin sustitución silenciosa ni bucles de reintentos. Cambiar a medium reduce consumo futuro, pero no repone cuota agotada. No se promete un ahorro exacto.
+Luna vuelve a ser la elección para test-writer y trabajo sencillo. Los bloques complejos de implementación (dinero, stock, permisos, transacciones y concurrencia) reservan gpt-6.1-sol medium. Explicar el modelo al delegar; si su cuota impide trabajar, informar y continuar tareas independientes, sin sustitución silenciosa ni bucles de reintentos. No se promete un ahorro exacto.
 
 ## Flujo vigente
 
@@ -23,7 +23,7 @@ Se eliminan los subagentes separados spec-writer/reviewer y la ronda adversarial
 
 ## Delegación y ejecución
 
-Solo un test-writer y un implementer activos; usar collaboration.spawn_agent con fork_turns="none", model explícito y reasoning_effort="low" para test-writer/trabajo sencillo o "medium" para implementación compleja. Pasar únicamente rol, spec/AC/tareas del bloque, contrato pertinente, archivos asignados, decisiones y evidencia de rojo disponible. No heredar todo el historial ni crear subagentes secundarios.
+Solo un test-writer y un implementer activos; usar collaboration.spawn_agent con fork_turns="none", model explícito (gpt-6-luna para pruebas/trabajo sencillo o gpt-6.1-sol para implementación compleja) y reasoning_effort="medium". Pasar únicamente rol, spec/AC/tareas del bloque, contrato pertinente, archivos asignados, decisiones y evidencia de rojo disponible. No heredar todo el historial ni crear subagentes secundarios.
 
 No superponer tests de DB, cobertura y E2E sobre polleria_test. Coordinar el dueño del slot de DB. No instalaciones simultáneas ni escrituras sobre los mismos archivos. El entorno de nube ya está aislado: no crear worktrees salvo solicitud.
 

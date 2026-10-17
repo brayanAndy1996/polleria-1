@@ -1,6 +1,13 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
-## 014 implementada y validada — 2026-10-16
+## Estado vigente — 014 integrada y preparación de 015, 2026-10-17
+
+- Integración de 014 a main autorizada por el usuario y realizada con merge `2e2202f`, desde `965c877`. Árbol idéntico a la rama verificada antes de docs: 2880 pruebas aprobadas, 5 fallos esperados previos y 96,71 % de líneas; 30 E2E aplicables aprobados en ejecuciones separadas. Los registros inferiores son históricos.
+- Continuar con la spec 015 de inventario básico: pollo común por parte/octavos, bebidas compradas por unidad y descuento atómico al enviar pedido, sin duplicar en replay ni al cobrar. Preparar alcance y aclarar anulaciones/saldo diario/activación antes de implementar. No dar la 015 por aprobada o desarrollada por la integración de 014.
+- Política vigente por instrucción del usuario: test-writer y trabajo sencillo con GPT-6-luna medium; implementación compleja con GPT-6.1-sol medium. Roles separados, sin reviewer/adversarial independientes. No usar automáticamente el reemplazo temporal de Luna de la 014.
+- Trabajar en la copia `work/polleria-1`, sin worktrees; conservar intacta la copia Desktop. DB solo polleria_test a través de su .env, sin copiar credenciales ni migrar polleria_dev. La integración de 015 requerirá autorización posterior.
+
+## 014 implementada y validada — 2026-10-16 (histórico)
 
 - Dev integrado y publicado en main por autorización del usuario: merge `5e452c0`. El desarrollo nuevo está en `feat/014-cashier-payments`, sin integrar cobros a main.
 - S-01…C-01 completados: schemas/dinero en soles, pre-cuenta/token, migración/modelo Payment, cierre transaccional/replay, cuatro endpoints, lista paginada/polling, confirmación/reintento, histórico e impresión manual. Validado con PostgreSQL17.5/polleria_test del usuario; ningún cambio en polleria_dev.
