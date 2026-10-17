@@ -2,7 +2,7 @@
 
 Fecha: 2026-10-17. Fase 5; primer bloque de RF-19/20/21/22/23 y auditoría mínima RF-27.
 
-**Estado: propuesta preparada; P-02 aprobada por el usuario; pendiente P-03 y cierre del alcance antes de TDD/implementación.** El usuario autorizó continuar con la 015 después de integrar la 014. Se toma como siguiente módulo el inventario básico recomendado en la conversación. No se presenta esta propuesta como funcionalidad existente.
+**Estado: alcance aprobado para desarrollo el 2026-10-17.** El usuario autorizó continuar con inventario, confirmó P-02 (sin reposición automática al anular) y resolvió la última decisión P-03: «conserva su saldo hasta un ajuste manual». Ambos saldos son permanentes; no hay corte ni reinicio diario. Se inicia contrato y TDD; no se presenta aún como funcionalidad terminada.
 
 ## 1. Resultado esperado
 
@@ -16,12 +16,12 @@ Ejemplo: registrar 10 pollos agrega 40 octavos de pecho y 40 de pierna. Enviar d
 | --- | --- |
 | P-01 | Descontar al enviar los ítems a cocina, no al agregarlos al carrito ni al cobrar. No reservar stock por abrir una pantalla. |
 | P-02 | **Aprobada por el usuario el 2026-10-17: anular no devuelve automáticamente existencias.** El pollo puede estar preparado o la bebida entregada. El administrador registra una devolución física mediante ajuste positivo con motivo. Solicitar/rechazar una anulación tampoco modifica stock. |
-| P-03 | **Pollo por fecha de operación de America/Lima**: el día siguiente empieza con cero; no trasladar sobrantes automáticamente. Las bebidas conservan su saldo entre días. Pendiente de decisión del usuario; si el local atiende después de medianoche, se debe acordar el corte operativo antes de implementar. |
+| P-03 | **Aprobada: pollo y bebidas conservan su saldo entre días hasta un ajuste manual o un movimiento de entrada/consumo.** No reiniciar a medianoche ni a otra hora; America/Lima se usa para presentar la fecha de movimientos, no para particionar saldos. |
 | P-04 | Activación explícita por administrador: un control común para el pollo y uno por producto de bebida. La migración deja controles desactivados para conservar la operación existente. Al activar, el saldo inicial es cero y exige registrar existencias reales. Nunca inferir stock desde ventas antiguas ni descontar pedidos ya enviados. |
 | P-05 | Todos los productos chicken comparten el mismo saldo de pecho/pierna. Solo se venden con consumo en octavos definido. Un pollo sin presentación/consumo configurado queda bloqueado cuando el control está activo; no tratarlo como consumo cero. |
 | P-06 | El administrador elige qué bebidas compradas controla por unidad de venta. Refrescos preparados, recetas, litros, insumos, compras con costos/proveedores, mínimos y alertas quedan para otra entrega. Bebidas sin control muestran «Sin control de stock», nunca disponibilidad ilimitada afirmada. |
 | P-07 | Entradas y ajustes son movimientos enteros auditados con motivo, usuario y hora. Ajustar significa sumar/restar una cantidad; no sobrescribir el saldo leído en una pantalla. Ningún movimiento deja saldo negativo. Las tandas enteras de pollo se convierten en 4 octavos de cada parte por pollo; ajustes admiten octavos por parte. |
-| P-08 | Desactivar el control exige confirmación y motivo; conserva saldo e historial y deja visible que ya no se comprueba disponibilidad. Reactivar conserva las bebidas y el saldo del pollo de la fecha operativa vigente. No se permite borrar movimientos ni editar su pasado. |
+| P-08 | Desactivar el control exige confirmación y motivo; conserva saldo e historial y deja visible que ya no se comprueba disponibilidad. Reactivar conserva el saldo de pollo y bebidas sin reiniciar ni reconstruir consumos del tiempo desactivado. No se permite borrar movimientos ni editar su pasado. |
 
 Fuera de alcance: inventario de pollo crudo, producción/recetas de refrescos, insumos, costos y rentabilidad, proveedores, reservas de carrito, reposición automática por anulación, división/pagos mixtos, caja avanzada, reportes comerciales, SUNAT, delivery y hardware de impresión. No agregar dependencias.
 
@@ -40,22 +40,22 @@ Fuera de alcance: inventario de pollo crudo, producción/recetas de refrescos, i
 Modelo a concretar en S-01 tras aprobar las reglas:
 
 - Configuración persistente de activación de pollo y bebidas por producto, separada de los schemas estrictos existentes de Product y Menu.
-- Recursos de inventario: pecho, pierna y bebida por productId. Saldo único por recurso/periodo; para pollo el periodo será la fecha operativa aprobada y para bebidas será permanente. Conservar FKs y CHECKs de enteros/rango/no negativos.
-- Movimientos inmutables: recurso/periodo, delta, saldo resultante, tipo (tanda, entrada, ajuste o consumo), motivo, usuario/hora y referencia a la comanda para consumo. Guardar valores necesarios para no reinterpretar el pasado si cambia la carta.
+- Recursos de inventario: pecho, pierna y bebida por productId. Saldo permanente único por recurso, sin periodo diario. Conservar FKs y CHECKs de enteros/rango/no negativos. Detalle técnico y orden de locks en contract.md.
+- Movimientos inmutables: recurso, delta, saldo resultante, tipo (tanda, entrada, ajuste, consumo o control), motivo, usuario/hora y referencia a la comanda para consumo. Guardar valores necesarios para no reinterpretar el pasado si cambia la carta. Los eventos de control tienen delta cero y registran enabledAfter.
 - Registro idempotente para comandos administrativos, con ruta/cuerpo normalizados, hash y respuesta original. No forzar estos comandos en la tabla antigua `idempotency_keys`, que exige pedido; decidir un registro propio en S-01.
 - Migración reversible, sin pagos/stock retroactivos ni alteración de pedidos históricos. No insertar existencias demo en producción automáticamente. Los fixtures activan explícitamente solo sus recursos.
 
 Consumo y movimientos viven en la transacción existente de `sendItems`, después de validar/resolver el pedido y antes del commit. Tomar locks de configuración/saldos de forma determinista por recurso; documentar el orden completo frente a pedido, claves, catálogo y mesas. Las operaciones administrativas de inventario no deben adquirir después locks de pedido que inviertan el orden. Saldo/movimiento/tanda/impresión/replay se comprometen juntos o revierten juntos. La impresión física sigue fuera de la transacción.
 
-Leer configuración y saldos relevantes en una vista consistente para disponibilidad. Una lectura GET no crea saldos ni cambia la fecha operativa. Una fila inexistente equivale a cero solo si el control está activo. El envío decide la fecha una sola vez mediante reloj del servidor en America/Lima, no la fecha del dispositivo. No dejar procesos nocturnos necesarios para la corrección.
+Leer configuración y saldos relevantes en una vista consistente para disponibilidad. Una lectura GET no crea saldos. Una fila de bebida inexistente equivale a control desactivado. El reloj del servidor registra los movimientos; no hay fecha del dispositivo ni proceso nocturno que modifique saldos.
 
 ## 5. API y compatibilidad propuestas
 
-No cambiar todavía `docs/api/openapi.yaml`: contrato formal después de aprobar la spec. Propuesta de operaciones:
+OpenAPI 0.12.0 y contract.md fijan las operaciones pendientes de implementación:
 
 | Ruta | Roles | Función |
 | --- | --- | --- |
-| GET /inventory | admin | Estado actual del control y saldos, con fecha operativa. |
+| GET /inventory | admin | Estado actual del control y saldos permanentes, con generatedAt. |
 | GET /inventory/availability | waiter/admin | Recursos controlados y saldos para la carta; no expone ajustes, motivos ni usuarios. |
 | GET /inventory/movements?afterId=N | admin | Historial paginado estable, sin borrar/editar movimientos. |
 | PUT /inventory/chicken/control | admin | Activar/desactivar con motivo y clave idempotente. |
@@ -92,7 +92,7 @@ Conservar FigCraft azul, Nunito, navegación existente, controles táctiles y Mo
 | AC-06 | Dos mozos compiten por la última porción/bebida: solo un envío gana; stock nunca negativo. Correr además entrada/ajuste/activación simultáneos sin deadlocks no resueltos. |
 | AC-07 | Replay de envío y de comando administrativo conserva la respuesta original y no descuenta/acredita otra vez; clave incompatible rechazada; pérdida de ACK real. |
 | AC-08 | Fallos inyectados de saldo/movimiento/ítem/impresión durable/replay revierten toda la transacción y permiten reintento. |
-| AC-09 | Fecha America/Lima y frontera operativa aprobada: pollo del nuevo periodo inicia cero sin borrar historial; bebidas conservan saldo; reloj cliente no decide. |
+| AC-09 | Pollo y bebidas conservan saldo a medianoche y entre fechas sin entradas/consumos/ajustes; desactivar/reactivar no resetea. America/Lima solo presenta movimientos; reloj cliente no decide. |
 | AC-10 | Política P-02 en anulación directa/solicitud/aprobación/rechazo; mover/unir/separar/cobrar no descuentan otra vez. Pedidos anteriores a activación no se reconstruyen. |
 | AC-11 | Sesión/roles/revocación, no-store, schemas estrictos, lectura del mozo sin datos de auditoría y rechazo de ajustes de cajero/cocina. |
 | AC-12 | Activación/desactivación explícita y auditada; sin control visible, sin omitir silenciosamente pollo de consumo indefinido; idempotencia y carrera con envío. |
@@ -100,11 +100,11 @@ Conservar FigCraft azul, Nunito, navegación existente, controles táctiles y Mo
 | AC-14 | UI mozo: disponibilidad por parte y bebida/combos, agotados, cambios concurrentes, conservación del carrito y estados desconocido/error; responsive y reduced motion. |
 | AC-15 | E2E real: admin ingresa existencias, mozo envía mezcla, caja cobra sin nuevo descuento; otro mozo encuentra agotado. Segundo recorrido móvil con pérdida de respuesta y reintento sin duplicación. |
 
-## 8. Decisiones que faltan antes de programar
+## 8. Decisiones cerradas
 
 1. P-02 confirmada: anulación sin devolución automática y devolución física manual con motivo. Conservar la evidencia del usuario; no volver a preguntar.
-2. Confirmar P-03 y el corte del pollo: medianoche de Lima o una hora posterior si el local atiende de madrugada. Las bebidas conservan su saldo.
-3. Aprobar este primer alcance, incluida la activación explícita sin stock histórico. Si se prefiere completar caja avanzada antes de inventario, se debe cambiar la 015 antes del contrato/tests.
+2. P-03 confirmada: ambos saldos permanentes hasta movimiento/ajuste manual, sin corte automático. No volver a preguntar.
+3. Continuar este primer alcance de inventario conforme a la instrucción del usuario; activación explícita sin stock histórico. Caja avanzada sigue posterior.
 
 ## 9. Metodología y cierre
 

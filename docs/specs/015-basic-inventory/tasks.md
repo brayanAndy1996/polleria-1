@@ -1,6 +1,6 @@
 # Tareas — 015 Inventario básico
 
-Estado 2026-10-17: propuesta de spec preparada; sin contrato formal, pruebas de inventario ni producción de 015. P-02 aprobada (sin reposición automática al anular); pendiente P-03 y cierre del alcance. La 014 ya está integrada en main (`2e2202f`); esta entrega vive separada en `feat/015-basic-inventory`. Luna preparó la matriz de pruebas y detectó una regresión previa de la 010: se trabaja T-00 de forma independiente, bajo las reglas D-010-04/05 ya aprobadas.
+Estado 2026-10-17: alcance aprobado tras resolver P-03 (pollo y bebidas conservan saldo hasta ajuste manual, sin reset diario) y P-02 (sin reposición automática al anular). S-01 preparado: contract.md, OpenAPI0.12 con8 operaciones pending y670 referencias verificadas. T-01 delegado a test-writer Luna medium; producción de inventario aún pendiente. La014 ya está en main;015 permanece separada.
 
 T-00 completado: rojo `b490fb3`, fix `88c1b0c`, 6 archivos/88 pruebas aprobadas por el principal, tipos API y lint aprobados. Ver verification.md. La corrección de esa regresión no implica aprobar ni implementar el inventario.
 
@@ -8,7 +8,7 @@ T-00 completado: rojo `b490fb3`, fix `88c1b0c`, 6 archivos/88 pruebas aprobadas 
 | --- | --- | --- | --- |
 | T-00 | Luna medium test-writer → Luna medium implementer → principal | Regresión previa: split válido de medio pollo en combo no debe omitir sus componentes. Rojo de persistencia/replay e inválidos; corrección mínima del flag de validación y verde dirigido. No implica aprobar el inventario ni cambiar las reglas de cantidades de snapshots. | Contrato 010 D-010-04/05 ya aprobado |
 | S-01 | Principal | Resolver decisiones, fijar modelos/orden global de locks, contrato y errores; trazabilidad de todos los AC. | Aprobación de spec |
-| T-01 | Luna medium, test-writer | Rojo puro: conversiones, límites, acumulación de consumo/combos y fecha operativa. AC-02/04/09. | S-01 |
+| T-01 | Luna medium, test-writer | Rojo puro: schemas, conversiones, límites y acumulación de consumo/combos sin fecha ni reset. AC-02/04/09. | S-01 |
 | I-01 | Luna medium, implementer | Dominio puro mínimo y schemas de inventario sin tocar contratos antiguos. | T-01 |
 | T-02 | Luna medium, test-writer | Rojo real: migraciones, movimientos/activación, permisos/idempotencia y rollback. AC-01/02/03/07/08/11/12. | I-01 |
 | I-02 | GPT-6.1-sol medium, implementer | Migración/modelos y operaciones administrativas atómicas con roles actuales, auditadas e idempotentes; rutas/controllers. | T-02 |

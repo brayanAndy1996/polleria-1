@@ -2,6 +2,7 @@
 
 ## 015: propuesta y dependencia de regresión — 2026-10-17
 
+- Actualización vigente: usuario resolvió P-03 «conserva su saldo hasta un ajuste manual». Se aprueba continuar inventario con saldos permanentes de pollo/bebidas, sin corte diario; P-02 ya aprobada sin retorno al anular. S-01 preparado con contract.md/OpenAPI0.12 pending (8 rutas,670 referencias). Luna inicia T-01. Las menciones de P-03 pendiente abajo son históricas.
 - Rama `feat/015-basic-inventory`, desde main `90bbeed` que ya contiene 014. Spec y tareas en docs/specs/015-basic-inventory/. Inventario propuesto de pollo por partes y bebidas por unidad, con activación explícita y sin backfill; no se ha implementado.
 - Usuario aprobó P-02: anulación sin devolución automática; devolución física mediante ajuste positivo de administrador con motivo. Pendiente P-03 (corte operativo/saldo del pollo); no iniciar el inventario hasta fijar esta regla y cerrar el alcance.
 - Luna medium preparó la matriz de pruebas. Confirmó la semántica actual de cantidades: pollo directo ya incorpora cantidad de línea; componentes de combo incorporan cantidad de receta, falta multiplicar la cantidad externa del combo para consumir inventario. No sumar padre y componentes.

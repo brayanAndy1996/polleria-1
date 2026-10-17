@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.11.0
+  version: 0.12.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -139,6 +139,8 @@ servers:
   - url: http://127.0.0.1:4000/api
     description: API directa. Solo accesible desde la misma PC (HOST=127.0.0.1 por defecto).
 tags:
+  - name: inventory
+    description: Inventario básico 015; saldos permanentes, sin reposición automática al anular.
   - name: cashier
     description: Pre-cuenta y cobro completo (014); implementado y validado con PostgreSQL aislado.
   - name: system
@@ -158,6 +160,375 @@ tags:
   - name: kitchen-ticket-prints
     description: Generación file, atención de fallos y copias de comandas (spec 013 aprobada; operaciones implementadas).
 paths:
+  /inventory:
+    get:
+      operationId: getInventory
+      tags:
+      - inventory
+      summary: Roles admin
+      x-spec: 015-basic-inventory
+      x-implementation-status: pending
+      description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Lectura consistente sin crear
+        ni modificar saldos. No admite query extra; el cuerpo se ignora.'
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Operación de inventario.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventorySnapshot'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /inventory/availability:
+    get:
+      operationId: getInventoryAvailability
+      tags:
+      - inventory
+      summary: Roles waiter/admin
+      x-spec: 015-basic-inventory
+      x-implementation-status: pending
+      description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Lectura consistente sin crear
+        ni modificar saldos. No admite query extra; el cuerpo se ignora.'
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Operación de inventario.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventorySnapshot'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /inventory/movements:
+    get:
+      operationId: listInventoryMovements
+      tags:
+      - inventory
+      summary: Roles admin
+      x-spec: 015-basic-inventory
+      x-implementation-status: pending
+      description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Lectura consistente sin crear
+        ni modificar saldos. No admite query extra; el cuerpo se ignora.'
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Operación de inventario.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMovementsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+      - name: afterId
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        description: Decimal positivo canónico; página ascendente de50 con lookahead.
+  /inventory/chicken/control:
+    put:
+      operationId: setChickenInventoryControl
+      tags:
+      - inventory
+      summary: Roles admin
+      x-spec: 015-basic-inventory
+      x-implementation-status: pending
+      description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Escritura atómica, auditada
+        e idempotente; saldos permanentes. Recurso activado para entradas/ajustes. Misma ruta/cuerpo/clave devuelve
+        status y body originales; incompatible409 IDEMPOTENCY_CONFLICT. No borra historial.'
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Operación de inventario.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMutationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: INVENTORY_DISABLED, INVENTORY_PRODUCT_INVALID, INVENTORY_QUANTITY_OUT_OF_RANGE o IDEMPOTENCY_CONFLICT.
+            Sin mutación ni SQL expuesto.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryControlRequest'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /inventory/drinks/{productId}/control:
+    put:
+      operationId: setDrinkInventoryControl
+      tags:
+      - inventory
+      summary: Roles admin
+      x-spec: 015-basic-inventory
+      x-implementation-status: pending
+      description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Escritura atómica, auditada
+        e idempotente; saldos permanentes. Recurso activado para entradas/ajustes. Misma ruta/cuerpo/clave devuelve
+        status y body originales; incompatible409 IDEMPOTENCY_CONFLICT. No borra historial.'
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: Operación de inventario.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMutationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: INVENTORY_DISABLED, INVENTORY_PRODUCT_INVALID, INVENTORY_QUANTITY_OUT_OF_RANGE o IDEMPOTENCY_CONFLICT.
+            Sin mutación ni SQL expuesto.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: PRODUCT_NOT_FOUND.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryControlRequest'
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /inventory/chicken/batches:
+    post:
+      operationId: addChickenInventoryBatch
+      tags:
+      - inventory
+      summary: Roles admin
+      x-spec: 015-basic-inventory
+      x-implementation-status: pending
+      description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Escritura atómica, auditada
+        e idempotente; saldos permanentes. Recurso activado para entradas/ajustes. Misma ruta/cuerpo/clave devuelve
+        status y body originales; incompatible409 IDEMPOTENCY_CONFLICT. No borra historial.'
+      security:
+      - sessionCookie: []
+      responses:
+        '201':
+          description: Operación de inventario.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMutationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: INVENTORY_DISABLED, INVENTORY_PRODUCT_INVALID, INVENTORY_QUANTITY_OUT_OF_RANGE o IDEMPOTENCY_CONFLICT.
+            Sin mutación ni SQL expuesto.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryBatchRequest'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /inventory/drinks/{productId}/receipts:
+    post:
+      operationId: addDrinkInventoryReceipt
+      tags:
+      - inventory
+      summary: Roles admin
+      x-spec: 015-basic-inventory
+      x-implementation-status: pending
+      description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Escritura atómica, auditada
+        e idempotente; saldos permanentes. Recurso activado para entradas/ajustes. Misma ruta/cuerpo/clave devuelve
+        status y body originales; incompatible409 IDEMPOTENCY_CONFLICT. No borra historial.'
+      security:
+      - sessionCookie: []
+      responses:
+        '201':
+          description: Operación de inventario.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMutationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: INVENTORY_DISABLED, INVENTORY_PRODUCT_INVALID, INVENTORY_QUANTITY_OUT_OF_RANGE o IDEMPOTENCY_CONFLICT.
+            Sin mutación ni SQL expuesto.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: PRODUCT_NOT_FOUND.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryReceiptRequest'
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /inventory/adjustments:
+    post:
+      operationId: adjustInventory
+      tags:
+      - inventory
+      summary: Roles admin
+      x-spec: 015-basic-inventory
+      x-implementation-status: pending
+      description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Escritura atómica, auditada
+        e idempotente; saldos permanentes. Recurso activado para entradas/ajustes. Misma ruta/cuerpo/clave devuelve
+        status y body originales; incompatible409 IDEMPOTENCY_CONFLICT. No borra historial.'
+      security:
+      - sessionCookie: []
+      responses:
+        '201':
+          description: Operación de inventario.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMutationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: INVENTORY_DISABLED, INVENTORY_PRODUCT_INVALID, INVENTORY_QUANTITY_OUT_OF_RANGE o IDEMPOTENCY_CONFLICT.
+            Sin mutación ni SQL expuesto.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: PRODUCT_NOT_FOUND.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryAdjustmentRequest'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
   /cashier/orders:
     get:
       operationId: 'listCashierOrders'
@@ -2154,6 +2525,8 @@ paths:
             ([OrderItemsLimit](#/components/responses/OrderItemsLimit)) o la
             clave de idempotencia ya se usó con otros datos u otro pedido
             ([IdempotencyConflict](#/components/responses/IdempotencyConflict)).
+            Inventario015 también puede responder INSUFFICIENT_STOCK (details.shortages con InventoryShortage),
+            STOCK_CONSUMPTION_UNDEFINED (details.productIds) o INVENTORY_QUANTITY_OUT_OF_RANGE; sin escritura parcial.
             Nada quedó escrito.
           headers:
             Cache-Control:
@@ -2867,6 +3240,252 @@ components:
         Token de sesión aleatorio de 43 caracteres (base64url) que crea POST /auth/login. Cookie
         HttpOnly, SameSite=Strict, Path=/, Max-Age=57600, sin Secure (el local usa HTTP en la red).
   schemas:
+    InventoryKind:
+      type: string
+      enum:
+      - breast
+      - leg
+      - drink
+    InventoryControlRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - enabled
+      - reason
+      properties:
+        enabled: &id002
+          type: boolean
+        reason: &id001
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Recortado; no puede quedar vacío.
+    InventoryBatchRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - chickens
+      - reason
+      properties:
+        chickens:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        reason: *id001
+    InventoryReceiptRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - quantity
+      - reason
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        reason: *id001
+    InventoryAdjustmentRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - productId
+      - delta
+      - reason
+      properties:
+        kind:
+          $ref: '#/components/schemas/InventoryKind'
+        productId: &id003
+          anyOf:
+          - type: integer
+            minimum: 1
+            maximum: 2147483647
+          - type: 'null'
+        delta:
+          type: integer
+          minimum: -100000
+          maximum: 100000
+          not:
+            const: 0
+        reason: *id001
+      allOf:
+      - if:
+          properties:
+            kind:
+              const: drink
+        then:
+          properties:
+            productId:
+              type: integer
+              minimum: 1
+              maximum: 2147483647
+        else:
+          properties:
+            productId:
+              type: 'null'
+    InventorySnapshot:
+      type: object
+      additionalProperties: false
+      required:
+      - chicken
+      - drinks
+      - generatedAt
+      properties:
+        chicken:
+          type: object
+          additionalProperties: false
+          required:
+          - enabled
+          - breastEighths
+          - legEighths
+          properties:
+            enabled: *id002
+            breastEighths:
+              type: integer
+              minimum: 0
+              maximum: 2147483647
+            legEighths:
+              type: integer
+              minimum: 0
+              maximum: 2147483647
+        drinks:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - productId
+            - productName
+            - enabled
+            - quantity
+            properties:
+              productId:
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+              productName:
+                type: string
+              enabled: *id002
+              quantity:
+                type: integer
+                minimum: 0
+                maximum: 2147483647
+        generatedAt: &id004
+          type: string
+          format: date-time
+      description: 'Saldos permanentes P-03: no reinician por fecha. Lectura consistente sin crear filas. Bebidas por
+        productId ascendente, sin datos de auditoría.'
+    InventoryMovement:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - kind
+      - productId
+      - productName
+      - type
+      - delta
+      - quantityAfter
+      - enabledAfter
+      - reason
+      - actor
+      - ticketId
+      - createdAt
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        kind:
+          $ref: '#/components/schemas/InventoryKind'
+        productId: *id003
+        productName:
+          type:
+          - string
+          - 'null'
+        type:
+          type: string
+          enum:
+          - batch
+          - receipt
+          - adjustment
+          - consumption
+          - control
+        delta:
+          type: integer
+          minimum: -2147483647
+          maximum: 2147483647
+        quantityAfter:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        enabledAfter:
+          type:
+          - boolean
+          - 'null'
+        reason: *id001
+        actor:
+          type: object
+          additionalProperties: false
+          required:
+          - id
+          - displayName
+          properties:
+            id:
+              type: integer
+              minimum: 1
+              maximum: 2147483647
+            displayName:
+              type: string
+        ticketId: *id003
+        createdAt: *id004
+      description: Solo drink lleva producto/nombre; consumption lleva ticketId positivo. Solo control admite delta0
+        y exige enabledAfter boolean; otros tipos delta no0 y enabledAfter null. Valores históricos copiados e inmutables.
+    InventoryMutationResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - inventory
+      - movements
+      properties:
+        inventory:
+          $ref: '#/components/schemas/InventorySnapshot'
+        movements:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryMovement'
+    InventoryMovementsResponse:
+      type: object
+      additionalProperties: false
+      required:
+      - movements
+      - nextAfterId
+      properties:
+        movements:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryMovement'
+        nextAfterId: *id003
+    InventoryShortage:
+      type: object
+      additionalProperties: false
+      required:
+      - kind
+      - productId
+      - available
+      - required
+      properties:
+        kind:
+          $ref: '#/components/schemas/InventoryKind'
+        productId: *id003
+        available:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        required:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
     PaymentMethod:
       type: 'string'
       enum: ['cash', 'yape', 'plin', 'card']
@@ -4584,6 +5203,10 @@ components:
         - PRINT_SNAPSHOT_UNAVAILABLE (409, spec 013): comanda anterior sin snapshot original.
         En reimpresión (spec 013), IDEMPOTENCY_CONFLICT también indica clave de copia reutilizada
         con otro ticketId o motivo validado; no altera los scopes/cuerpos de la spec 010.
+        Spec 015: INSUFFICIENT_STOCK, STOCK_CONSUMPTION_UNDEFINED, INVENTORY_DISABLED,
+        INVENTORY_PRODUCT_INVALID, INVENTORY_QUANTITY_OUT_OF_RANGE y PRODUCT_HAS_INVENTORY (409).
+        PATCH products no puede recategorizar una bebida con historial de inventario.
+
         Spec 014: BILL_CHANGED (409), PENDING_VOIDS (409), ORDER_NOT_PAYABLE (409),
         INSUFFICIENT_CASH (422), PAYMENT_NOT_FOUND (404).
         Las specs siguientes agregan códigos propios. Los clientes deben tolerar códigos desconocidos.
