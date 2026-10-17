@@ -16,6 +16,7 @@ import {
 } from '@polleria/shared';
 import type {
   InventoryKind,
+  InventoryDemand,
   InventoryMovement,
   InventoryMutationResponse,
   InventorySnapshot,
@@ -61,6 +62,12 @@ export interface InventoryService {
     actor: InventoryActor,
   ): Promise<InventoryMutationResponse>;
   adjust(body: unknown, key: string, actor: InventoryActor): Promise<InventoryMutationResponse>;
+  consume(
+    demand: InventoryDemand,
+    ticketId: number,
+    actor: InventoryActor,
+    transaction: Transaction,
+  ): Promise<void>;
 }
 
 function inventoryError(code: string, message: string) {
@@ -270,6 +277,127 @@ export function createInventoryService({
   }
 
   return {
+    async consume(demand, ticketId, actor, transaction) {
+      const user = await authorized(actor, ['waiter', 'admin'], transaction);
+      const state = await models.InventoryState.findByPk(1, {
+        transaction,
+        lock: Transaction.LOCK.UPDATE,
+      });
+      if (state === null) throw new Error('Falta el estado inicial del inventario.');
+      // Las FK del movimiento toman KEY SHARE sobre products. Tomarlo antes de
+      // bloquear las filas hijas evita invertir el orden de una recategorización.
+      const products = await models.Product.findAll({
+        where: { id: { [Op.in]: demand.drinks.map((drink) => drink.productId) } },
+        order: [['id', 'ASC']],
+        transaction,
+        lock: Transaction.LOCK.KEY_SHARE,
+      });
+      const productById = new Map(products.map((product) => [product.id, product]));
+      const drinks = await models.InventoryDrink.findAll({
+        where: {
+          productId: { [Op.in]: demand.drinks.map((drink) => drink.productId) },
+          enabled: true,
+        },
+        order: [['productId', 'ASC']],
+        transaction,
+        lock: Transaction.LOCK.UPDATE,
+      });
+      if (state.chickenEnabled && demand.undefinedChickenProductIds.length > 0)
+        throw new AppError({
+          code: 'STOCK_CONSUMPTION_UNDEFINED',
+          message: 'Configura el consumo de pollo antes de vender este producto.',
+          httpStatus: 409,
+          details: { productIds: demand.undefinedChickenProductIds },
+        });
+
+      const shortages: {
+        kind: InventoryKind;
+        productId: number | null;
+        available: number;
+        required: number;
+      }[] = [];
+      if (state.chickenEnabled) {
+        if (state.breastEighths < demand.breastEighths)
+          shortages.push({
+            kind: 'breast',
+            productId: null,
+            available: state.breastEighths,
+            required: demand.breastEighths,
+          });
+        if (state.legEighths < demand.legEighths)
+          shortages.push({
+            kind: 'leg',
+            productId: null,
+            available: state.legEighths,
+            required: demand.legEighths,
+          });
+      }
+      const requiredDrinks = new Map(
+        demand.drinks.map((drink) => [drink.productId, drink.quantity]),
+      );
+      for (const drink of drinks) {
+        const required = requiredDrinks.get(drink.productId)!;
+        if (drink.quantity < required)
+          shortages.push({
+            kind: 'drink',
+            productId: drink.productId,
+            available: drink.quantity,
+            required,
+          });
+      }
+      if (shortages.length > 0)
+        throw new AppError({
+          code: 'INSUFFICIENT_STOCK',
+          message: 'No hay stock suficiente para enviar el pedido.',
+          httpStatus: 409,
+          details: { shortages },
+        });
+
+      const movement = async (
+        kind: InventoryKind,
+        productId: number | null,
+        productName: string | null,
+        quantity: number,
+        quantityAfter: number,
+      ) => {
+        await models.InventoryMovement.create(
+          {
+            kind,
+            productId,
+            productName,
+            type: 'consumption',
+            delta: -quantity,
+            quantityAfter,
+            enabledAfter: null,
+            reason: 'Envío a cocina',
+            actorUserId: user.id,
+            actorDisplayName: user.displayName,
+            ticketId,
+            createdAt: now(),
+          },
+          { transaction },
+        );
+      };
+      if (state.chickenEnabled) {
+        for (const kind of ['breast', 'leg'] as const) {
+          const field = kind === 'breast' ? 'breastEighths' : 'legEighths';
+          const required = demand[field];
+          if (required === 0) continue;
+          const quantityAfter = nextQuantity(state[field], -required);
+          await state.update({ [field]: quantityAfter }, { transaction });
+          await movement(kind, null, null, required, quantityAfter);
+        }
+      }
+      for (const drink of drinks) {
+        const required = requiredDrinks.get(drink.productId)!;
+        if (required === 0) continue;
+        const product = productById.get(drink.productId);
+        if (product === undefined) throw createProductNotFoundError();
+        const quantityAfter = nextQuantity(drink.quantity, -required);
+        await drink.update({ quantity: quantityAfter }, { transaction });
+        await movement('drink', drink.productId, product.name, required, quantityAfter);
+      }
+    },
     getInventory: (actor) => read(actor, ['admin']),
     getAvailability: (actor) => read(actor, ['waiter', 'admin']),
     async listMovements(afterId, actor) {

@@ -143,7 +143,12 @@ export function createApp({
     });
   const kitchenTicketPrintsController =
     createKitchenTicketPrintsController(kitchenTicketPrintService);
-  const orderItemService = createOrderItemService({ models, kitchenTicketPrintService });
+  const orderItemService = createOrderItemService({
+    models,
+    kitchenTicketPrintService,
+    inventoryService,
+    now,
+  });
   const orderItemsController = createOrderItemsController({ orderItemService });
   const menuService = createMenuService({ models });
   const menuController = createMenuController({ menuService });
