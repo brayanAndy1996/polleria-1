@@ -4,7 +4,7 @@
 
 014 integrada en main con autorización del usuario, merge `2e2202f`; actualización documental/modelos `90bbeed`, publicada en GitHub. El árbol del merge coincidía con `965c877`, ya validado; no se repitieron suites por un merge sin cambios de código.
 
-015 tiene **alcance aprobado**, en `feat/015-basic-inventory`. El usuario aprobó P-02 (anular no repone; devolución física mediante ajuste admin con motivo) y resolvió P-03: pollo y bebidas conservan su saldo hasta los movimientos o ajustes manuales, sin reinicio diario. Contrato técnico y OpenAPI0.12 preparados; ocho rutas siguen pending. El dominio puro está implementado; migraciones, endpoints y UI siguen pendientes.
+015 tiene **alcance aprobado**, en `feat/015-basic-inventory`. El usuario aprobó P-02 (anular no repone; devolución física mediante ajuste admin con motivo) y resolvió P-03: pollo y bebidas conservan su saldo hasta los movimientos o ajustes manuales, sin reinicio diario. Dominio, migración, administración y consumo transaccional implementados; UI en T-04. Ocho rutas OpenAPI siguen pending hasta el cierre completo. Los apartados siguientes distinguen cada corte y su evidencia.
 
 El usuario restableció Luna para trabajo sencillo. Test-writer y corrección mínima usaron GPT-6-luna medium, en agentes distintos. La implementación compleja de stock/transacciones seguirá GPT-6.1-sol medium. No hubo reviewer ni ronda adversarial independientes.
 
@@ -31,6 +31,25 @@ El usuario restableció Luna para trabajo sencillo. Test-writer y corrección m�
 - El comando anterior también mencionaba products-api.test.ts, archivo inexistente que Vitest ignoró. No se atribuye cobertura de catálogo a ese nombre; se ejecutan por separado los archivos reales de catálogo y pedidos antes de I-03.
 - Segunda ejecución del principal: **5 archivos y88/88 pruebas aprobadas**,49,83s: products.test, products-service, adversarial/products-005, order-items-api y order-item-service. Total de ambas ejecuciones disjuntas: **17 archivos y182/182 aprobadas**. Typecheck API y validación YAML/670 referencias también aprobados por principal.
 - T-03 ya puede preparar pruebas de consumo/concurrencia. Las rutas OpenAPI siguen pending hasta el cierre completo; falta consumo, UI, cobertura/globales, E2E y QA visual. La revisión es del principal, sin reviewer independiente.
+
+## T-03: envío y concurrencia
+
+- Test-writer Luna entregó `a359052`, dos archivos y21 casos. Rojo real reportado: **17 fallos de assertion y4 aprobadas**, sin fallos de imports/setup. Los verdes corresponden a comportamiento administrativo ya implementado o intercalaciones permitidas; no se los presenta como fallos nuevos.
+- Casos: consumo directo/combo con cantidades mayores a1, faltante mixto atómico, rollback de saldo/movimiento/ítem/impresión durable, última bebida y porción entre mozos, entrada/ajuste/control frente al envío, claves administrativas concurrentes, FK/recategorización, saldos entre fechas, ausencia de backfill, anulación/mover/unir/separar/cobrar sin nuevo consumo y roles actuales en servicio/replay.
+- ACK: servidor HTTP local; el cliente destruye el stream después de recibir cabeceras201 y antes de leer el cuerpo. Se comprueba persistencia y reintento con misma clave, sin nueva venta. No se atribuye una impresión física ni una desconexión anterior al commit.
+- Tipos API, formato y diff-check aprobados por test-writer. I-03 se asignó al mismo implementer complejo, con slotDB exclusivo; todavía sin resultado verde.
+- Revisión principal pidió complemento T-03B: consumos de pecho, octavo, medio configurable y entero, y fallo al persistir replay. Pendiente; no contarlo como cubierto. T-04/UI todavía sin pruebas ni implementación nuevas.
+
+### Complemento y revisión de I-03, en curso
+
+- T-03B `4304dd8` añade casos de presentaciones/partes, fallo de replay y carrera envío/recategorización. Su primer intento de ejecución no conectó dentro del sandbox:28 omitidos, sin assertions ejecutadas. Principal confirmó PostgreSQL17 en ejecución y puerto5432 accesible fuera del sandbox; no se cambió el servicio ni ninguna base.
+- Principal detectó un posible ciclo de locks: consumo retenía el saldo hijo y después adquiría el padre por FK del movimiento; PATCH de categoría podía retener el padre y esperar al hijo. Se fijó en contrato y producción el orden estado→productos KEY SHARE ascendentes→saldos UPDATE ascendentes. La carrera de prueba es simultánea; no fuerza esa intercalación ni se presenta como reproducción determinista del deadlock.
+- I-03 `37bb96e`, solo producción: consume en transacción del envío, demanda resuelta en servidor, autorización antes del claim/replay y fábrica/inyección con reloj compartido. Tipos API, lint/formato dirigidos aprobados por implementer.
+- Primera corrida del implementer:39/40, único fixture concurrente exigía un ganador concreto; T-03B acepta ambos saldos intermedios válidos conservando saldo final9 y movimientos esperados.
+- Corrida principal de5 suites: **43 aprobadas/4 fallidas de47**,33,26s. Las4 fallidas son fixtures:3 enviaban cut:null en requests de medio/entero donde la010 exige omitirlo; otra usaba una bebida componente de combo y encontraba correctamente PRODUCT_IS_COMPONENT antes del nuevo FK. El test-writer corrige; no cambiar el contrato antiguo ni producción para satisfacer esas expectativas.
+- Correcciones de fixtures `9ec9653`, solo tests. Test-writer verificó después **5 archivos/47 pruebas aprobadas**, con wrapper elevado; tipos API y formato también aprobados. El principal ejecuta una regresión adicional de10 archivos de envíos, pagos e impresión durable antes de UI. No se reconstruye rojo causal de T-03B: su primer intento falló en entorno y los posteriores fallos fueron fixtures.
+- T-04 comienza con test-writer Luna; implementer UI Luna distinto lee el plan/puertos y espera rojo antes de producción. No hay UI nueva validada ni E2E de inventario todavía.
+- Regresión del principal posterior a I-03: **10 archivos/147 pruebas aprobadas**,99,96s. Incluye28 casosT-03/B y regresiones de order-items-api/order-item-service/adversarial010, payments-api/service/concurrency014 y kitchen-printing-enqueue/api013. No se suman a las ejecuciones anteriores como casos únicos.
 
 ## T-00: regresión existente de la 010
 
