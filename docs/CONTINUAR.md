@@ -1,5 +1,13 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## Reanudación exacta de 015 — 2026-10-17
+
+- Rama `feat/015-basic-inventory`, desde main `90bbeed` (014 ya integrada). Leer docs/specs/015-basic-inventory/spec.md y tasks.md: propuesta, todavía sin contrato ni código de inventario.
+- P-02 ya aprobada por usuario: no reponer al anular, devolución física por ajuste manual de administrador con motivo. No volver a preguntar. P-03 sigue pendiente: se preguntó hora/corte del nuevo día de pollo, bebidas con saldo permanente. Esperar respuesta antes de programar la política de fechas.
+- T-00 terminado: test-writer `/root/test_writer_015_luna` y implementer `/root/implementer_015_luna`, ambos Luna medium y roles separados. Rojo `b490fb3` del split válido de medio en combo (0+0 en vez de 1+3); fix mínimo `88c1b0c`. Principal aprobó 88/88 en 6 archivos de pedidos/adversariales/pagos, tipos API y lint. Ambos agentes terminaron; siguiente bloque nuevo requiere resolver P-03 y cerrar spec, luego S-01. Ver verification.md de015. El inventario/transacciones complejas mantiene implementer GPT-6.1-sol medium.
+- Principal verifica con `work/run-local-test.cjs` (fuera del repo), que lee solo DATABASE_URL_TEST de la copia Desktop y exige polleria_test. No tocar polleria_dev. Conservar roles separados y commits separados. Integración de 015 aún no autorizada.
+- Este clon descarga solo dev por defecto: para actualizar main u otra rama usar fetch explícito de sus referencias antes de comparar/integrar. No confundir un origin/main antiguo con el estado real de GitHub.
+
 ## Estado vigente — 014 integrada y preparación de 015, 2026-10-17
 
 - Integración de 014 a main autorizada por el usuario y realizada con merge `2e2202f`, desde `965c877`. Árbol idéntico a la rama verificada antes de docs: 2880 pruebas aprobadas, 5 fallos esperados previos y 96,71 % de líneas; 30 E2E aplicables aprobados en ejecuciones separadas. Los registros inferiores son históricos.

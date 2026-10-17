@@ -1,5 +1,12 @@
 # Progreso del proyecto — Sistema Pollería
 
+## 015: propuesta y dependencia de regresión — 2026-10-17
+
+- Rama `feat/015-basic-inventory`, desde main `90bbeed` que ya contiene 014. Spec y tareas en docs/specs/015-basic-inventory/. Inventario propuesto de pollo por partes y bebidas por unidad, con activación explícita y sin backfill; no se ha implementado.
+- Usuario aprobó P-02: anulación sin devolución automática; devolución física mediante ajuste positivo de administrador con motivo. Pendiente P-03 (corte operativo/saldo del pollo); no iniciar el inventario hasta fijar esta regla y cerrar el alcance.
+- Luna medium preparó la matriz de pruebas. Confirmó la semántica actual de cantidades: pollo directo ya incorpora cantidad de línea; componentes de combo incorporan cantidad de receta, falta multiplicar la cantidad externa del combo para consumir inventario. No sumar padre y componentes.
+- T-00 independiente completado: test-writer Luna reprodujo el defecto previo de la 010 (split válido 1+3 se guardaba como 0+0) con commit `b490fb3`; implementer Luna separado corrigió únicamente el flag de validación en `88c1b0c`, según D-010-04/05 ya aprobadas. Principal verificó 6 archivos/88 pruebas de pedidos, adversariales y pagos en verde, más tipos API/lint. No hay código de inventario ni nuevas migraciones; evidencia en verification.md de015.
+
 ## 014 integrada en main; preparación de 015 — 2026-10-17
 
 - Usuario autorizó integrar 014 y continuar con 015. Merge de 014 en main: `2e2202f`, desde el cierre validado `965c877`. Sin conflictos; el árbol del merge coincide con la rama probada antes de esta actualización documental. Se conserva la evidencia de 149 archivos, 2880 pruebas aprobadas, 5 fallos esperados anteriores, cobertura de líneas 96,71 % y 30 E2E aplicables aprobados en ejecuciones separadas. No se repiten suites por un merge sin cambios de código.
