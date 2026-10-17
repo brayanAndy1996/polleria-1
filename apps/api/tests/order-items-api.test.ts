@@ -16,6 +16,8 @@ import { createOrderService } from '../src/services/orders/order.service.ts';
 import { createTableService } from '../src/services/tables/table.service.ts';
 import { createOrderItemService } from '../src/services/order-items/order-item.service.ts';
 import { createProductService } from '../src/services/products/product.service.ts';
+import { createProductPortionService } from '../src/services/products/product-portion.service.ts';
+import { createComboItemService } from '../src/services/combo-items/combo-item.service.ts';
 import {
   clearMenuTables,
   clearOrderTables,
@@ -168,6 +170,27 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
       priceCents: 800,
     });
     return { mozo, mesa3, order, incaKola };
+  }
+  async function seedHalfChickenCombo() {
+    const s = await seed();
+    const products = createProductService({ models: auth.models });
+    const chicken = await products.createProduct({
+      name: 'Pollo a la brasa',
+      category: 'chicken',
+      priceCents: 4800,
+    });
+    await createProductPortionService({ models: auth.models }).replaceProductPortions(chicken.id, {
+      portions: [{ portion: 'half', cut: null, priceCents: 2600 }],
+    });
+    const combo = await products.createProduct({
+      name: 'Combo medio pollo',
+      category: 'combo',
+      priceCents: 3000,
+    });
+    await createComboItemService({ models: auth.models }).replaceComboItems(combo.id, {
+      items: [{ productId: chicken.id, quantity: 1, portion: 'half', cut: null }],
+    });
+    return { ...s, chicken, combo };
   }
   /** El ítem creado por ESTE envío (el último de la lista, por id). */
   async function sentItem(orderId: number, productId: number, userId: number, key = 'k-1') {
@@ -334,6 +357,108 @@ describe('010: API de ítems del pedido contra polleria_test', () => {
     );
     expect(conflict.status).toBe(409);
     expect(conflict.body).toEqual(IDEMPOTENCY_CONFLICT_BODY);
+  });
+  it('D-010-04/05: copia la distribución custom de medio pollo en combo y su replay', async () => {
+    const s = await seedHalfChickenCombo();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const body = {
+      items: [
+        {
+          productId: s.combo.id,
+          quantity: 1,
+          components: [
+            {
+              productId: s.chicken.id,
+              quantity: 1,
+              portion: 'half',
+              breastEighths: 1,
+              legEighths: 3,
+            },
+          ],
+        },
+      ],
+    };
+    const first = await postItems(s.order.id, body, 'k-half-combo', mozo.cookie);
+    expect(first.status).toBe(201);
+    const parsed = sendOrderItemsResponseSchema.parse(first.body);
+    const combo = parsed.order.items[0]!;
+    expect(combo).toMatchObject({ quantity: 1, breastEighths: 1, legEighths: 3 });
+    expect(combo.components).toEqual([
+      expect.objectContaining({
+        productId: s.chicken.id,
+        quantity: 1,
+        portion: 'half',
+        breastEighths: 1,
+        legEighths: 3,
+      }),
+    ]);
+    expect(parsed.ticket.items[0]).toEqual(combo);
+
+    const tickets = await getTickets(s.order.id, mozo.cookie);
+    expect(tickets.status).toBe(200);
+    expect(kitchenTicketsResponseSchema.parse(tickets.body).tickets[0]?.items[0]).toEqual(combo);
+
+    const counts = async () => ({
+      items: (await rows<{ c: number }>('SELECT count(*)::int AS c FROM order_items'))[0]?.c,
+      components: (
+        await rows<{ c: number }>('SELECT count(*)::int AS c FROM order_item_components')
+      )[0]?.c,
+      tickets: (await rows<{ c: number }>('SELECT count(*)::int AS c FROM kitchen_tickets'))[0]?.c,
+      keys: (await rows<{ c: number }>('SELECT count(*)::int AS c FROM idempotency_keys'))[0]?.c,
+    });
+    const beforeReplay = await counts();
+    const replay = await postItems(s.order.id, body, 'k-half-combo', mozo.cookie);
+    expect(replay.status).toBe(201);
+    expect(replay.body).toEqual(first.body);
+    expect(await counts()).toEqual(beforeReplay);
+  });
+  it('D-010-04/05: rechaza split de medio pollo en combo que no suma 4 sin mutar', async () => {
+    const s = await seedHalfChickenCombo();
+    const mozo = await loginWithCookie(auth.app, 'mozo.juan', '2468');
+    const response = await postItems(
+      s.order.id,
+      {
+        items: [
+          {
+            productId: s.combo.id,
+            quantity: 1,
+            components: [
+              {
+                productId: s.chicken.id,
+                quantity: 1,
+                portion: 'half',
+                breastEighths: 1,
+                legEighths: 2,
+              },
+            ],
+          },
+        ],
+      },
+      'k-invalid-half-combo',
+      mozo.cookie,
+    );
+    const issues = validationIssues(response);
+    expect(issues).toContainEqual({
+      path: 'items.0.components',
+      message: 'La distribución del medio debe sumar 4 octavos entre pecho y pierna.',
+    });
+    expect(
+      await rows<{ c: number }>('SELECT count(*)::int AS c FROM order_items WHERE order_id = $1', [
+        s.order.id,
+      ]),
+    ).toEqual([{ c: 0 }]);
+    expect(
+      await rows<{ c: number }>(
+        'SELECT count(*)::int AS c FROM kitchen_tickets WHERE order_id = $1',
+        [s.order.id],
+      ),
+    ).toEqual([{ c: 0 }]);
+    expect(
+      await rows<{ c: number }>(
+        "SELECT count(*)::int AS c FROM idempotency_keys WHERE scope = 'order-items' AND key = $1",
+        ['k-invalid-half-combo'],
+      ),
+    ).toEqual([{ c: 0 }]);
   });
   it('AC-15: los issues por ítem llegan acumulados en details.issues', async () => {
     const s = await seed();
