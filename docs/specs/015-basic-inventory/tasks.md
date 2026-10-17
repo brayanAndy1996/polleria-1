@@ -1,6 +1,6 @@
 # Tareas — 015 Inventario básico
 
-Estado 2026-10-17: alcance aprobado tras resolver P-03 (pollo y bebidas conservan saldo hasta ajuste manual, sin reset diario) y P-02 (sin reposición automática al anular). S-01 preparado: contract.md, OpenAPI0.12 con8 operaciones pending y670 referencias verificadas. T-01/I-01 completados: dominio puro y schemas, revisión principal de1100 pruebas shared aprobadas y3 fallos esperados anteriores. T-02 rojo reportado:11 assertions fallidas por tablas/rutas ausentes; servicio sin cargar por módulo ausente. I-02 en implementación GPT-6.1-sol medium. La014 ya está en main;015 permanece separada; consumo/UI todavía pendientes.
+Estado 2026-10-17: alcance aprobado, saldos permanentes sin reset diario y sin reposición automática al anular. S-01, T-01/I-01 y T-02/I-02 completados. Shared:1100 aprobadas +3 fallos esperados anteriores. Backend administrativo `c002e11`: principal verificó17 archivos/182 pruebas aprobadas, tipos API y contrato. T-03 en preparación por Luna; descuento en sendItems y UI todavía pendientes. OpenAPI0.12 conserva8 operaciones pending hasta cierre. La014 ya está en main;015 permanece separada.
 
 T-00 completado: rojo `b490fb3`, fix `88c1b0c`, 6 archivos/88 pruebas aprobadas por el principal, tipos API y lint aprobados. Ver verification.md. La corrección de esa regresión no implica aprobar ni implementar el inventario.
 

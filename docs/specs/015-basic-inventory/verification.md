@@ -15,13 +15,22 @@ El usuario restableció Luna para trabajo sencillo. Test-writer y corrección m�
 - Revisión principal detectó fixtures incorrectas: saldo0 + entrada1 es válido; los octavos de pollo directo ya incluyen la cantidad de línea; el desbordamiento debe superar MAX por acumulación. El test-writer corrigió esos casos en `1d94ff7`, sin cambiar producción para satisfacer expectativas falsas.
 - Verde del principal: 24 archivos shared, **1100 pruebas aprobadas y3 fallos esperados anteriores**, exit0. Los fallos esperados no se cuentan como aprobados. Comando: `node ../run-local-test.cjs node_modules/vitest/vitest.mjs run packages/shared --maxWorkers=2`.
 - Implementer reportó tipos/lint/formato de su bloque aprobados. El primer intento compartido de Vitest dentro del sandbox falló por workers ENOENT; la ejecución del principal con permisos de proceso adecuados pasó. Sin atribuir ese fallo de entorno al dominio.
-- T-02 en preparación; todavía sin evidencia roja/verde de PostgreSQL para inventario ni QA visual. La propuesta de interfaz está en ui-plan.md y no constituye implementación ni validación.
+- Al cerrar I-01 todavía faltaba evidencia PostgreSQL de inventario; el bloque siguiente documenta su validación posterior. La propuesta de interfaz está en ui-plan.md y no constituye implementación ni QA visual.
 
 ## T-02: migración y administración
 
 - Test-writer Luna: `d9e3cf7` y limpieza de import `a0f993d`, solo tests/helpers. Migración reversible, ausencia de backfill, restricciones SQL, administración/auditoría, permisos actuales, idempotencia, conservación entre fechas, paginación y rollback. Actualizó las listas de migración anteriores y limpieza test sin retirar assertions de dominio.
 - Rojo reportado por test-writer usando wrapper y polleria_test: **11 fallos de assertion** por tablas/migración ausentes y rutas404. La suite de servicio no pudo cargar por módulo inventory.service.ts ausente: **0 tests ejecutados en esa suite**, sin atribuir rojo de assertions del servicio.
 - I-02 asignado a implementer distinto GPT-6.1-sol medium por transacciones/stock/permisos. Tiene el slotDB serializado para verde dirigido. No integra consumo en sendItems hasta T-03 rojo. Backend aún sin resultado verde; no se marca ninguna ruta implemented.
+
+### I-02 y verificación del principal
+
+- Producción `c002e11`: migración/modelos, administración transaccional, ocho rutas y traducción de la FK de bebidas a PRODUCT_HAS_INVENTORY; sin consumo en sendItems. Tipos API, ESLint dirigido, Prettier y diff-check aprobados por implementer.
+- Primer verde del implementer:18/19. El único fallo era la regex del índice parcial, que no admitía el cast generado por PostgreSQL para VARCHAR. Test-writer corrigió la comprobación semántica de unicidad, expresiones y predicado en `e41c6a1`; migración5/5. No se cambió producción para satisfacer el formato de SQL.
+- Principal: **12 archivos y94/94 pruebas aprobadas**,48,20s, usando wrapper polleria_test con máximo2workers y ejecución serializada de archivos. Incluye3 suites de inventario (19casos),8 suites de migraciones anteriores y payments-api-014.
+- El comando anterior también mencionaba products-api.test.ts, archivo inexistente que Vitest ignoró. No se atribuye cobertura de catálogo a ese nombre; se ejecutan por separado los archivos reales de catálogo y pedidos antes de I-03.
+- Segunda ejecución del principal: **5 archivos y88/88 pruebas aprobadas**,49,83s: products.test, products-service, adversarial/products-005, order-items-api y order-item-service. Total de ambas ejecuciones disjuntas: **17 archivos y182/182 aprobadas**. Typecheck API y validación YAML/670 referencias también aprobados por principal.
+- T-03 ya puede preparar pruebas de consumo/concurrencia. Las rutas OpenAPI siguen pending hasta el cierre completo; falta consumo, UI, cobertura/globales, E2E y QA visual. La revisión es del principal, sin reviewer independiente.
 
 ## T-00: regresión existente de la 010
 
