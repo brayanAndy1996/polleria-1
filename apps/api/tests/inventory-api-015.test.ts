@@ -11,7 +11,6 @@ import {
   inventorySnapshotSchema,
 } from '@polleria/shared';
 import type { UserRole } from '@polleria/shared';
-import { createApp } from '../src/app.ts';
 import { migrateUp } from '../src/db/migrator.ts';
 import { createProductService } from '../src/services/products/product.service.ts';
 import {
