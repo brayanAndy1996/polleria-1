@@ -2,6 +2,7 @@
 
 ## Reanudación exacta de 015 — 2026-10-17
 
+- Corte vigente: T-01/I-01 completados (`7f63a89`, fixtures `1d94ff7`), shared24 archivos/1100 aprobadas +3 fallos esperados anteriores por el principal. Test-writer Luna prepara T-02 SQL/service/API y sus helpers; tiene el slotDB solo para rojo. Implementer I-02 GPT-6.1-sol medium lee contrato/tests y espera rojo antes de producción. Todavía sin consumo en sendItems (T-03/I-03 posterior) ni UI (T-04/I-04). No superponer DB. Ver verification.md y ui-plan.md de015.
 - Vigente: P-03 respondida «conserva su saldo hasta un ajuste manual», ambos saldos permanentes. No pedir otra confirmación de esa regla ni aplicar reinicio diario. Spec aprobada; contract.md/OpenAPI0.12 preparado con8 rutas pending/670 refs. T-01 en test-writer Luna medium; I-01 seguirá con implementer Luna distinto. Transacciones/stock nuevos siguen GPT-6.1-sol medium. Los puntos inferiores que dicen pendiente describen el corte anterior.
 - Rama `feat/015-basic-inventory`, desde main `90bbeed` (014 ya integrada). Leer docs/specs/015-basic-inventory/spec.md y tasks.md: propuesta, todavía sin contrato ni código de inventario.
 - P-02 ya aprobada por usuario: no reponer al anular, devolución física por ajuste manual de administrador con motivo. No volver a preguntar. P-03 sigue pendiente: se preguntó hora/corte del nuevo día de pollo, bebidas con saldo permanente. Esperar respuesta antes de programar la política de fechas.

@@ -4,9 +4,24 @@
 
 014 integrada en main con autorización del usuario, merge `2e2202f`; actualización documental/modelos `90bbeed`, publicada en GitHub. El árbol del merge coincidía con `965c877`, ya validado; no se repitieron suites por un merge sin cambios de código.
 
-015 permanece como **propuesta de inventario**, en `feat/015-basic-inventory`: sin migraciones, endpoints, schemas ni UI de stock. El usuario aprobó P-02 (anular no repone; devolución física mediante ajuste admin con motivo). P-03, el corte operativo o conservación del pollo, sigue pendiente de respuesta; no se asume medianoche por omisión o por paso del tiempo. Spec/tasks preparadas para revisión.
+015 tiene **alcance aprobado**, en `feat/015-basic-inventory`. El usuario aprobó P-02 (anular no repone; devolución física mediante ajuste admin con motivo) y resolvió P-03: pollo y bebidas conservan su saldo hasta los movimientos o ajustes manuales, sin reinicio diario. Contrato técnico y OpenAPI0.12 preparados; ocho rutas siguen pending. El dominio puro está implementado; migraciones, endpoints y UI siguen pendientes.
 
 El usuario restableció Luna para trabajo sencillo. Test-writer y corrección mínima usaron GPT-6-luna medium, en agentes distintos. La implementación compleja de stock/transacciones seguirá GPT-6.1-sol medium. No hubo reviewer ni ronda adversarial independientes.
+
+## T-01 / I-01: dominio puro
+
+- Test-writer Luna: `c130635` y `38e9944`. Primer rojo por módulo ausente; no se atribuye como fallo de assertion del algoritmo.
+- Implementer Luna separado: `7f63a89`, únicamente producción shared. Schemas estrictos, movimientos coherentes, conversiones, suma por recurso y límites enteros, sin reloj ni reinicio diario.
+- Revisión principal detectó fixtures incorrectas: saldo0 + entrada1 es válido; los octavos de pollo directo ya incluyen la cantidad de línea; el desbordamiento debe superar MAX por acumulación. El test-writer corrigió esos casos en `1d94ff7`, sin cambiar producción para satisfacer expectativas falsas.
+- Verde del principal: 24 archivos shared, **1100 pruebas aprobadas y3 fallos esperados anteriores**, exit0. Los fallos esperados no se cuentan como aprobados. Comando: `node ../run-local-test.cjs node_modules/vitest/vitest.mjs run packages/shared --maxWorkers=2`.
+- Implementer reportó tipos/lint/formato de su bloque aprobados. El primer intento compartido de Vitest dentro del sandbox falló por workers ENOENT; la ejecución del principal con permisos de proceso adecuados pasó. Sin atribuir ese fallo de entorno al dominio.
+- T-02 en preparación; todavía sin evidencia roja/verde de PostgreSQL para inventario ni QA visual. La propuesta de interfaz está en ui-plan.md y no constituye implementación ni validación.
+
+## T-02: migración y administración
+
+- Test-writer Luna: `d9e3cf7` y limpieza de import `a0f993d`, solo tests/helpers. Migración reversible, ausencia de backfill, restricciones SQL, administración/auditoría, permisos actuales, idempotencia, conservación entre fechas, paginación y rollback. Actualizó las listas de migración anteriores y limpieza test sin retirar assertions de dominio.
+- Rojo reportado por test-writer usando wrapper y polleria_test: **11 fallos de assertion** por tablas/migración ausentes y rutas404. La suite de servicio no pudo cargar por módulo inventory.service.ts ausente: **0 tests ejecutados en esa suite**, sin atribuir rojo de assertions del servicio.
+- I-02 asignado a implementer distinto GPT-6.1-sol medium por transacciones/stock/permisos. Tiene el slotDB serializado para verde dirigido. No integra consumo en sendItems hasta T-03 rojo. Backend aún sin resultado verde; no se marca ninguna ruta implemented.
 
 ## T-00: regresión existente de la 010
 

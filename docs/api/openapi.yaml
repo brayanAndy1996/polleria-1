@@ -1376,7 +1376,9 @@ paths:
         con componentes responde 409 PRODUCT_HAS_ITEMS (primero se vacía con PUT
         .../items e items vacío), y cambiar la categoría de un producto que es
         componente de algún combo responde 409 PRODUCT_IS_COMPONENT (primero se quita
-        del combo). Cabecera Cache-Control: no-store.
+        del combo). Desde la spec 015, una bebida con registro de inventario no puede
+        cambiar de categoría, aunque su control esté desactivado: 409
+        PRODUCT_HAS_INVENTORY. Cabecera Cache-Control: no-store.
       security:
         - sessionCookie: []
       parameters:
@@ -1428,7 +1430,8 @@ paths:
             spec 006), el producto es un combo con componentes y se intentó cambiar su
             categoría fuera de 'combo' (PRODUCT_HAS_ITEMS, spec 007), o el producto es
             componente de algún combo y se intentó cambiar su categoría
-            (PRODUCT_IS_COMPONENT, spec 007).
+            (PRODUCT_IS_COMPONENT, spec 007), o la bebida tiene registro de inventario
+            y se intentó cambiar su categoría (PRODUCT_HAS_INVENTORY, spec 015).
           headers:
             Cache-Control:
               $ref: '#/components/headers/CacheControlNoStore'
