@@ -68,6 +68,7 @@ describe('015 inventory pure domain', () => {
 
     it('applies positive and negative integer deltas without mutating the input value', () => {
       const startingQuantity = 40;
+      expect(applyInventoryDelta(0, 1)).toBe(1);
       expect(applyInventoryDelta(startingQuantity, 8)).toBe(48);
       expect(applyInventoryDelta(startingQuantity, -8)).toBe(32);
       expect(startingQuantity).toBe(40);
@@ -206,7 +207,68 @@ describe('015 inventory pure domain', () => {
     it('validates movement invariants and strict mutation/page responses', () => {
       expect(inventoryMovementSchema.parse(validMovement)).toEqual(validMovement);
       expect(
-        inventoryMovementSchema.safeParse({ ...validMovement, type: 'control', delta: 0 }).success,
+        inventoryMovementSchema.safeParse({
+          ...validMovement,
+          kind: 'leg',
+          type: 'batch',
+          delta: -4,
+        }).success,
+      ).toBe(false);
+      expect(
+        inventoryMovementSchema.safeParse({
+          ...validMovement,
+          kind: 'breast',
+          type: 'receipt',
+          delta: 4,
+        }).success,
+      ).toBe(false);
+      expect(
+        inventoryMovementSchema.safeParse({
+          ...validMovement,
+          kind: 'drink',
+          productId: 8,
+          productName: 'Inca Kola',
+          type: 'receipt',
+          delta: 4,
+        }).success,
+      ).toBe(true);
+      expect(
+        inventoryMovementSchema.safeParse({
+          ...validMovement,
+          kind: 'drink',
+          productId: 8,
+          productName: 'Inca Kola',
+          type: 'consumption',
+          delta: -2,
+          ticketId: 15,
+        }).success,
+      ).toBe(true);
+      expect(
+        inventoryMovementSchema.safeParse({
+          ...validMovement,
+          kind: 'drink',
+          productId: 8,
+          productName: 'Inca Kola',
+          type: 'consumption',
+          delta: 2,
+          ticketId: 15,
+        }).success,
+      ).toBe(false);
+      expect(
+        inventoryMovementSchema.safeParse({
+          ...validMovement,
+          type: 'control',
+          delta: 0,
+          enabledAfter: true,
+        }).success,
+      ).toBe(true);
+      expect(
+        inventoryMovementSchema.safeParse({
+          ...validMovement,
+          type: 'control',
+          delta: 0,
+          enabledAfter: null,
+        }).success,
       ).toBe(false);
       expect(inventoryMovementSchema.safeParse({ ...validMovement, kind: 'drink' }).success).toBe(
         false,
