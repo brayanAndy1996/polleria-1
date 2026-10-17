@@ -183,7 +183,6 @@ describe('015: consumo de inventario en envío a cocina', () => {
       item: {
         productId: 0,
         portion: 'half' as const,
-        cut: null,
         quantity: 2,
         breastEighths: 1,
         legEighths: 3,
@@ -193,7 +192,7 @@ describe('015: consumo de inventario en envío a cocina', () => {
     },
     {
       name: 'pollo entero repetido dos veces',
-      item: { productId: 0, portion: 'whole' as const, cut: null, quantity: 2 },
+      item: { productId: 0, portion: 'whole' as const, quantity: 2 },
       breast: 8,
       leg: 8,
     },
@@ -245,7 +244,6 @@ describe('015: consumo de inventario en envío a cocina', () => {
                 productId: chickenId,
                 quantity: 1,
                 portion: 'half',
-                cut: null,
                 breastEighths: 1,
                 legEighths: 3,
               },
@@ -275,14 +273,31 @@ describe('015: consumo de inventario en envío a cocina', () => {
   it('AC-12: envío concurrente y recategorización conservan el envío y rechazan la carta con 409', async () => {
     await openChickenAndDrink(1, 3);
     const products = createProductService({ models });
+    const standaloneDrink = await products.createProduct({
+      name: 'Bebida con inventario propio',
+      category: 'drink',
+      priceCents: 350,
+    });
+    await inventory.setDrinkControl(
+      standaloneDrink.id,
+      { enabled: true, reason: 'Inicio' },
+      'standalone-drink-control',
+      { userId: adminId },
+    );
+    await inventory.addDrinkReceipt(
+      standaloneDrink.id,
+      { quantity: 3, reason: 'Compra' },
+      'standalone-drink-receipt',
+      { userId: adminId },
+    );
     const [sent, recategorized] = await Promise.allSettled([
       items.sendItems(
         orderId,
-        { items: [{ productId: drinkId, quantity: 1 }] },
+        { items: [{ productId: standaloneDrink.id, quantity: 1 }] },
         'send-vs-recategory-drink',
         { userId: waiterId },
       ),
-      products.updateProduct(drinkId, { category: 'dessert' }),
+      products.updateProduct(standaloneDrink.id, { category: 'dessert' }),
     ]);
     expect(sent.status).toBe('fulfilled');
     expect(recategorized).toMatchObject({
@@ -290,7 +305,7 @@ describe('015: consumo de inventario en envío a cocina', () => {
       reason: { code: 'PRODUCT_HAS_INVENTORY', httpStatus: 409 },
     });
     expect(await count('inventory_movements', "WHERE type = 'consumption'")).toBe(1);
-    expect(await models.Product.findByPk(drinkId)).toMatchObject({ category: 'drink' });
+    expect(await models.Product.findByPk(standaloneDrink.id)).toMatchObject({ category: 'drink' });
   });
 
   it('AC-08: si falla guardar la respuesta de replay, revierte el envío entero y deja reintentar la clave', async () => {
