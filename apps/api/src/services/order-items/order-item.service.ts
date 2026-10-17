@@ -623,8 +623,8 @@ export function createOrderItemService({
               const hasEighths =
                 given.breastEighths !== undefined || given.legEighths !== undefined;
               if (!hasEighths) continue;
-              componentIssue = true;
               if ((given.portion ?? null) !== 'half') {
+                componentIssue = true;
                 issues.push({
                   path: `${path}.components`,
                   message: 'La distribución de partes solo se indica en el medio pollo.',
@@ -636,6 +636,7 @@ export function createOrderItemService({
                 given.legEighths === undefined ||
                 given.breastEighths + given.legEighths !== 4
               ) {
+                componentIssue = true;
                 issues.push({
                   path: `${path}.components`,
                   message: 'La distribución del medio debe sumar 4 octavos entre pecho y pierna.',
