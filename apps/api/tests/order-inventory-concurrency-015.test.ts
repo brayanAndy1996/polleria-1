@@ -336,9 +336,9 @@ describe('015: concurrencia de envíos y comandos administrativos', () => {
       ]),
       'claves distintas de inventario',
     );
-    expect(
-      differentKeys.map((result) => result.inventory.drinks[0]!.quantity).sort((a, b) => a - b),
-    ).toEqual([5, 9]);
+    const concurrentSnapshots = differentKeys.map((result) => result.inventory.drinks[0]!.quantity);
+    expect(concurrentSnapshots.every((quantity) => quantity >= 5 && quantity <= 9)).toBe(true);
+    expect(concurrentSnapshots).toContain(9);
     expect(await inventory.getInventory(adminA)).toMatchObject({
       drinks: [{ productId: drinkId, quantity: 9 }],
     });

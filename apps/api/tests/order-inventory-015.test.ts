@@ -133,7 +133,13 @@ beforeEach(async () => {
   });
   chickenId = chicken.id;
   await createProductPortionService({ models }).replaceProductPortions(chicken.id, {
-    portions: [{ portion: 'quarter', cut: 'leg', priceCents: 1400 }],
+    portions: [
+      { portion: 'eighth', cut: 'breast', priceCents: 700 },
+      { portion: 'quarter', cut: 'breast', priceCents: 1400 },
+      { portion: 'quarter', cut: 'leg', priceCents: 1400 },
+      { portion: 'half', cut: null, priceCents: 2600 },
+      { portion: 'whole', cut: null, priceCents: 4800 },
+    ],
   });
   drinkId = (await products.createProduct({ name: 'Gaseosa', category: 'drink', priceCents: 500 }))
     .id;
@@ -159,6 +165,179 @@ beforeEach(async () => {
 });
 
 describe('015: consumo de inventario en envío a cocina', () => {
+  it.each([
+    {
+      name: 'octavo de pecho',
+      item: { productId: 0, portion: 'eighth' as const, cut: 'breast' as const, quantity: 1 },
+      breast: 1,
+      leg: 0,
+    },
+    {
+      name: 'cuarto de pecho',
+      item: { productId: 0, portion: 'quarter' as const, cut: 'breast' as const, quantity: 1 },
+      breast: 2,
+      leg: 0,
+    },
+    {
+      name: 'medio configurable 1+3 repetido dos veces',
+      item: {
+        productId: 0,
+        portion: 'half' as const,
+        cut: null,
+        quantity: 2,
+        breastEighths: 1,
+        legEighths: 3,
+      },
+      breast: 2,
+      leg: 6,
+    },
+    {
+      name: 'pollo entero repetido dos veces',
+      item: { productId: 0, portion: 'whole' as const, cut: null, quantity: 2 },
+      breast: 8,
+      leg: 8,
+    },
+  ])(
+    'AC-04: $name descuenta la distribución de pecho y pierna una vez',
+    async ({ item, breast, leg }) => {
+      await openChickenAndDrink(4, 10);
+      const before = await inventory.getAvailability({ userId: waiterId });
+      await items.sendItems(
+        orderId,
+        { items: [{ ...item, productId: chickenId }] },
+        `chicken-shape-${fixtureSequence}`,
+        { userId: waiterId },
+      );
+      const after = await inventory.getAvailability({ userId: waiterId });
+      expect(after.chicken.breastEighths).toBe(before.chicken.breastEighths - breast);
+      expect(after.chicken.legEighths).toBe(before.chicken.legEighths - leg);
+      expect(
+        await rows<{ kind: string; delta: number }>(
+          "SELECT kind, delta FROM inventory_movements WHERE type = 'consumption' ORDER BY kind",
+        ),
+      ).toEqual(
+        [
+          ...(breast > 0 ? [{ kind: 'breast', delta: -breast }] : []),
+          ...(leg > 0 ? [{ kind: 'leg', delta: -leg }] : []),
+        ].sort((a, b) => a.kind.localeCompare(b.kind)),
+      );
+    },
+  );
+
+  it('AC-04: medio configurable 1+3 en combo de cantidad 2 multiplica por padre y receta', async () => {
+    await createComboItemService({ models }).replaceComboItems(comboId, {
+      items: [
+        { productId: chickenId, quantity: 1, portion: 'half', cut: null },
+        { productId: drinkId, quantity: 1 },
+      ],
+    });
+    await openChickenAndDrink(4, 10);
+    const before = await inventory.getAvailability({ userId: waiterId });
+    await items.sendItems(
+      orderId,
+      {
+        items: [
+          {
+            productId: comboId,
+            quantity: 2,
+            components: [
+              {
+                productId: chickenId,
+                quantity: 1,
+                portion: 'half',
+                cut: null,
+                breastEighths: 1,
+                legEighths: 3,
+              },
+              { productId: drinkId, quantity: 1 },
+            ],
+          },
+        ],
+      },
+      'combo-half-custom-quantity-2',
+      { userId: waiterId },
+    );
+    const after = await inventory.getAvailability({ userId: waiterId });
+    expect(after.chicken.breastEighths).toBe(before.chicken.breastEighths - 2);
+    expect(after.chicken.legEighths).toBe(before.chicken.legEighths - 6);
+    expect(after.drinks[0]!.quantity).toBe(before.drinks[0]!.quantity - 2);
+    expect(
+      await rows<{ kind: string; delta: number }>(
+        "SELECT kind, delta FROM inventory_movements WHERE type = 'consumption' ORDER BY kind",
+      ),
+    ).toEqual([
+      { kind: 'breast', delta: -2 },
+      { kind: 'drink', delta: -2 },
+      { kind: 'leg', delta: -6 },
+    ]);
+  });
+
+  it('AC-12: envío concurrente y recategorización conservan el envío y rechazan la carta con 409', async () => {
+    await openChickenAndDrink(1, 3);
+    const products = createProductService({ models });
+    const [sent, recategorized] = await Promise.allSettled([
+      items.sendItems(
+        orderId,
+        { items: [{ productId: drinkId, quantity: 1 }] },
+        'send-vs-recategory-drink',
+        { userId: waiterId },
+      ),
+      products.updateProduct(drinkId, { category: 'dessert' }),
+    ]);
+    expect(sent.status).toBe('fulfilled');
+    expect(recategorized).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'PRODUCT_HAS_INVENTORY', httpStatus: 409 },
+    });
+    expect(await count('inventory_movements', "WHERE type = 'consumption'")).toBe(1);
+    expect(await models.Product.findByPk(drinkId)).toMatchObject({ category: 'drink' });
+  });
+
+  it('AC-08: si falla guardar la respuesta de replay, revierte el envío entero y deja reintentar la clave', async () => {
+    await openChickenAndDrink(2, 5);
+    const before = await inventory.getAvailability({ userId: waiterId });
+    const query = sequelize.query.bind(sequelize);
+    vi.spyOn(sequelize, 'query').mockImplementation(((sql: unknown, options?: unknown) => {
+      if (typeof sql === 'string' && sql.startsWith('UPDATE idempotency_keys SET response_status'))
+        return Promise.reject(new Error('fallo forzado al guardar respuesta'));
+      return query(sql as Parameters<typeof sequelize.query>[0], options as never);
+    }) as typeof sequelize.query);
+    await expect(
+      items.sendItems(
+        orderId,
+        { items: [{ productId: drinkId, quantity: 2 }] },
+        'retry-after-replay-store-failure',
+        { userId: waiterId },
+      ),
+    ).rejects.toThrow('fallo forzado al guardar respuesta');
+    const afterFailure = await inventory.getAvailability({ userId: waiterId });
+    expect(afterFailure.chicken).toEqual(before.chicken);
+    expect(afterFailure.drinks).toEqual(before.drinks);
+    expect(await count('inventory_movements', "WHERE type = 'consumption'")).toBe(0);
+    expect(await count('order_items', `WHERE order_id = ${orderId}`)).toBe(0);
+    expect(await count('kitchen_tickets', `WHERE order_id = ${orderId}`)).toBe(0);
+    expect(await count('kitchen_ticket_prints')).toBe(0);
+    expect(await count('kitchen_ticket_print_attempts')).toBe(0);
+    expect(
+      await count(
+        'idempotency_keys',
+        "WHERE scope = 'order-items' AND key = 'retry-after-replay-store-failure'",
+      ),
+    ).toBe(0);
+
+    vi.restoreAllMocks();
+    await items.sendItems(
+      orderId,
+      { items: [{ productId: drinkId, quantity: 2 }] },
+      'retry-after-replay-store-failure',
+      { userId: waiterId },
+    );
+    expect(await inventory.getAvailability({ userId: waiterId })).toMatchObject({
+      drinks: [{ productId: drinkId, quantity: 3 }],
+    });
+    expect(await count('inventory_movements', "WHERE type = 'consumption'")).toBe(1);
+  });
+
   it('AC-04: pollo directo con cantidad ya resuelta descuenta octavos una sola vez', async () => {
     await openChickenAndDrink(4, 10);
     const before = await inventory.getAvailability({ userId: waiterId });
