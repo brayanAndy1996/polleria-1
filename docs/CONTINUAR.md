@@ -1,5 +1,26 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## Entorno de trabajo operativo — 2026-10-16
+
+El usuario autorizó resolver el entorno completo. Esta copia WSL ya dispone
+de PostgreSQL 17.11 de usuario, bases `polleria_dev`/`polleria_test`, conexión
+privada y datos demo. Para iniciar todo: `npm run dev` desde la raíz; el runner
+inicia el cluster local si está apagado y después frontend/backend. La
+aplicación está disponible en `http://localhost:3000/login` mientras siga
+abierta la terminal del usuario.
+
+Demo Administrador usa PIN 135790; Demo Mozo, 2468. Login real, panel admin y
+mesas comprobados con Chromium, sin errores de página. Las credenciales DB
+no deben imprimirse ni versionarse; están en `backend/.env` con permisos 0600.
+Las rutas locales de PostgreSQL están en metadata ignorada de `infra/.local/`.
+
+Tipos/lint pasan; cobertura completa sobre `polleria_test`: 2659 pruebas
+aprobadas, cuatro fallos esperados previos, dos omitidas, líneas 97,23 %.
+No se ejecutaron todos los E2E; se comprobaron dos accesos reales. Ver
+[evidencia](specs/local-dev/tasks.md) y [guía frontend](FRONTEND.md).
+El estado de 014/pagos/inventario no cambia. Las notas inferiores sobre falta
+de conexión o de base son históricas.
+
 ## Estructura vigente para el frontend — 2026-10-16
 
 El usuario autorizó reubicar las aplicaciones: ahora viven en `frontend/` y

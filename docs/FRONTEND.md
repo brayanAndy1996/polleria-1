@@ -3,6 +3,43 @@
 El área de trabajo de interfaz es `frontend/`. El backend se conserva en
 `backend/` y el contrato HTTP vigente en `docs/api/openapi.yaml`.
 
+## Composición visual en Figma
+
+La [UI actual editable](https://www.figma.com/design/Hkuwm8zQT2kNj1SSSyWJwO?node-id=28-2)
+se exportó el 2026-10-16: 23 pantallas y estados, incluidas tres vistas móviles
+de 390 px, organizados en acceso, salón/pedidos, administración y caja/cocina.
+Contiene texto Nunito, formas, imágenes de contenido y contenedores editables;
+no es un prototipo funcional ni una biblioteca de componentes completa.
+
+Figma sirve para ajustar guías gráficas y composición. Para traer cambios,
+comparte el enlace del frame terminado y se implementará en `frontend/`,
+conservando contratos, permisos y lógica del sistema en el repositorio.
+No hay sincronización automática de ida y vuelta ni conexión de Figma a la DB.
+
+Las vistas marcadas como ejemplo usan datos ilustrativos preparados solo en
+un navegador aislado; no se abrieron mesas ni registraron pedidos en la base.
+Caja y Cocina reflejan el alcance actual, sin presentar funciones pendientes
+como implementadas. El selector de usuarios se capturó a 780 px; las demás
+vistas no móviles, a 1440 px.
+
+## Entorno listo en esta copia WSL
+
+El 2026-10-16 se autorizó preparar PostgreSQL 17 local, su conexión y los datos
+de demostración. Desde la raíz usa:
+
+```sh
+npm run dev
+```
+
+Ese comando inicia PostgreSQL si está apagado y luego frontend/backend.
+Abre `http://localhost:3000/login`. Usuarios de desarrollo: `Demo Administrador`
+con PIN `135790`, o `Demo Mozo` con PIN `2468`. Son cuentas de demostración,
+no credenciales para producción. La [guía de demo](PROBAR-DEMO.md) detalla las
+otras áreas y el alcance disponible.
+
+La configuración y los datos locales no se suben a Git. En otra máquina debes
+preparar la conexión una vez. Ver [infraestructura local](../infra/README.md).
+
 ## Primer arranque
 
 Desde la raíz del repositorio, con Node 24 y pnpm 10.12.1:
@@ -20,6 +57,23 @@ Si la API ya está preparada en esta misma PC, se puede iniciar en otra terminal
 con `pnpm dev:backend`. `pnpm dev` inicia ambas aplicaciones. PostgreSQL y las
 migraciones deben estar preparados por la persona responsable del backend;
 arrancar frontend no ejecuta migraciones ni seeds.
+
+También puedes usar `npm run dev` desde la raíz: prepara el PostgreSQL local
+opcional descrito arriba y ejecuta el arranque conjunto mediante pnpm.
+Necesitas pnpm instalado y configurado según el `packageManager` del proyecto.
+
+### Si el backend indica que falta `.env`
+
+El backend necesita `backend/.env`, basado en `backend/.env.example`, con la
+conexión real a PostgreSQL. El texto `cambia_esta_clave` de la plantilla es un
+marcador que debes reemplazar localmente; no es una credencial funcional.
+No compartas el archivo ni lo subas a Git.
+
+En Node 24.13.0 se observó que el arranque con `--watch` termina con `ENOENT`
+al intentar vigilar ese `.env` ausente y después puede mostrar `EPIPE`.
+Preparar el archivo resuelve su ausencia, pero aún debes iniciar PostgreSQL y
+configurar una base válida. La preparación de tablas y usuarios corresponde
+a la [guía de demo](PROBAR-DEMO.md), con el responsable del backend.
 
 ## Dónde editar
 

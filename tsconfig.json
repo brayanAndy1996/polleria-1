@@ -9,5 +9,5 @@
     "checkJs": true,
     "types": ["node"]
   },
-  "include": ["eslint.config.js", "vitest.config.ts", "playwright.config.ts", "e2e"]
+  "include": ["eslint.config.js", "vitest.config.ts", "playwright.config.ts", "e2e", "scripts"]
 }

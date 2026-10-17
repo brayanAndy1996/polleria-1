@@ -1,5 +1,20 @@
 # Probar el sistema en desarrollo
 
+## Copia WSL ya preparada — 2026-10-16
+
+En `/home/jeremy/polleria-1` se prepararon PostgreSQL 17, las dos bases locales,
+el archivo de conexión ignorado y el seed de demostración con autorización del
+usuario. Desde la raíz basta ejecutar `npm run dev` y abrir
+`http://localhost:3000/login`. El runner inicia también el cluster local si
+está apagado. No repite migraciones o seeds al iniciar.
+
+No es necesario cambiar de rama ni volver a cargar la demo para trabajar en
+la interfaz de esta copia. La preparación manual de abajo describe una
+instalación nueva; las conexiones locales no se incluyen al clonar el repo.
+Ver [infraestructura local](../infra/README.md).
+
+## Preparación manual de otra copia
+
 Esta preparación está en la rama `dev`. Usa Node 24 y pnpm 10.12.1, PostgreSQL 17 y una base local de desarrollo. Las migraciones crean las tablas; no necesitas crearlas a mano.
 
 ## 1. Descargar la rama

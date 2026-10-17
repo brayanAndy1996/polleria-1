@@ -29,6 +29,13 @@ export default defineConfig({
       },
       {
         test: {
+          name: 'dev-tools',
+          environment: 'node',
+          include: ['scripts/**/*.test.ts'],
+        },
+      },
+      {
+        test: {
           name: 'api-integration',
           environment: 'node',
           include: ['backend/tests/**/*.test.ts'],

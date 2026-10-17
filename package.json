@@ -8,7 +8,7 @@
     "node": ">=24.1.0 <25"
   },
   "scripts": {
-    "dev": "pnpm -r --parallel run dev",
+    "dev": "node scripts/dev.ts",
     "dev:frontend": "pnpm --filter @polleria/web dev",
     "dev:backend": "pnpm --filter @polleria/api dev",
     "build:frontend": "pnpm --filter @polleria/web build",

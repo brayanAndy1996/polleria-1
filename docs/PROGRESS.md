@@ -1,5 +1,57 @@
 # Progreso del proyecto — Sistema Pollería
 
+## UI editable en Figma — 2026-10-16
+
+- Exportadas 23 pantallas y estados al archivo Figma indicado por el usuario,
+  en la página `Pollería · UI editable`: acceso, salón/pedidos, administración,
+  caja/cocina y tres vistas móviles. Referencia en [guía frontend](FRONTEND.md).
+- Texto, formas, fotos de contenido y auto-layout editables, sin capturas planas
+  de pantallas ni prototipo funcional. Composición visual en Figma; código,
+  contratos y lógica de negocio permanecen en el repositorio.
+- Pedidos ilustrativos simulados únicamente en un navegador aislado, sin
+  crear órdenes ni modificar mesas en desarrollo. Backend sin cambios.
+- Script de captura añadido temporalmente por el implementer y retirado al
+  terminar; `frontend/src/app/layout.tsx` sin diff. Revisión visual y estructural
+  del principal; no corresponde una suite funcional por esta exportación.
+
+## Entorno local operativo — 2026-10-16
+
+- El usuario autorizó resolver la preparación completa para poder trabajar.
+  Se prepararon PostgreSQL 17.11 de usuario, un cluster nuevo privado, rol
+  `polleria` sin superusuario y bases `polleria_dev`/`polleria_test`. Esta
+  autorización específica permitió preparar esas bases; no se tocaron otras.
+- Se aplicaron ocho migraciones existentes y el seed demo. La conexión con
+  clave aleatoria vive solo en `backend/.env` ignorado y con permisos 0600.
+- `npm run dev` asegura el cluster local opcional indicado en metadata
+  ignorada y luego ejecuta frontend/backend. Sin metadata mantiene PostgreSQL
+  externo. No recrea bases ni repite migraciones/seeds al iniciar.
+- Salud a través de Next HTTP 200; Chromium real validó login de administrador
+  y mozo, panel admin y mesas, sin errores de página. El servidor de la terminal
+  del usuario está activo en `http://localhost:3000`.
+- Tipos y lint pasan. Suite completa con cobertura: 137 archivos aprobados,
+  2659 pruebas aprobadas, cuatro fallos esperados anteriores y dos omitidas;
+  líneas 97,23 %, umbrales cumplidos. Se usó la DB aislada de pruebas.
+- El usuario puede trabajar en `frontend/` con Demo Administrador/PIN 135790
+  o Demo Mozo/PIN 2468. No se implementaron pagos ni inventario.
+- Detalle: [decisión local](decisions/0004-local-postgres-user.md) y
+  [evidencia de cierre](specs/local-dev/tasks.md). Sin cambios de negocio ni
+  contratos; revisión principal bajo metodología reducida, sin auditoría
+  independiente. Las notas inferiores sobre falta de DB son históricas.
+
+## Configuración local de arranque — 2026-10-16
+
+- El usuario reportó `ENOENT` al vigilar `backend/.env` con Node 24.13.0 y
+  `EPIPE` posterior. El archivo no existía; no había conexión de entorno ni
+  PostgreSQL escuchando en el puerto local 5432.
+- Se preparó `backend/.env` como copia exacta de la plantilla, ignorada por
+  Git y con `cambia_esta_clave` todavía pendiente de reemplazar. Configuración
+  validada sin abrir conexiones. No equivale a un backend operativo.
+- Falta determinar la base PostgreSQL y configurar credenciales reales antes
+  de probar login. No se creó ni instaló una base, rol o servicio; no se
+  ejecutaron migraciones, seeds ni suites DB. Sin cambios de lógica.
+- La guía de frontend explica que `npm run dev` inicia ambas aplicaciones
+  mediante pnpm y que no prepara automáticamente PostgreSQL.
+
 ## Reorganización para trabajo frontend — 2026-10-16
 
 - Autorizada por el usuario: `apps/web/` pasa a `frontend/` y `apps/api/` a
