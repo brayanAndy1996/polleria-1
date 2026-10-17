@@ -137,6 +137,15 @@ export function createProductService({ models }: { models: Models }): ProductSer
       try {
         await product.update(updates);
       } catch (error) {
+        if (
+          (error as { parent?: { constraint?: string } } | null)?.parent?.constraint ===
+          'inventory_drinks_product_category_fkey'
+        )
+          throw new AppError({
+            code: 'PRODUCT_HAS_INVENTORY',
+            message: 'El producto tiene historial de inventario y no puede cambiar de categoría.',
+            httpStatus: 409,
+          });
         if (error instanceof UniqueConstraintError) throw createProductNameTakenError();
         throw error;
       }
