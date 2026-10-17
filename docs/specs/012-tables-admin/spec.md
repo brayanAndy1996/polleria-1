@@ -26,9 +26,9 @@ La spec 009 dejó lista la configuración de mesas por API: alta por nombre (POS
 
 Propuestas del spec-writer; cada supuesto queda marcado SUPUESTO con su ID S-012-xx y resume las preguntas abiertas de la sección 17.
 
-**D-012-01. Alcance: solo apps/web (SUPUESTO S-012-01).**
+**D-012-01. Alcance: solo frontend (SUPUESTO S-012-01).**
 - La API, la base de datos, packages/shared y el contrato no cambian: docs/api/openapi.yaml queda en la versión 0.9.0 sin una línea nueva. La 012 consume tal cual GET/POST/PATCH /api/tables de la spec 009.
-- Todos los esquemas que la web necesita ya existen en shared (createTableRequestSchema, updateTableRequestSchema, tableSchema, tablesResponseSchema de la 009); las funciones de API nuevas van en apps/web/src/lib/api/tables.ts — el archivo que la 011 ya creó con getTables, openTableOrder, joinTable y leaveTable — sumando createTable y updateTable. TABLE_STATE_LABELS ya existe en menu-labels.ts de la 011.
+- Todos los esquemas que la web necesita ya existen en shared (createTableRequestSchema, updateTableRequestSchema, tableSchema, tablesResponseSchema de la 009); las funciones de API nuevas van en frontend/src/lib/api/tables.ts — el archivo que la 011 ya creó con getTables, openTableOrder, joinTable y leaveTable — sumando createTable y updateTable. TABLE_STATE_LABELS ya existe en menu-labels.ts de la 011.
 - Si en la implementación se descubre un hueco real en la API, se reporta al orquestador — no se tapa desde la web (misma regla de la 011; ver pregunta 7).
 - Sin migraciones, sin variables de entorno, sin dependencias y sin ADR (D-012-11).
 
@@ -69,7 +69,7 @@ Propuestas del spec-writer; cada supuesto queda marcado SUPUESTO con su ID S-012
 - El dispositivo objetivo es el celular o la tablet del administrador: botones, enlaces y controles de al menos 48 px (min-h-12), diseño apilado dentro del marco de RoleGuard, campos a todo el ancho, sin desplazamiento horizontal a 360 px y sin recursos de internet (regla de dominio 9). La misma web fluida lo cubre en la PC del local sin trabajo extra.
 
 **D-012-10. Sin cambios de contrato, de base, de configuración ni de dependencias (SUPUESTO S-012-10).**
-- openapi.yaml queda en 0.9.0; apps/api, la base y packages/shared sin diff; .env.example y CONFIG_VARIABLES iguales; sin paquetes nuevos (TanStack Query, MSW, HeroUI, Tailwind, Playwright, Zod y los esquemas de shared ya están); sin ADR — es composición de lo ya decidido, como la 011.
+- openapi.yaml queda en 0.9.0; backend, la base y packages/shared sin diff; .env.example y CONFIG_VARIABLES iguales; sin paquetes nuevos (TanStack Query, MSW, HeroUI, Tailwind, Playwright, Zod y los esquemas de shared ya están); sin ADR — es composición de lo ya decidido, como la 011.
 
 **D-012-11. E2E: un recorrido en mobile-chrome (SUPUESTO S-012-11).**
 - Un solo recorrido Playwright en el proyecto mobile-chrome (360×740) sobre polleria_test: el admin entra a /admin/mesas, agrega una mesa, la renombra, la desactiva con la confirmación y la reactiva; además verifica el mensaje del nombre repetido y que no haya desplazamiento horizontal (la técnica de AC-21 de la 008 y los E2E de la 011).
@@ -80,7 +80,7 @@ Propuestas del spec-writer; cada supuesto queda marcado SUPUESTO con su ID S-012
 
 Todos ejecutables: unitarios y de componentes con MSW + `pnpm test`, y el E2E con `pnpm test:e2e` en mobile-chrome sobre polleria_test. Casos felices y errores con el formato común `{ error: { code, message, details } }`.
 
-### 4.1 Funciones de API (apps/web/src/lib)
+### 4.1 Funciones de API (frontend/src/lib)
 
 **AC-01 (funciones de configuración de mesas).** Dado `lib/api/tables.ts` ampliado, cuando se llama con MSW interceptando, entonces:
 
@@ -132,10 +132,10 @@ Todos ejecutables: unitarios y de componentes con MSW + `pnpm test`, y el E2E co
 | ID | Requisito | Cómo se verifica |
 | --- | --- | --- |
 | R-012-01 | docs/api/openapi.yaml queda en la versión 0.9.0 sin cambios y sigue válido | diff vacío respecto a main; lint de Redocly como en las specs anteriores |
-| R-012-02 | apps/api y packages/shared no cambian: ni rutas, ni servicios, ni modelos, ni esquemas, ni tests | `git status --porcelain apps/api packages/shared` vacío al cerrar la funcionalidad |
+| R-012-02 | backend y packages/shared no cambian: ni rutas, ni servicios, ni modelos, ni esquemas, ni tests | `git status --porcelain backend packages/shared` vacío al cerrar la funcionalidad |
 | R-012-03 | Sin migraciones ni variables de entorno nuevas | diff vacío en las migraciones y en los .env.example |
-| R-012-04 | La web sigue sin recursos de internet y llama solo a /api del mismo origen | grep de R-14 de la 001 sobre apps/web/src y revisión del cliente |
-| R-012-05 | Cobertura de líneas: 80 % o más en apps/web (shared no cambia) | pnpm test:coverage |
+| R-012-04 | La web sigue sin recursos de internet y llama solo a /api del mismo origen | grep de R-14 de la 001 sobre frontend/src y revisión del cliente |
+| R-012-05 | Cobertura de líneas: 80 % o más en frontend (shared no cambia) | pnpm test:coverage |
 | R-012-06 | Definición de terminado de CLAUDE.md | pnpm test, pnpm lint, pnpm typecheck y pnpm test:e2e en verde; cada AC con al menos una prueba que empieza con su ID |
 | R-012-07 | /admin/mesas pasa por RoleGuard area '/admin' y la pantalla no muestra acciones del ciclo del pedido | el reviewer lee las páginas |
 
@@ -190,7 +190,7 @@ Errores que la pantalla maneja: 400 VALIDATION_ERROR (issues por path, incluido 
 
 ## 10. Interfaz
 
-Textos en español de Perú, botones y controles de al menos 48 px, marco de RoleGuard area '/admin'. Las rutas exactas de los componentes internos las decide el implementador dentro de apps/web/src/components/ (por ejemplo components/tables/); lo que fija esta spec son los nombres accesibles y los textos (los tests los buscan por rol y nombre).
+Textos en español de Perú, botones y controles de al menos 48 px, marco de RoleGuard area '/admin'. Las rutas exactas de los componentes internos las decide el implementador dentro de frontend/src/components/ (por ejemplo components/tables/); lo que fija esta spec son los nombres accesibles y los textos (los tests los buscan por rol y nombre).
 
 ### 10.1 /admin/mesas — lista y alta
 
@@ -209,16 +209,16 @@ Textos en español de Perú, botones y controles de al menos 48 px, marco de Rol
 
 | Módulo | Expone / cambia |
 | --- | --- |
-| apps/web/src/lib/api/tables.ts | suma `createTable(name)` y `updateTable(tableId, changes)` junto a las funciones de la 011, que quedan intactas |
-| apps/web/src/app/admin/mesas/page.tsx (nuevo, 'use client', RoleGuard area '/admin') | la pantalla completa; componentes internos donde el implementador decida (p. ej. apps/web/src/components/tables/) |
-| apps/web/src/app/admin/page.tsx | suma el enlace 'Mesas' junto a 'Usuarios' y 'Carta' |
+| frontend/src/lib/api/tables.ts | suma `createTable(name)` y `updateTable(tableId, changes)` junto a las funciones de la 011, que quedan intactas |
+| frontend/src/app/admin/mesas/page.tsx (nuevo, 'use client', RoleGuard area '/admin') | la pantalla completa; componentes internos donde el implementador decida (p. ej. frontend/src/components/tables/) |
+| frontend/src/app/admin/page.tsx | suma el enlace 'Mesas' junto a 'Usuarios' y 'Carta' |
 | e2e/global-setup.ts (terreno del test-writer) | conserva la semilla vigente (usuarios, carta, 'E2E Mesa 1' a 'E2E Mesa 4') — no se esperan cambios |
 | e2e/tables-admin.spec.ts (nuevo) | el recorrido de AC-11 en mobile-chrome |
-| apps/api, packages/shared, la base, docs/api/openapi.yaml | sin cambios |
+| backend, packages/shared, la base, docs/api/openapi.yaml | sin cambios |
 
 ## 12. Cambios a specs anteriores
 
-Ninguno en contrato ni dominio. La 012 solo consume lo ya aprobado (openapi.yaml queda en 0.9.0) con toques aditivos dentro de apps/web: lib/api/tables.ts suma dos funciones al archivo de la 011, app/admin/page.tsx suma el enlace 'Mesas' (mismo cambio que la 008 hizo con 'Carta') y nace app/admin/mesas/page.tsx.
+Ninguno en contrato ni dominio. La 012 solo consume lo ya aprobado (openapi.yaml queda en 0.9.0) con toques aditivos dentro de frontend: lib/api/tables.ts suma dos funciones al archivo de la 011, app/admin/page.tsx suma el enlace 'Mesas' (mismo cambio que la 008 hizo con 'Carta') y nace app/admin/mesas/page.tsx.
 
 ## 13. Dependencias
 
@@ -247,7 +247,7 @@ Ninguna nueva ni de soporte: TanStack Query, MSW, Playwright, HeroUI, Tailwind, 
 
 | ID | Supuesto |
 | --- | --- |
-| S-012-01 | Solo apps/web + dos funciones en lib/api/tables.ts; API, base, shared y openapi.yaml 0.9.0 sin cambios (D-012-01). |
+| S-012-01 | Solo frontend + dos funciones en lib/api/tables.ts; API, base, shared y openapi.yaml 0.9.0 sin cambios (D-012-01). |
 | S-012-02 | Una sola pantalla /admin/mesas con acciones por fila y el enlace 'Mesas' en /admin, no el patrón de tres rutas (D-012-02). |
 | S-012-03 | Alta por nombre en línea al inicio de la pantalla (D-012-03). |
 | S-012-04 | Renombrar por diálogo con el nombre precargado; 'Guardar' inhabilitado sin cambios; renombrar con pedido abierto permitido (D-012-04). |

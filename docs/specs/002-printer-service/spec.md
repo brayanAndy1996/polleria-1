@@ -5,7 +5,7 @@
 - Fase: 0 (Base del proyecto)
 - Rama: feat/002-printer-service
 - Fecha: 2026-10-07
-- Cubre: regla de dominio 7 de CLAUDE.md ("La impresión siempre pasa por PrinterService. Drivers: file y escpos"), con el driver file. Aporta a RNF-05 (todo local, sin red) y a RNF-12 (el driver y la carpeta se configuran en apps/api/.env). Es la base de RF-08 a RF-11 y de RNF-03 (comandas, Fase 3), pero no los cumple todavía.
+- Cubre: regla de dominio 7 de CLAUDE.md ("La impresión siempre pasa por PrinterService. Drivers: file y escpos"), con el driver file. Aporta a RNF-05 (todo local, sin red) y a RNF-12 (el driver y la carpeta se configuran en backend/.env). Es la base de RF-08 a RF-11 y de RNF-03 (comandas, Fase 3), pero no los cumple todavía.
 - Documentos relacionados: tasks.md (esta carpeta), docs/specs/001-base-monorepo/spec.md (convenciones D-01 a D-14, loadConfig, formato de error). docs/api/openapi.yaml no cambia (no hay endpoints). Sin ADR nuevo (no hay dependencias nuevas; ver 13).
 
 ## 1. Contexto
@@ -18,7 +18,7 @@ En la Fase 3 cada pedido se imprimirá como comanda en la impresora térmica de 
 | --- | --- |
 | HU-002-01 | Como cocinero, quiero que cada papel salga completo y legible en la impresora de 80 mm aunque el mozo escriba tildes, ñ, emojis o textos largos, para no recibir papeles cortados ni con símbolos raros. |
 | HU-002-02 | Como administrador (dueño), quiero imprimir una hoja de prueba con un comando, para comprobar que la impresión está bien configurada antes de abrir el local. |
-| HU-002-03 | Como administrador, quiero elegir el tipo de impresión y la carpeta de los archivos en apps/api/.env, sin tocar el código, para pasar a la impresora térmica cuando llegue. |
+| HU-002-03 | Como administrador, quiero elegir el tipo de impresión y la carpeta de los archivos en backend/.env, sin tocar el código, para pasar a la impresora térmica cuando llegue. |
 | HU-002-04 | Como equipo de desarrollo, quiero que toda impresión pase por un PrinterService con un driver de archivo y errores tipados, para construir y probar las comandas de la Fase 3 sin impresora. |
 
 ## 3. Decisiones técnicas
@@ -26,9 +26,9 @@ En la Fase 3 cada pedido se imprimirá como comanda en la impresora térmica de 
 Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Preguntas abiertas (sección 16).
 
 **D-002-01. Ubicación y capas.**
-- Todo el código de impresión vive en apps/api/src/services/printer/. Es un service: no tiene rutas, controllers ni modelos.
-- El resto del sistema solo importa desde apps/api/src/services/printer/index.ts (la "puerta" pública). Los drivers no se usan directamente: se obtienen con `createPrinterDriver(config.printer)` y se pasan a `createPrinterService`. Así se cumple "la impresión siempre pasa por PrinterService" (regla 7; R-002-03).
-- El comando de la hoja de prueba es un punto de entrada aparte, apps/api/src/print-test-page.ts, como server.ts y db/cli.ts (fuera de services para no afectar el umbral de cobertura de services; R-002-02).
+- Todo el código de impresión vive en backend/src/services/printer/. Es un service: no tiene rutas, controllers ni modelos.
+- El resto del sistema solo importa desde backend/src/services/printer/index.ts (la "puerta" pública). Los drivers no se usan directamente: se obtienen con `createPrinterDriver(config.printer)` y se pasan a `createPrinterService`. Así se cumple "la impresión siempre pasa por PrinterService" (regla 7; R-002-03).
+- El comando de la hoja de prueba es un punto de entrada aparte, backend/src/print-test-page.ts, como server.ts y db/cli.ts (fuera de services para no afectar el umbral de cobertura de services; R-002-02).
 - En esta fase server.ts no crea el PrinterService: nadie imprime todavía desde la API. Solo valida la configuración de impresión al arrancar (por loadConfig). La Fase 3 lo inyectará donde haga falta.
 
 **D-002-02. Documento, trabajo y comprobante.**
@@ -100,7 +100,7 @@ Consecuencias que se piden en los AC: ningún carácter de control llega al driv
 - Por cada trabajo:
   1. Valida que el jobId cumpla JOB_ID_PATTERN y mida como máximo 61 caracteres. Si no, rechaza con PRINTER_INVALID_DOCUMENT sin tocar el disco (ni siquiera crea la carpeta). Esto impide rutas como `../x` aunque alguien use el driver sin el servicio.
   2. Crea la carpeta si no existe (`mkdir` con `recursive: true`) en cada trabajo, así se recupera si alguien la borra con la API en marcha.
-  3. Escribe el contenido completo en un archivo temporal `<jobId>.tmp` dentro de la misma carpeta: lo abre con la bandera 'wx' (falla si ya existe), escribe, fuerza los datos al disco con `FileHandle.datasync()` y lo cierra. Se usa datasync y no `sync()` porque la regla de ESLint de la 001 (R-06) prohíbe llamar a cualquier método `sync` en apps/api/src.
+  3. Escribe el contenido completo en un archivo temporal `<jobId>.tmp` dentro de la misma carpeta: lo abre con la bandera 'wx' (falla si ya existe), escribe, fuerza los datos al disco con `FileHandle.datasync()` y lo cierra. Se usa datasync y no `sync()` porque la regla de ESLint de la 001 (R-06) prohíbe llamar a cualquier método `sync` en backend/src.
   4. Renombra `<jobId>.tmp` a `<jobId>.txt`. El renombrado dentro de la misma carpeta es atómico: el .txt aparece completo o no aparece (RN-002-05).
   5. En Windows el renombrado puede fallar un instante si el antivirus o el indexador tienen abierto el temporal. Si falla con EPERM, EACCES o EBUSY, reintenta hasta 4 veces más, esperando 20, 40, 80 y 160 ms (`FILE_DRIVER_RENAME_RETRY_DELAYS_MS`). Con cualquier otro código no reintenta.
   6. Si algo falla en los pasos 2 a 5: cierra el archivo si quedó abierto, borra el temporal solo si lo creó este trabajo y rechaza con PRINTER_OUTPUT_FAILED (con el error original en cause).
@@ -109,7 +109,7 @@ Consecuencias que se piden en los AC: ningún carácter de control llega al driv
 - Solo usa módulos nativos de Node 24: node:fs/promises y node:path. No usa la red.
 
 **D-002-09. Configuración (RNF-12; SUPUESTOS S-002-01, S-002-06, S-002-07 y S-002-10).**
-- Dos variables nuevas, validadas en loadConfig y agregadas a CONFIG_VARIABLES y a apps/api/.env.example:
+- Dos variables nuevas, validadas en loadConfig y agregadas a CONFIG_VARIABLES y a backend/.env.example:
 
   | Variable | Por defecto | Regla |
   | --- | --- | --- |
@@ -117,16 +117,16 @@ Consecuencias que se piden en los AC: ningún carácter de control llega al driv
   | PRINTER_FILE_DIR | tmp/comandas (en la raíz del monorepo) | Ruta de la carpeta del driver file. Primero se le quitan los espacios en blanco del inicio y del final (S-002-10, ver abajo). Vacía o solo con espacios se rechaza. Una ruta relativa se toma desde la raíz del monorepo, nunca desde la carpeta en que se ejecuta el comando. No se revisa que exista: el driver la crea. |
 
 - Espacios alrededor de PRINTER_FILE_DIR (SUPUESTO S-002-10): se quitan los espacios en blanco del inicio y del final, como hace `String.prototype.trim` (espacios, tabulaciones, espacios de Unicode como U+00A0 y saltos de línea), antes de revisar si está vacía y de resolver la ruta. `' tmp/otra '` se usa como `'tmp/otra'` y da `path.resolve(PROJECT_ROOT_DIR, 'tmp/otra')`; si después de quitarlos no queda nada, es el issue `'no puede estar vacía.'` de AC-03. No hay mensaje nuevo ni AC nuevo (caso borde documentado en la sección 7). Por qué:
-  - Coherencia: la regla "vacía o solo con espacios se rechaza" ya trata esos espacios como algo que no es parte del valor (la 001 rechaza HOST vacía con el mismo mensaje), y Node hace lo mismo al leer apps/api/.env: `PRINTER_FILE_DIR= tmp/otra ` sin comillas ya llega como `'tmp/otra'`. Los espacios solo llegan si el valor va entre comillas o viene del entorno del sistema.
+  - Coherencia: la regla "vacía o solo con espacios se rechaza" ya trata esos espacios como algo que no es parte del valor (la 001 rechaza HOST vacía con el mismo mensaje), y Node hace lo mismo al leer backend/.env: `PRINTER_FILE_DIR= tmp/otra ` sin comillas ya llega como `'tmp/otra'`. Los espacios solo llegan si el valor va entre comillas o viene del entorno del sistema.
   - Seguridad: usar la ruta tal cual crearía carpetas con un espacio al inicio o al final, que el Explorador de Windows no maneja bien (no se pueden abrir ni borrar con normalidad).
   - PRINTER_DRIVER no cambia: es un valor fijo, como NODE_ENV, y `' file'` se sigue rechazando (AC-04).
 - `AppConfig` suma `printer: { driver: 'file'; fileDir: string }`. fileDir es siempre absoluta y normalizada (sin separador final).
-- `PROJECT_ROOT_DIR` es la ruta absoluta de la raíz del monorepo, calculada desde la ubicación de env.ts (`import.meta.dirname`), nunca con `process.cwd()`: los scripts de pnpm corren con la carpeta apps/api como directorio actual. `DEFAULT_PRINTER_FILE_DIR` = `path.join(PROJECT_ROOT_DIR, 'tmp', 'comandas')`. tmp/ ya está en .gitignore y en .prettierignore.
+- `PROJECT_ROOT_DIR` es la ruta absoluta de la raíz del monorepo, calculada desde la ubicación de env.ts (`import.meta.dirname`), nunca con `process.cwd()`: los scripts de pnpm corren con la carpeta backend como directorio actual. `DEFAULT_PRINTER_FILE_DIR` = `path.join(PROJECT_ROOT_DIR, 'tmp', 'comandas')`. tmp/ ya está en .gitignore y en .prettierignore.
 - Por qué escpos falla al arrancar y no al imprimir (S-002-01): un driver que acepta la configuración y falla en cada impresión se descubriría recién con el primer pedido del día. Falla al arrancar con el mismo formato de ConfigError de la 001 (AC-08 de la 001), igual que cualquier otra variable inválida.
 - El driver file se acepta con cualquier NODE_ENV, también production (S-002-06): sirve para la demostración al dueño sin impresora.
 - Como la API, la CLI de base de datos y la hoja de prueba usan el mismo loadConfig, una variable de impresión inválida también detiene `pnpm db:migrate` con el mensaje de configuración inválida (S-002-07).
 - Los mensajes de los issues son fijos y no incluyen el valor recibido (RN-001-01).
-- El apps/api/.env que ya tiene el usuario no necesita cambios: sin estas variables se usan los valores por defecto.
+- El backend/.env que ya tiene el usuario no necesita cambios: sin estas variables se usan los valores por defecto.
 
 **D-002-10. Hora de Lima compartida.**
 - `toLimaDateTimeParts(date)` en packages/shared devuelve año, mes, día, hora, minuto, segundo y milisegundo en America/Lima (TIME_ZONE), como textos con ceros a la izquierda. Usa `Intl.DateTimeFormat` con `timeZone: TIME_ZONE` y `hourCycle: 'h23'` (sin `h23`, la medianoche puede salir como '24'), no un desfase fijo de -5 horas: así la regla 8 queda en un solo lugar. No depende de la zona horaria del equipo. Con una fecha inválida lanza RangeError.
@@ -163,16 +163,16 @@ Todas las pruebas que escriben archivos usan su propia carpeta temporal (`fs.mkd
 - y el resultado es el mismo con `process.env.TZ` cambiado a 'Asia/Tokyo' durante la prueba (la prueba lo restaura al final);
 - y con `new Date(Number.NaN)` lanza RangeError.
 
-### 4.2 Configuración (apps/api/src/config/env.ts)
+### 4.2 Configuración (backend/src/config/env.ts)
 
-**AC-02. Valores por defecto de impresión** (unitaria, apps/api)
+**AC-02. Valores por defecto de impresión** (unitaria, backend)
 - Dado `loadConfig({ DATABASE_URL: 'postgres://polleria:clave@localhost:5432/polleria_dev' })`,
 - entonces devuelve exactamente (toStrictEqual) `{ nodeEnv: 'development', host: '127.0.0.1', port: 4000, databaseUrl: <la misma URL>, databaseUrlTest: undefined, printer: { driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR } }`;
-- y `PROJECT_ROOT_DIR` es una ruta absoluta, igual a `path.resolve(<carpeta del archivo de prueba>, '../../../..')` si la prueba está en apps/api/src/config/, y en ella existe pnpm-workspace.yaml;
+- y `PROJECT_ROOT_DIR` es una ruta absoluta, igual a `path.resolve(<carpeta del archivo de prueba>, '../../../..')` si la prueba está en backend/src/config/, y en ella existe pnpm-workspace.yaml;
 - y `DEFAULT_PRINTER_FILE_DIR` es `path.join(PROJECT_ROOT_DIR, 'tmp', 'comandas')`;
 - y con `process.cwd()` simulado para que devuelva otra carpeta absoluta (por ejemplo `os.tmpdir()`, con `vi.spyOn`), loadConfig sigue devolviendo `fileDir` igual a DEFAULT_PRINTER_FILE_DIR sin PRINTER_FILE_DIR, e igual a `path.join(PROJECT_ROOT_DIR, 'tmp', 'otra')` con `PRINTER_FILE_DIR='tmp/otra'`.
 
-**AC-03. PRINTER_FILE_DIR relativa, absoluta o vacía** (unitaria, apps/api)
+**AC-03. PRINTER_FILE_DIR relativa, absoluta o vacía** (unitaria, backend)
 - Dado loadConfig con una DATABASE_URL válida y:
   - `PRINTER_FILE_DIR='tmp/otra'` o `'tmp/otra/'`: fileDir es `path.resolve(PROJECT_ROOT_DIR, 'tmp/otra')`;
   - `PRINTER_FILE_DIR='../comandas-fuera'`: fileDir es `path.resolve(PROJECT_ROOT_DIR, '../comandas-fuera')` (se permite salir del proyecto);
@@ -180,25 +180,25 @@ Todas las pruebas que escriben archivos usan su propia carpeta temporal (`fs.mkd
 - entonces no lanza y devuelve esos valores;
 - y con `PRINTER_FILE_DIR=''` o `'   '` lanza ConfigError con el issue `{ variable: 'PRINTER_FILE_DIR', message: 'no puede estar vacía.' }`.
 
-**AC-04. PRINTER_DRIVER: file, escpos y valores inválidos** (unitaria, apps/api)
+**AC-04. PRINTER_DRIVER: file, escpos y valores inválidos** (unitaria, backend)
 - Dado loadConfig con una DATABASE_URL válida,
 - cuando `PRINTER_DRIVER='file'`, entonces `printer.driver` es 'file';
 - cuando `PRINTER_DRIVER='escpos'`, entonces lanza ConfigError con el issue `{ variable: 'PRINTER_DRIVER', message: 'escpos todavía no está disponible en esta versión; usa file.' }`;
 - cuando `PRINTER_DRIVER` es 'laser', 'FILE', 'File', ' file' o '', entonces lanza ConfigError con el issue `{ variable: 'PRINTER_DRIVER', message: 'debe ser file o escpos.' }`, y ni message ni issues contienen 'laser';
 - y dado un entorno sin DATABASE_URL, con `PORT='abc'`, `PRINTER_DRIVER='laser'` y `PRINTER_FILE_DIR=''`, issues contiene a la vez los de DATABASE_URL, PORT, PRINTER_DRIVER y PRINTER_FILE_DIR, y message tiene una línea `- VARIABLE: mensaje` por cada uno (formato de AC-05 de la 001).
 
-**AC-05. .env.example documenta la impresión** (unitaria, apps/api)
-- Dado apps/api/.env.example leído con `util.parseEnv`,
+**AC-05. .env.example documenta la impresión** (unitaria, backend)
+- Dado backend/.env.example leído con `util.parseEnv`,
 - entonces `[...CONFIG_VARIABLES].sort()` es `['DATABASE_URL', 'DATABASE_URL_TEST', 'HOST', 'NODE_ENV', 'PORT', 'PRINTER_DRIVER', 'PRINTER_FILE_DIR']` y las variables del archivo son exactamente esas;
 - y el archivo trae `PRINTER_DRIVER=file` y `PRINTER_FILE_DIR=tmp/comandas`;
 - y `loadConfig(variablesDelArchivo).printer` es `{ driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR }`.
 
-**AC-06. La API no arranca con PRINTER_DRIVER=escpos** (integración con proceso real, apps/api)
-- Dado el proceso `node --disable-warning=ExperimentalWarning apps/api/src/server.ts` con un entorno válido (DATABASE_URL inalcanzable de polleria_test, NODE_ENV=test, HOST=127.0.0.1, PORT libre) más `PRINTER_DRIVER=escpos`,
+**AC-06. La API no arranca con PRINTER_DRIVER=escpos** (integración con proceso real, backend)
+- Dado el proceso `node --disable-warning=ExperimentalWarning backend/src/server.ts` con un entorno válido (DATABASE_URL inalcanzable de polleria_test, NODE_ENV=test, HOST=127.0.0.1, PORT libre) más `PRINTER_DRIVER=escpos`,
 - cuando arranca,
 - entonces termina solo en menos de 10 s con código 1, stderr contiene 'Configuración inválida.' y '- PRINTER_DRIVER: escpos todavía no está disponible en esta versión; usa file.', y stdout no contiene 'API escuchando'.
 
-### 4.3 Normalización de líneas (apps/api/src/services/printer/print-document.ts)
+### 4.3 Normalización de líneas (backend/src/services/printer/print-document.ts)
 
 **AC-07. Las líneas imprimibles no cambian** (unitaria)
 - Dado `normalizeDocumentLines` y la lista `['Hola', '1/4 pollo pierna + chicha', '  - sin ensalada', '', 'Pollería: Ñandú, ¿Qué? ¡Sí! 25° Nº 1ª', 'x'.repeat(48), PRINTABLE_CHARACTERS.slice(0, 48), PRINTABLE_CHARACTERS.slice(48, 96), PRINTABLE_CHARACTERS.slice(96)]`,
@@ -287,7 +287,7 @@ Todas las pruebas que escriben archivos usan su propia carpeta temporal (`fs.mkd
 - entonces para cada entrada: la función no lanza; devuelve al menos una línea; cada línea de salida mide 48 o menos; cada carácter de salida está en PRINTABLE_CHARACTERS; ninguna línea termina en espacio; y normalizar la salida otra vez devuelve exactamente la misma lista (idempotencia).
 - (El adversarial-tester puede ampliar esto con fast-check, librería ya aprobada en CLAUDE.md.)
 
-### 4.4 Servicio (apps/api/src/services/printer/printer.service.ts)
+### 4.4 Servicio (backend/src/services/printer/printer.service.ts)
 
 En estas pruebas el driver es falso: guarda los trabajos que recibe y devuelve `{ jobId: job.jobId, destination: 'falso' }`, salvo que el caso diga otra cosa.
 
@@ -351,7 +351,7 @@ En estas pruebas el driver es falso: guarda los trabajos que recibe y devuelve `
 - y `new PrinterError(code)` es instancia de Error y de PrinterError, con name 'PrinterError', ese code y el message de la tabla de D-002-07;
 - y `new PrinterError('PRINTER_OUTPUT_FAILED', { cause })` tiene `error.cause === cause`, `Object.keys(error)` no incluye 'cause' y `JSON.stringify(error)` no contiene el mensaje de cause.
 
-### 4.5 Driver file (apps/api/src/services/printer/file-driver.ts)
+### 4.5 Driver file (backend/src/services/printer/file-driver.ts)
 
 En estas pruebas `JOB` es `{ jobId: '20261007-153012-123-prueba-a1b2c3d4', label: 'prueba', lines: [...] }` y `dir` es la carpeta temporal de la prueba.
 
@@ -397,7 +397,7 @@ En estas pruebas `JOB` es `{ jobId: '20261007-153012-123-prueba-a1b2c3d4', label
 
 ### 4.6 Fábrica, hoja de prueba y comando
 
-**AC-28. createPrinterDriver usa la configuración** (unitaria con disco real; importa desde apps/api/src/services/printer/index.ts)
+**AC-28. createPrinterDriver usa la configuración** (unitaria con disco real; importa desde backend/src/services/printer/index.ts)
 - Dado `createPrinterDriver(loadConfig({ DATABASE_URL: <válida>, PRINTER_FILE_DIR: dir }).printer)`,
 - entonces el driver tiene name 'file';
 - y `createPrinterService({ driver }).print({ label: 'prueba', lines: ['Hola', 'x'.repeat(50)] })` se resuelve con un destination dentro de `dir`, y `dir` contiene un solo .txt con el contenido `'Hola\n' + 'x'.repeat(48) + '\nxx\n'`.
@@ -421,18 +421,18 @@ En estas pruebas `JOB` es `{ jobId: '20261007-153012-123-prueba-a1b2c3d4', label
 - y `normalizeDocumentLines(lines)` devuelve las mismas líneas (la hoja ya es imprimible);
 - y `TEST_PAGE_LABEL` es 'prueba'.
 
-**AC-30. pnpm printer:test imprime la hoja de prueba** (integración con proceso real, apps/api)
-- Dado el proceso `node --disable-warning=ExperimentalWarning apps/api/src/print-test-page.ts` con un entorno copiado de process.env más NODE_ENV=test, DATABASE_URL = `postgres://polleria:Clave_Secreta_99@127.0.0.1:1/polleria_test` (inalcanzable; el comando no se conecta), PRINTER_DRIVER=file y PRINTER_FILE_DIR = una carpeta temporal,
+**AC-30. pnpm printer:test imprime la hoja de prueba** (integración con proceso real, backend)
+- Dado el proceso `node --disable-warning=ExperimentalWarning backend/src/print-test-page.ts` con un entorno copiado de process.env más NODE_ENV=test, DATABASE_URL = `postgres://polleria:Clave_Secreta_99@127.0.0.1:1/polleria_test` (inalcanzable; el comando no se conecta), PRINTER_DRIVER=file y PRINTER_FILE_DIR = una carpeta temporal,
 - cuando se ejecuta,
 - entonces termina en menos de 10 s con código 0;
 - y stdout contiene la línea 'Hoja de prueba enviada con el driver file.' y una línea 'Destino: <ruta>', donde la ruta es un .txt dentro de la carpeta temporal cuyo nombre sin extensión cumple JOB_ID_PATTERN con la etiqueta 'prueba';
 - y la carpeta contiene solo ese archivo, cuyas líneas son las de AC-29 salvo la 4, que cumple `^Fecha: \d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2}$`;
 - y ni stdout ni stderr contienen 'Clave_Secreta_99'.
 
-**AC-31. pnpm printer:test falla con un mensaje claro** (integración con proceso real, apps/api)
+**AC-31. pnpm printer:test falla con un mensaje claro** (integración con proceso real, backend)
 - Dado el mismo comando y entorno de AC-30,
 - cuando PRINTER_DRIVER=escpos, entonces termina con código 1 en menos de 10 s, stderr contiene 'Configuración inválida.' y '- PRINTER_DRIVER: escpos todavía no está disponible en esta versión; usa file.', y stdout no contiene 'Hoja de prueba enviada';
-- cuando PRINTER_FILE_DIR es la ruta de un archivo que ya existe, entonces termina con código 1, stderr contiene 'No se pudo imprimir. Revisa la impresora e intenta de nuevo.' y 'Revisa PRINTER_DRIVER y PRINTER_FILE_DIR en apps/api/.env.', y stderr no contiene esa ruta ni una traza (ninguna línea que empiece con espacios seguidos de 'at ');
+- cuando PRINTER_FILE_DIR es la ruta de un archivo que ya existe, entonces termina con código 1, stderr contiene 'No se pudo imprimir. Revisa la impresora e intenta de nuevo.' y 'Revisa PRINTER_DRIVER y PRINTER_FILE_DIR en backend/.env.', y stderr no contiene esa ruta ni una traza (ninguna línea que empiece con espacios seguidos de 'at ');
 - cuando falta DATABASE_URL, entonces termina con código 1 y stderr contiene 'Configuración inválida.';
 - y en ningún caso stdout ni stderr contienen 'Clave_Secreta_99'.
 
@@ -452,9 +452,9 @@ No son comportamiento, por eso no llevan AC. Los comandos con grep se ejecutan e
 
 | ID | Requisito | Comando | Resultado esperado |
 | --- | --- | --- | --- |
-| R-002-01 | Script raíz `printer:test` = `pnpm --filter @polleria/api run printer:test`. Script de @polleria/api `printer:test` = `node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/print-test-page.ts`. Compatibles con Windows (R-15 de la 001). | `pnpm run` y, con apps/api/.env creado, `pnpm printer:test` en PowerShell y en Git Bash | `pnpm run` lista printer:test; el comando termina con código 0 y deja un .txt nuevo en tmp/comandas. |
-| R-002-02 | vitest.config.ts agrega `apps/api/src/print-test-page.ts` a coverage.exclude (como server.ts y db/cli.ts). apps/api/src/services/printer/** cumple el umbral de 90 % de services. | `pnpm test:coverage` | Código 0. |
-| R-002-03 | Fuera de apps/api/src/services/printer/ nadie importa sus módulos internos: solo index.ts (regla 7). | `grep -rn "services/printer/" apps/api/src --include=*.ts \| grep -v "^apps/api/src/services/printer/" \| grep -v "services/printer/index.ts"` | Sin resultados. |
+| R-002-01 | Script raíz `printer:test` = `pnpm --filter @polleria/api run printer:test`. Script de @polleria/api `printer:test` = `node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/print-test-page.ts`. Compatibles con Windows (R-15 de la 001). | `pnpm run` y, con backend/.env creado, `pnpm printer:test` en PowerShell y en Git Bash | `pnpm run` lista printer:test; el comando termina con código 0 y deja un .txt nuevo en tmp/comandas. |
+| R-002-02 | vitest.config.ts agrega `backend/src/print-test-page.ts` a coverage.exclude (como server.ts y db/cli.ts). backend/src/services/printer/** cumple el umbral de 90 % de services. | `pnpm test:coverage` | Código 0. |
+| R-002-03 | Fuera de backend/src/services/printer/ nadie importa sus módulos internos: solo index.ts (regla 7). | `grep -rn "services/printer/" backend/src --include=*.ts \| grep -v "^backend/src/services/printer/" \| grep -v "services/printer/index.ts"` | Sin resultados. |
 | R-002-04 | Sin dependencias nuevas: package.json solo cambia en los scripts y pnpm-lock.yaml no cambia. | `git diff main --stat -- pnpm-lock.yaml` | Sin resultados. |
 | R-002-05 | Las pruebas no escriben en tmp/comandas del proyecto. | Contar los archivos de tmp/comandas antes y después de `pnpm test` (`ls tmp/comandas 2>/dev/null \| wc -l`) | El mismo número. |
 | R-002-06 | Definición de terminado de CLAUDE.md. | `pnpm test`, `pnpm lint`, `pnpm typecheck` | Código 0 en los tres. |
@@ -505,11 +505,11 @@ Driver file:
 - Rutas largas de Windows: Node las maneja; si la carpeta fuera inválida, es PRINTER_OUTPUT_FAILED.
 
 Configuración:
-- `PRINTER_DRIVER=escpos` en apps/api/.env detiene la API, `pnpm db:migrate` y `pnpm printer:test` con el mensaje de configuración inválida, hasta la Fase 3 (S-002-01, S-002-07).
-- `PRINTER_FILE_DIR=tmp/otra` en apps/api/.env se resuelve contra la raíz del monorepo aunque pnpm ejecute el script con apps/api como carpeta actual.
+- `PRINTER_DRIVER=escpos` en backend/.env detiene la API, `pnpm db:migrate` y `pnpm printer:test` con el mensaje de configuración inválida, hasta la Fase 3 (S-002-01, S-002-07).
+- `PRINTER_FILE_DIR=tmp/otra` en backend/.env se resuelve contra la raíz del monorepo aunque pnpm ejecute el script con backend como carpeta actual.
 - En Windows, `PRINTER_FILE_DIR=/comandas` (sin unidad) es absoluta y se resuelve en la unidad de la raíz del proyecto (por ejemplo C:\comandas).
-- PRINTER_FILE_DIR con espacios alrededor de una ruta no vacía, por ejemplo `' tmp/otra '` (solo llega así si en apps/api/.env va entre comillas o si viene del entorno del sistema): SUPUESTO S-002-10. Se quitan los espacios del inicio y del final y se usa `'tmp/otra'`, igual que AC-03. Lo mismo con una ruta absoluta (`' C:\comandas '` da `C:\comandas`). Si solo había espacios o tabulaciones, es el issue 'no puede estar vacía.'. Sin AC propio (D-002-09).
-- El apps/api/.env actual del usuario no tiene las variables nuevas: se usan los valores por defecto.
+- PRINTER_FILE_DIR con espacios alrededor de una ruta no vacía, por ejemplo `' tmp/otra '` (solo llega así si en backend/.env va entre comillas o si viene del entorno del sistema): SUPUESTO S-002-10. Se quitan los espacios del inicio y del final y se usa `'tmp/otra'`, igual que AC-03. Lo mismo con una ruta absoluta (`' C:\comandas '` da `C:\comandas`). Si solo había espacios o tabulaciones, es el issue 'no puede estar vacía.'. Sin AC propio (D-002-09).
+- El backend/.env actual del usuario no tiene las variables nuevas: se usan los valores por defecto.
 - La API de los E2E (Playwright) usa la carpeta por defecto; en esta fase no imprime nada. La Fase 3 debe darle una carpeta temporal (sección 18).
 
 ## 8. Modelo de datos
@@ -532,7 +532,7 @@ No hay pantallas. Lo que ve una persona en esta fase:
 | --- | --- | --- |
 | Impresión correcta | stdout: `Hoja de prueba enviada con el driver file.` y en la línea siguiente `Destino: <ruta absoluta del .txt>` | 0 |
 | Configuración inválida | stderr: el mensaje de ConfigError (empieza con 'Configuración inválida.' y tiene una línea por variable) | 1 |
-| PrinterError | stderr: el message del error y, en la línea siguiente, `Revisa PRINTER_DRIVER y PRINTER_FILE_DIR en apps/api/.env.` | 1 |
+| PrinterError | stderr: el message del error y, en la línea siguiente, `Revisa PRINTER_DRIVER y PRINTER_FILE_DIR en backend/.env.` | 1 |
 | Otro error inesperado | stderr: `No se pudo imprimir la hoja de prueba.` | 1 |
 
 Nunca muestra trazas, la URL de la base ni su clave. En la línea de éxito, `file` es el valor de PRINTER_DRIVER.
@@ -546,46 +546,46 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
 - **packages/shared/src/lima-time.ts** (exportado también por packages/shared/src/index.ts, se importa como `@polleria/shared`)
   - `interface LimaDateTimeParts { year: string; month: string; day: string; hour: string; minute: string; second: string; millisecond: string }`.
   - `toLimaDateTimeParts(date: Date): LimaDateTimeParts`. Lanza RangeError con una fecha inválida.
-- **apps/api/src/config/env.ts** (modificado)
+- **backend/src/config/env.ts** (modificado)
   - `CONFIG_VARIABLES`: lista `as const` con NODE_ENV, HOST, PORT, DATABASE_URL, DATABASE_URL_TEST, PRINTER_DRIVER y PRINTER_FILE_DIR.
   - `PROJECT_ROOT_DIR: string` y `DEFAULT_PRINTER_FILE_DIR: string` (absolutas).
   - `interface PrinterConfig { driver: 'file'; fileDir: string }`.
   - `AppConfig` suma `printer: PrinterConfig`. loadConfig, ConfigError y el resto no cambian de firma.
-- **apps/api/src/services/printer/printer-error.ts**
+- **backend/src/services/printer/printer-error.ts**
   - `PRINTER_ERROR_CODES` (objeto `as const`, clave = valor) y `type PrinterErrorCode`.
   - `PRINTER_ERROR_MESSAGES: Readonly<Record<PrinterErrorCode, string>>` con los textos de D-002-07.
   - `class PrinterError extends Error` con `readonly code: PrinterErrorCode`; constructor `new PrinterError(code: PrinterErrorCode, options?: { cause?: unknown })`.
-- **apps/api/src/services/printer/print-document.ts**
+- **backend/src/services/printer/print-document.ts**
   - `PRINTER_LINE_WIDTH` = 48, `PRINTER_MAX_LINES` = 500, `PRINTER_MAX_INPUT_LINE_LENGTH` = 2000, `PRINT_LABEL_MAX_LENGTH` = 32, `PRINT_LABEL_PATTERN` = `/^[a-z0-9]+(?:-[a-z0-9]+)*$/`.
   - `PRINTABLE_CHARACTERS: string` (114 caracteres, D-002-03).
   - `interface PrintDocument { label: string; lines: readonly string[] }`.
   - `printDocumentSchema`: esquema Zod estricto (sin propiedades de más) con las reglas de label y los límites de entrada de lines.
   - `normalizeDocumentLines(lines: readonly string[]): string[]` (D-002-04; pura, nunca lanza, no aplica límites).
-- **apps/api/src/services/printer/print-job.ts**
+- **backend/src/services/printer/print-job.ts**
   - `type PrinterDriverName = 'file'` (la Fase 3 agrega 'escpos').
   - `interface PrintJob { jobId: string; label: string; lines: readonly string[] }`.
   - `interface PrintReceipt { jobId: string; destination: string }`.
   - `interface PrinterDriver { readonly name: PrinterDriverName; print(job: PrintJob): Promise<PrintReceipt> }`.
   - `JOB_ID_PATTERN` = `/^\d{8}-\d{6}-\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{8}$/` y `JOB_ID_MAX_LENGTH` = 61.
-- **apps/api/src/services/printer/printer.service.ts**
+- **backend/src/services/printer/printer.service.ts**
   - `interface PrinterService { print(document: PrintDocument): Promise<PrintReceipt> }`.
   - `interface PrinterServiceDeps { driver: PrinterDriver; now?: () => Date; randomId?: () => string }` (por defecto: `new Date()` y 4 bytes de `node:crypto` en hexadecimal).
   - `createPrinterService(deps: PrinterServiceDeps): PrinterService`. Orden dentro de print: validar (cualquier excepción al validar es PRINTER_INVALID_DOCUMENT), normalizar, revisar el máximo de 500 líneas, revisar vacío, armar el jobId, llamar al driver (D-002-07).
-- **apps/api/src/services/printer/file-driver.ts**
+- **backend/src/services/printer/file-driver.ts**
   - `interface FilePrinterDriverOptions { dir: string; rename?: (from: string, to: string) => Promise<void> }`.
   - `FILE_DRIVER_RENAME_RETRY_DELAYS_MS` = `[20, 40, 80, 160]` (`as const`).
   - `createFilePrinterDriver(options: FilePrinterDriverOptions): PrinterDriver` (name 'file'; D-002-08).
-- **apps/api/src/services/printer/create-printer-driver.ts**
+- **backend/src/services/printer/create-printer-driver.ts**
   - `createPrinterDriver(config: PrinterConfig): PrinterDriver`.
-- **apps/api/src/services/printer/test-page.ts**
+- **backend/src/services/printer/test-page.ts**
   - `TEST_PAGE_LABEL` = 'prueba'.
   - `buildTestPage(options: { now: Date; driverName: PrinterDriverName }): PrintDocument`.
-- **apps/api/src/services/printer/index.ts** (puerta pública, R-002-03)
+- **backend/src/services/printer/index.ts** (puerta pública, R-002-03)
   - Reexporta: createPrinterService, createPrinterDriver, buildTestPage, TEST_PAGE_LABEL, PrinterError, PRINTER_ERROR_CODES, PRINTER_LINE_WIDTH y los tipos PrinterService, PrinterServiceDeps, PrintDocument, PrintReceipt, PrinterDriver, PrinterDriverName y PrinterErrorCode (con `export type`). No reexporta createFilePrinterDriver.
-- **apps/api/src/print-test-page.ts**
-  - Punto de entrada de `pnpm printer:test`. Solo lee process.env; no importa nada de apps/api/src/db.
+- **backend/src/print-test-page.ts**
+  - Punto de entrada de `pnpm printer:test`. Solo lee process.env; no importa nada de backend/src/db.
 
-Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/lima-time.test.ts`, `apps/api/src/config/printer-env.test.ts`, `apps/api/src/services/printer/*.test.ts`); procesos en `apps/api/tests/printer-process.test.ts`, agregando a `apps/api/tests/helpers/child-process.ts` la ruta de print-test-page.ts y una función para ejecutarlo.
+Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/lima-time.test.ts`, `backend/src/config/printer-env.test.ts`, `backend/src/services/printer/*.test.ts`); procesos en `backend/tests/printer-process.test.ts`, agregando a `backend/tests/helpers/child-process.ts` la ruta de print-test-page.ts y una función para ejecutarlo.
 
 ## 12. Cambios a la spec 001 (señalados)
 
@@ -593,11 +593,11 @@ Agregar dos variables a la configuración toca AC aprobados de la 001. No cambia
 
 | Elemento de la 001 | Cambio | Quién |
 | --- | --- | --- |
-| AC-04 | El objeto completo que devuelve loadConfig suma `printer: { driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR }`. Las dos pruebas con toStrictEqual de apps/api/src/config/env.test.ts se actualizan; el resto de AC-04 no cambia. | test-writer (T-02) |
-| AC-07 | CONFIG_VARIABLES pasa de 5 a 7 variables (más PRINTER_DRIVER y PRINTER_FILE_DIR). La lista fija de apps/api/src/config/env-example.test.ts se actualiza; las demás pruebas de AC-07 no cambian. | test-writer (T-02) |
-| apps/api/.env.example | Suma `PRINTER_DRIVER=file` y `PRINTER_FILE_DIR=tmp/comandas` con un comentario en español. | backend-dev (T-12) |
+| AC-04 | El objeto completo que devuelve loadConfig suma `printer: { driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR }`. Las dos pruebas con toStrictEqual de backend/src/config/env.test.ts se actualizan; el resto de AC-04 no cambia. | test-writer (T-02) |
+| AC-07 | CONFIG_VARIABLES pasa de 5 a 7 variables (más PRINTER_DRIVER y PRINTER_FILE_DIR). La lista fija de backend/src/config/env-example.test.ts se actualiza; las demás pruebas de AC-07 no cambian. | test-writer (T-02) |
+| backend/.env.example | Suma `PRINTER_DRIVER=file` y `PRINTER_FILE_DIR=tmp/comandas` con un comentario en español. | backend-dev (T-12) |
 | R-04 | Además de format, se permite el script raíz printer:test. | backend-dev (T-17) |
-| R-09 | coverage.exclude suma apps/api/src/print-test-page.ts. | backend-dev (T-17) |
+| R-09 | coverage.exclude suma backend/src/print-test-page.ts. | backend-dev (T-17) |
 | Sección 11 (env.ts) | Exports nuevos: PROJECT_ROOT_DIR, DEFAULT_PRINTER_FILE_DIR, PrinterConfig y AppConfig.printer. | backend-dev (T-12) |
 | Sección 13 ("PrinterService y sus drivers: spec 002") | Ahora en alcance de esta spec. | — |
 
@@ -647,14 +647,14 @@ Ninguna bloquea la implementación; si no hay respuesta, se aplica la recomendac
 2. Cuando un texto no entra en una línea de 48 columnas, ¿está bien que este servicio lo corte justo en la columna 48, aunque parta una palabra, sabiendo que la comanda de la Fase 3 ya vendrá ordenada por palabras (recomendado, S-002-02)?
 3. Los emojis y símbolos que la impresora no puede imprimir, ¿se muestran como '?' (recomendado, para que la cocina note que faltaba algo) o se borran (S-002-04)?
 4. Para la Fase 3: ¿qué marca y modelo de impresora térmica tiene o comprará el dueño? Sirve para elegir la tabla de caracteres (PC850 o WPC1252) y confirmar que imprime bien la ñ y las tildes en mayúscula.
-5. (Aclaración 1, detalle técnico, no bloquea) Si la carpeta de impresión en apps/api/.env se escribe con espacios al inicio o al final (por ejemplo entre comillas), el sistema los ignora (recomendado, S-002-10). ¿Prefieres que, en cambio, la rechace al arrancar?
+5. (Aclaración 1, detalle técnico, no bloquea) Si la carpeta de impresión en backend/.env se escribe con espacios al inicio o al final (por ejemplo entre comillas), el sistema los ignora (recomendado, S-002-10). ¿Prefieres que, en cambio, la rechace al arrancar?
 
 ## 17. Verificación manual sugerida (para el usuario)
 
-1. Con apps/api/.env creado: `pnpm printer:test`. Debe decir 'Hoja de prueba enviada con el driver file.' y la ruta del archivo en tmp/comandas.
+1. Con backend/.env creado: `pnpm printer:test`. Debe decir 'Hoja de prueba enviada con el driver file.' y la ruta del archivo en tmp/comandas.
 2. Abrir ese archivo con el Bloc de notas: se ven bien las tildes, la ñ y los signos ¿ ¡; la regla de números tiene 48 columnas.
-3. Escribir `PRINTER_DRIVER=escpos` en apps/api/.env y ejecutar `pnpm printer:test` y `pnpm dev`: ambos deben explicar que escpos todavía no está disponible. Volver a `PRINTER_DRIVER=file`.
-4. Opcional: `PRINTER_FILE_DIR=C:\comandas-prueba` en apps/api/.env y repetir el paso 1; el archivo aparece en esa carpeta (se crea sola).
+3. Escribir `PRINTER_DRIVER=escpos` en backend/.env y ejecutar `pnpm printer:test` y `pnpm dev`: ambos deben explicar que escpos todavía no está disponible. Volver a `PRINTER_DRIVER=file`.
+4. Opcional: `PRINTER_FILE_DIR=C:\comandas-prueba` en backend/.env y repetir el paso 1; el archivo aparece en esa carpeta (se crea sola).
 
 ## 18. Notas para la Fase 3 (no son alcance de esta spec)
 

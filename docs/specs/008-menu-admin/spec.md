@@ -29,9 +29,9 @@ Las specs 005, 006 y 007 dejaron lista la carta por API: productos con nombre, c
 
 Todas fueron confirmadas por el usuario el 2026-10-09 con la respuesta recomendada (sección 17); las que partieron como supuesto conservan la marca SUPUESTO con su ID S-008-xx como registro.
 
-**D-008-01. Alcance: solo apps/web + dos funciones puras nuevas en shared (SUPUESTO S-008-01).**
+**D-008-01. Alcance: solo frontend + dos funciones puras nuevas en shared (SUPUESTO S-008-01).**
 - La API, la base de datos y el contrato no cambian: docs/api/openapi.yaml queda en la versión 0.7.0 sin una línea nueva. La 008 consume tal cual GET/POST/PATCH /api/products, GET/PUT /api/products/{productId}/portions y GET/PUT /api/products/{productId}/items.
-- En packages/shared se agregan solo dos funciones puras de dinero para la interfaz (formatSoles y parseSolesToCents, D-008-04); nada existente cambia. Van en shared y no en apps/web porque el formato del sol lo reutilizan la carta del mozo (Fase 2) y la caja (Fase 4) — mismo criterio que toLimaDateTimeParts de la 001.
+- En packages/shared se agregan solo dos funciones puras de dinero para la interfaz (formatSoles y parseSolesToCents, D-008-04); nada existente cambia. Van en shared y no en frontend porque el formato del sol lo reutilizan la carta del mozo (Fase 2) y la caja (Fase 4) — mismo criterio que toLimaDateTimeParts de la 001.
 - Sin endpoints nuevos, sin migraciones, sin variables de entorno, sin dependencias y sin ADR (D-008-15).
 
 **D-008-02. Rutas y navegación (SUPUESTO S-008-02).**
@@ -82,9 +82,9 @@ Todas fueron confirmadas por el usuario el 2026-10-09 con la respuesta recomenda
 - Un producto desactivado sigue editable y configurable (RN-005-04; los PUT de presentaciones y componentes lo aceptan): la página no cambia salvo la marca 'Desactivado'.
 
 **D-008-11. Cliente HTTP, funciones de API y etiquetas en la web.**
-- ApiRequestOptions.method suma 'PUT' en apps/web/src/lib/api/client.ts (igual que la 004 sumó 'PATCH'). Nada más cambia en el cliente central.
-- apps/web/src/lib/api/products.ts (nuevo), con el patrón de users.ts: getProducts (GET /products, productsResponseSchema), createProduct (POST, expectedStatus 201, productSchema), updateProduct (PATCH, 200, productSchema), getProductPortions (GET .../portions, productPortionsResponseSchema), replaceProductPortions (PUT, 200, productPortionsResponseSchema), getComboItems (GET .../items, comboItemsResponseSchema) y replaceComboItems (PUT, 200, comboItemsResponseSchema). Cada respuesta se valida con su esquema de shared (UNEXPECTED_RESPONSE si no cuadra) y los errores llegan como ApiError con code, message y details.
-- Etiquetas de la carta en apps/web/src/lib/menu-labels.ts (nuevo): PRODUCT_CATEGORY_LABELS (chicken 'Pollo', combo 'Combos', dish 'Platos', drink 'Bebidas', dessert 'Postres', sauce 'Cremas', extra 'Extras', en el orden del enum), PORTION_LABELS (eighth 'Octavo', quarter 'Cuarto', half 'Medio pollo', whole 'Pollo entero'), CUT_LABELS (breast 'Pecho', leg 'Pierna') y formatPortionCutLabel(portion, cut): 'Octavo — pecho' en las de una parte y 'Medio pollo' / 'Pollo entero' en las mixtas. Las etiquetas viven en la web (son interfaz en español), igual que ROLE_LABELS.
+- ApiRequestOptions.method suma 'PUT' en frontend/src/lib/api/client.ts (igual que la 004 sumó 'PATCH'). Nada más cambia en el cliente central.
+- frontend/src/lib/api/products.ts (nuevo), con el patrón de users.ts: getProducts (GET /products, productsResponseSchema), createProduct (POST, expectedStatus 201, productSchema), updateProduct (PATCH, 200, productSchema), getProductPortions (GET .../portions, productPortionsResponseSchema), replaceProductPortions (PUT, 200, productPortionsResponseSchema), getComboItems (GET .../items, comboItemsResponseSchema) y replaceComboItems (PUT, 200, comboItemsResponseSchema). Cada respuesta se valida con su esquema de shared (UNEXPECTED_RESPONSE si no cuadra) y los errores llegan como ApiError con code, message y details.
+- Etiquetas de la carta en frontend/src/lib/menu-labels.ts (nuevo): PRODUCT_CATEGORY_LABELS (chicken 'Pollo', combo 'Combos', dish 'Platos', drink 'Bebidas', dessert 'Postres', sauce 'Cremas', extra 'Extras', en el orden del enum), PORTION_LABELS (eighth 'Octavo', quarter 'Cuarto', half 'Medio pollo', whole 'Pollo entero'), CUT_LABELS (breast 'Pecho', leg 'Pierna') y formatPortionCutLabel(portion, cut): 'Octavo — pecho' en las de una parte y 'Medio pollo' / 'Pollo entero' en las mixtas. Las etiquetas viven en la web (son interfaz en español), igual que ROLE_LABELS.
 - TanStack Query con retry: false. Claves: ['admin', 'products'] para la lista; ['admin', 'products', id, 'portions'] y ['admin', 'products', id, 'items'] para las secciones. Tras cada mutación exitosa se invalida la consulta correspondiente y la lista.
 
 **D-008-12. Errores en pantalla y validación local (SUPUESTO S-008-12).**
@@ -103,7 +103,7 @@ Todas fueron confirmadas por el usuario el 2026-10-09 con la respuesta recomenda
 - e2e/global-setup.ts (lo ajusta el test-writer): conserva los usuarios actuales y además limpia la carta de pruebas con clearMenuTables (products, product_portions y combo_items ya están autorizadas en polleria_test por D-006-10 y D-007-14) y crea la semilla: 'E2E Pollo' (chicken, precio base 6500, con presentaciones cuarto pecho 1800, cuarto pierna 1700 y entero 6500), 'E2E Chaufa' (dish, 1400) y 'E2E Gaseosa' (drink, 400). Los productos que las pruebas crean por la interfaz quedan truncados por la misma limpieza en la corrida siguiente (los productos no se borran por API; la limpieza es el SQL autorizado de siempre sobre la base de pruebas).
 
 **D-008-15. Sin cambios de contrato, de base, de configuración ni de dependencias.**
-- openapi.yaml queda en 0.7.0; apps/api y la base no se tocan (apps/api queda sin diff, incluidos sus tests: no hay comportamiento de API nuevo que probar); .env.example y CONFIG_VARIABLES iguales; sin paquetes nuevos; sin ADR — todo es composición de lo ya decidido.
+- openapi.yaml queda en 0.7.0; backend y la base no se tocan (backend queda sin diff, incluidos sus tests: no hay comportamiento de API nuevo que probar); .env.example y CONFIG_VARIABLES iguales; sin paquetes nuevos; sin ADR — todo es composición de lo ya decidido.
 
 ## 4. Criterios de aceptación
 
@@ -122,14 +122,14 @@ Datos comunes para las pruebas de componentes y de funciones de la web (AC-03 a 
 - y parseSolesToCents devuelve: '18' -> 1800, '18.5' -> 1850, '18.50' -> 1850, '18,50' -> 1850, ' 18.50 ' -> 1850, '0' -> 0, '0.00' -> 0, '0.05' -> 5 y '999.99' -> 99999;
 - y devuelve null con '', '  ', 'abc', '18,5,0', '18.50.0', '-1', '18.505' (tres decimales), '.5', '18.', 'S/ 18.50' y '1 850'.
 
-**AC-03. Etiquetas de la carta en la web** (unitaria, apps/web/src/lib)
-- Dado PRODUCT_CATEGORY_LABELS, PORTION_LABELS, CUT_LABELS y formatPortionCutLabel de apps/web/src/lib/menu-labels.ts,
+**AC-03. Etiquetas de la carta en la web** (unitaria, frontend/src/lib)
+- Dado PRODUCT_CATEGORY_LABELS, PORTION_LABELS, CUT_LABELS y formatPortionCutLabel de frontend/src/lib/menu-labels.ts,
 - entonces las siete categorías tienen su etiqueta en español (chicken 'Pollo', combo 'Combos', dish 'Platos', drink 'Bebidas', dessert 'Postres', sauce 'Cremas', extra 'Extras') y están todas las claves del enum;
 - PORTION_LABELS es eighth 'Octavo', quarter 'Cuarto', half 'Medio pollo', whole 'Pollo entero'; CUT_LABELS es breast 'Pecho', leg 'Pierna';
 - y formatPortionCutLabel devuelve: ('eighth','breast') -> 'Octavo — pecho', ('quarter','leg') -> 'Cuarto — pierna', ('half',null) -> 'Medio pollo' y ('whole',null) -> 'Pollo entero'.
 
-**AC-04. Cliente PUT y funciones de la carta** (unitaria, apps/web/src/lib/api, con MSW)
-- Dado apiClient con 'PUT' permitido en ApiRequestOptions.method y apps/web/src/lib/api/products.ts,
+**AC-04. Cliente PUT y funciones de la carta** (unitaria, frontend/src/lib/api, con MSW)
+- Dado apiClient con 'PUT' permitido en ApiRequestOptions.method y frontend/src/lib/api/products.ts,
 - entonces getProducts hace GET /products y valida con productsResponseSchema (una respuesta mal formada rechaza con ApiError UNEXPECTED_RESPONSE y el status real);
 - createProduct hace POST /products con expectedStatus 201 y devuelve el Product validado; updateProduct hace PATCH /products/<id> con 200; getProductPortions hace GET /products/<id>/portions y valida con productPortionsResponseSchema; replaceProductPortions hace PUT /products/<id>/portions con 200; getComboItems hace GET /products/<id>/items y valida con comboItemsResponseSchema; replaceComboItems hace PUT /products/<id>/items con 200;
 - y un error del servidor rechaza con ApiError conservando code, message y details: 409 PRODUCT_NAME_TAKEN, 400 VALIDATION_ERROR con issues del tipo 'items.1.productId', 409 COMBO_ITEMS_NOT_ALLOWED y 404 PRODUCT_NOT_FOUND.
@@ -269,10 +269,10 @@ e2e/global-setup.ts conserva los usuarios de siempre y además limpia la carta d
 | ID | Requisito | Cómo se verifica |
 | --- | --- | --- |
 | R-008-01 | docs/api/openapi.yaml queda en la versión 0.7.0 sin cambios y sigue válido | diff vacío en docs/api/openapi.yaml respecto a main; lint de Redocly como en las specs anteriores |
-| R-008-02 | apps/api no cambia: ni rutas, ni servicios, ni modelos, ni tests (la 008 no toca el backend) | git status --porcelain apps/api vacío al cerrar la funcionalidad |
-| R-008-03 | Sin migraciones ni variables de entorno nuevas | diff vacío en las migraciones y en apps/api/.env.example y apps/web/.env.example |
-| R-008-04 | La web sigue sin recursos de internet y llama solo a /api del mismo origen | grep de R-14 de la 001 sobre apps/web/src y revisión del cliente |
-| R-008-05 | Cobertura de líneas: 90 % o más en packages/shared (las funciones nuevas son puras) y 80 % o más en apps/web | pnpm test:coverage |
+| R-008-02 | backend no cambia: ni rutas, ni servicios, ni modelos, ni tests (la 008 no toca el backend) | git status --porcelain backend vacío al cerrar la funcionalidad |
+| R-008-03 | Sin migraciones ni variables de entorno nuevas | diff vacío en las migraciones y en backend/.env.example y frontend/.env.example |
+| R-008-04 | La web sigue sin recursos de internet y llama solo a /api del mismo origen | grep de R-14 de la 001 sobre frontend/src y revisión del cliente |
+| R-008-05 | Cobertura de líneas: 90 % o más en packages/shared (las funciones nuevas son puras) y 80 % o más en frontend | pnpm test:coverage |
 | R-008-06 | Definición de terminado de CLAUDE.md | pnpm test, pnpm lint, pnpm typecheck y pnpm test:e2e en verde; cada AC con al menos una prueba que empieza con su ID |
 | R-008-07 | Las tres páginas nuevas pasan por RoleGuard area '/admin' (la web solo decide qué mostrar; la seguridad real es la API, ya probada en las specs anteriores) | el reviewer lee las páginas |
 
@@ -336,7 +336,7 @@ Errores que las pantallas manejan: 400 VALIDATION_ERROR (issues por path, inclui
 
 ## 10. Interfaz
 
-Textos en español de Perú, botones de al menos 48 px, marco de RoleGuard. Las rutas exactas de los componentes internos las decide el implementador dentro de apps/web/src/components/menu/; lo que fija esta spec son los nombres accesibles y los textos (los tests los buscan por rol y nombre).
+Textos en español de Perú, botones de al menos 48 px, marco de RoleGuard. Las rutas exactas de los componentes internos las decide el implementador dentro de frontend/src/components/menu/; lo que fija esta spec son los nombres accesibles y los textos (los tests los buscan por rol y nombre).
 
 ### 10.1 /admin
 
@@ -386,13 +386,13 @@ Textos en español de Perú, botones de al menos 48 px, marco de RoleGuard. Las 
 Rutas que importan a las pruebas:
 
 - packages/shared/src/money.ts (nuevo, exportado por src/index.ts): formatSoles, parseSolesToCents, PRICE_INPUT_MESSAGE.
-- apps/web/src/lib/api/client.ts: ApiRequestOptions.method suma 'PUT'.
-- apps/web/src/lib/api/products.ts (nuevo): getProducts, createProduct, updateProduct, getProductPortions, replaceProductPortions, getComboItems, replaceComboItems.
-- apps/web/src/lib/menu-labels.ts (nuevo): PRODUCT_CATEGORY_LABELS, PORTION_LABELS, CUT_LABELS, formatPortionCutLabel.
-- apps/web/src/app/admin/page.tsx: enlace 'Carta'.
-- apps/web/src/app/admin/carta/page.tsx, nuevo/page.tsx y [id]/page.tsx (nuevos, 'use client', contenido dentro de RoleGuard area '/admin'); componentes internos en apps/web/src/components/menu/.
+- frontend/src/lib/api/client.ts: ApiRequestOptions.method suma 'PUT'.
+- frontend/src/lib/api/products.ts (nuevo): getProducts, createProduct, updateProduct, getProductPortions, replaceProductPortions, getComboItems, replaceComboItems.
+- frontend/src/lib/menu-labels.ts (nuevo): PRODUCT_CATEGORY_LABELS, PORTION_LABELS, CUT_LABELS, formatPortionCutLabel.
+- frontend/src/app/admin/page.tsx: enlace 'Carta'.
+- frontend/src/app/admin/carta/page.tsx, nuevo/page.tsx y [id]/page.tsx (nuevos, 'use client', contenido dentro de RoleGuard area '/admin'); componentes internos en frontend/src/components/menu/.
 - e2e/global-setup.ts (terreno del test-writer): limpieza de la carta de pruebas y semilla E2E.
-- apps/api, la base, docs/api/openapi.yaml: sin cambios.
+- backend, la base, docs/api/openapi.yaml: sin cambios.
 
 ## 12. Cambios a specs anteriores
 
@@ -427,7 +427,7 @@ Confirmados por el usuario el 2026-10-09: S-008-01 a S-008-14, todos con la resp
 
 | ID | Supuesto |
 | --- | --- |
-| S-008-01 | Solo se toca apps/web y se agregan dos funciones puras a shared; la API, la base y openapi.yaml no cambian. |
+| S-008-01 | Solo se toca frontend y se agregan dos funciones puras a shared; la API, la base y openapi.yaml no cambian. |
 | S-008-02 | Rutas /admin/carta, /admin/carta/nuevo y /admin/carta/[id], protegidas con RoleGuard area '/admin'; enlace 'Carta' en /admin. |
 | S-008-03 | Lista completa sin paginar ni buscar, agrupada por categoría en el orden de la carta. |
 | S-008-04 | El precio se escribe en soles con punto o coma, se muestra 'S/ X.XX' y tiene vista previa junto al campo; formatSoles, parseSolesToCents y PRICE_INPUT_MESSAGE viven en shared. |
@@ -455,7 +455,7 @@ Respondidas el 2026-10-09, todas con la respuesta recomendada: 1 (solo admin ges
 7. **¿Cómo se calcula 'los componentes suman S/ X'?** Recomendación: cada componente de pollo toma el precio de la presentación elegida en su venta suelta (GET /portions de ese producto) y, si no la vende suelta, su priceCents; los demás usan su priceCents embebido. Alternativa más simple pero menos precisa: sumar siempre el priceCents del producto. **Resuelta el 2026-10-09: recomendación aceptada.**
 8. **¿Desactivar desde la lista pide confirmación?** Recomendación: sí ('¿Desactivar <nombre>? Dejará de aparecer en la carta.'), igual que en usuarios; activar no pide. **Resuelta el 2026-10-09: recomendación aceptada.**
 9. **¿Se preselecciona algo en un componente de pollo?** Recomendación: cuarto y pierna (lo más común en combos); el admin lo puede cambiar. **Resuelta el 2026-10-09: recomendación aceptada.**
-10. **¿Dónde viven las funciones de formato de dinero?** Recomendación: en shared (las reutilizan la carta del mozo y la caja); alternativa: en apps/web si se prefiere no tocar shared. **Resuelta el 2026-10-09: recomendación aceptada.**
+10. **¿Dónde viven las funciones de formato de dinero?** Recomendación: en shared (las reutilizan la carta del mozo y la caja); alternativa: en frontend si se prefiere no tocar shared. **Resuelta el 2026-10-09: recomendación aceptada.**
 
 ## 18. Acción del usuario y verificación manual
 

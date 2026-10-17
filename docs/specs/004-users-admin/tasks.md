@@ -23,9 +23,9 @@ Reglas comunes:
 - Importar desde las rutas de la sección 11 de la spec; que fallen por módulo inexistente es un rojo válido.
 - Base de pruebas: solo polleria_test (DATABASE_URL_TEST) con las guardias de RN-001-02. Vaciar users y sessions entre pruebas con `clearAuthTables` / `migrateAndClearAuthTables` (ya existen; no hace falta tocar resetMigrationTables porque no hay tablas nuevas).
 - Hasher rápido: `createBcryptPinHasher({ cost: 4 })` en la app y en los servicios, salvo que el AC pida el costo real (ninguno lo exige: basta con verificar el prefijo '$2b$' y `verify`).
-- Reloj: `let current = T0; createApp({ sequelize, now: () => current, pinHasher })`, con `T0 = new Date('2026-10-08T15:00:00.000Z')`. Reutilizar los helpers de apps/api/tests/helpers/auth.ts (setupAuth, loginWithCookie); si hace falta una "cookie de admin", crear el usuario con `roles: ['admin']` y entrar con loginWithCookie.
+- Reloj: `let current = T0; createApp({ sequelize, now: () => current, pinHasher })`, con `T0 = new Date('2026-10-08T15:00:00.000Z')`. Reutilizar los helpers de backend/tests/helpers/auth.ts (setupAuth, loginWithCookie); si hace falta una "cookie de admin", crear el usuario con `roles: ['admin']` y entrar con loginWithCookie.
 - Textos con caracteres especiales siempre con escapes (`'\u00A0'`, `'\u0661'`), nunca literales.
-- Web: simular `next/navigation` (useRouter con `replace` espiado; `useParams` devuelve el id de la ruta para /admin/usuarios/[id]) y `apps/web/src/lib/navigation.ts` con `vi.mock`; `fireEvent.click` basta para los botones de HeroUI; limpiar localStorage entre pruebas. La sesión simulada por defecto es la de un administrador.
+- Web: simular `next/navigation` (useRouter con `replace` espiado; `useParams` devuelve el id de la ruta para /admin/usuarios/[id]) y `frontend/src/lib/navigation.ts` con `vi.mock`; `fireEvent.click` basta para los botones de HeroUI; limpiar localStorage entre pruebas. La sesión simulada por defecto es la de un administrador.
 - Commits con prefijo test, por ejemplo `test(004): pruebas del servicio de administración de usuarios`.
 
 ### T-01. Esquemas de usuarios en shared
@@ -39,21 +39,21 @@ Reglas comunes:
 - Dependencias: ninguna
 - AC: AC-07, AC-08, AC-09, AC-10, AC-11, AC-12
 - Descripción:
-  - Archivo nuevo apps/api/src/services/auth/login-limiter-clear-attempts.test.ts con `describe('004: ...')` para AC-07 (las pruebas de cada spec van en archivos nuevos; login-limiter.test.ts de la 003 no se toca).
-  - apps/api/tests/users-admin-service.test.ts con AC-08 a AC-12 sobre polleria_test: crear usuarios con createUserService, desactivar con SQL, sesiones con sessionService.createSession y bloqueo con el mismo loginLimiter inyectado en el servicio (createUserAdminService con el `loginLimiter` del test). AC-11 incluye el caso simultáneo con Promise.all. AC-12 verifica el cambio de pin_hash con verify, el borrado de sesiones y el conteo limpio.
+  - Archivo nuevo backend/src/services/auth/login-limiter-clear-attempts.test.ts con `describe('004: ...')` para AC-07 (las pruebas de cada spec van en archivos nuevos; login-limiter.test.ts de la 003 no se toca).
+  - backend/tests/users-admin-service.test.ts con AC-08 a AC-12 sobre polleria_test: crear usuarios con createUserService, desactivar con SQL, sesiones con sessionService.createSession y bloqueo con el mismo loginLimiter inyectado en el servicio (createUserAdminService con el `loginLimiter` del test). AC-11 incluye el caso simultáneo con Promise.all. AC-12 verifica el cambio de pin_hash con verify, el borrado de sesiones y el conteo limpio.
 
 ### T-03. API de usuarios
 - Responsable: test-writer
 - Dependencias: T-02
 - AC: AC-13, AC-14, AC-15, AC-16, AC-17, AC-18
-- Descripción: apps/api/tests/users-admin.test.ts. Cookies reales de loginWithCookie (admin, mozo, waiter+cashier, etc.). console.error espiado (los 4xx no se registran). Comprobar cuerpos exactos de USERNAME_TAKEN, USER_NOT_FOUND y LAST_ADMIN_REQUIRED, la cabecera Cache-Control: no-store en todas las respuestas, el efecto completo de desactivar (desaparece de /api/auth/users, su cookie muere, su login da 401) y de restablecer el PIN (login nuevo 200, viejo 401, sin 429).
+- Descripción: backend/tests/users-admin.test.ts. Cookies reales de loginWithCookie (admin, mozo, waiter+cashier, etc.). console.error espiado (los 4xx no se registran). Comprobar cuerpos exactos de USERNAME_TAKEN, USER_NOT_FOUND y LAST_ADMIN_REQUIRED, la cabecera Cache-Control: no-store en todas las respuestas, el efecto completo de desactivar (desaparece de /api/auth/users, su cookie muere, su login da 401) y de restablecer el PIN (login nuevo 200, viejo 401, sin 429).
 
 ### T-04. Componentes web de la administración de usuarios
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-19, AC-20, AC-21, AC-22, AC-23, AC-24, AC-25
 - Descripción:
-  - apps/web/src/lib/api/users.test.ts y un archivo nuevo apps/web/src/lib/api/client-patch.test.ts con `describe('004: ...')` para el caso 'PATCH' (client.test.ts de la 003 no se toca): AC-19 con MSW (método PATCH real, expectedStatus 201/200/204, ApiError con code y details).
+  - frontend/src/lib/api/users.test.ts y un archivo nuevo frontend/src/lib/api/client-patch.test.ts con `describe('004: ...')` para el caso 'PATCH' (client.test.ts de la 003 no se toca): AC-19 con MSW (método PATCH real, expectedStatus 201/200/204, ApiError con code y details).
   - Pruebas de componentes dentro de Providers: enlace 'Usuarios' en app/admin/page.tsx y guardia por área de las tres páginas nuevas (AC-20); lista /admin/usuarios con '(tú)', 'Desactivado', enlaces Editar y estados (AC-21); formulario /admin/usuarios/nuevo con sus validaciones locales y errores de la API (AC-22); página /admin/usuarios/[id] con perfil (AC-23), restablecer PIN con confirmación (AC-24) y activar/desactivar con confirmación (AC-25).
 
 ### T-05. Extremo a extremo
@@ -72,7 +72,7 @@ Reglas comunes:
 ## Implementación del backend (backend-dev)
 
 Reglas comunes:
-- No crear, modificar ni borrar archivos de prueba (`*.test.ts`, `*.test.tsx`, apps/api/tests/, e2e/). Si una prueba parece contradecir la spec, detenerse y reportarlo.
+- No crear, modificar ni borrar archivos de prueba (`*.test.ts`, `*.test.tsx`, backend/tests/, e2e/). Si una prueba parece contradecir la spec, detenerse y reportarlo.
 - Sintaxis borrable (D-02 de la 001), imports relativos con .ts, mensajes exactos de la spec. Sin SQL con interpolación de valores.
 - Sin dependencias nuevas ni variables de entorno nuevas.
 - Commits con prefijo feat, sin archivos de prueba. Antes de cada commit: `pnpm --filter @polleria/api run typecheck` y `pnpm lint`.
@@ -93,15 +93,15 @@ Reglas comunes:
 - Responsable: backend-dev
 - Dependencias: T-02, T-06, T-07
 - AC: AC-08, AC-09, AC-10, AC-11, AC-12
-- Descripción: en apps/api/src/services/users/ (mismo módulo o archivo hermano): `createUserAdminService({ models, pinHasher, sessionService, loginLimiter })` con listUsers (todos, orden de AC-08, roles con sortUserRoles, sin pinHash), updateUser y resetUserPin según D-004-04, D-004-05 y D-004-08: validación con los esquemas (ZodError), USER_NOT_FOUND, transacción con `SELECT ... FOR UPDATE` sobre las filas de administradores activos antes de contar (Op.contains con '{admin}' y isActive), borrado de sesiones dentro de la transacción (models.Session.destroy por userId) y clearAttempts después de confirmar. createUserService queda igual.
+- Descripción: en backend/src/services/users/ (mismo módulo o archivo hermano): `createUserAdminService({ models, pinHasher, sessionService, loginLimiter })` con listUsers (todos, orden de AC-08, roles con sortUserRoles, sin pinHash), updateUser y resetUserPin según D-004-04, D-004-05 y D-004-08: validación con los esquemas (ZodError), USER_NOT_FOUND, transacción con `SELECT ... FOR UPDATE` sobre las filas de administradores activos antes de contar (Op.contains con '{admin}' y isActive), borrado de sesiones dentro de la transacción (models.Session.destroy por userId) y clearAttempts después de confirmar. createUserService queda igual.
 
 ### T-09. Controller, rutas y app; PIN fuerte en el comando
 - Responsable: backend-dev
 - Dependencias: T-03, T-06, T-08
 - AC: AC-13, AC-14, AC-15, AC-16, AC-17, AC-18 (requisitos R-004-01, R-004-04)
 - Descripción:
-  - apps/api/src/controllers/users.controller.ts: parsea `userId` de la ruta (`^[0-9]+$`, entero, entre 1 y 2147483647; si no, AppError VALIDATION_ERROR con issues `[{ path: 'userId', message: 'El identificador del usuario no es válido.' }]`), parsea el cuerpo con los esquemas de shared (ZodError al errorHandler), responde 201/200/204.
-  - apps/api/src/routes/users.routes.ts: middleware con `Cache-Control: no-store` y `requireAuth` + `requireRole('admin')` aplicados a todas sus rutas; GET /, POST /, PATCH /:userId, POST /:userId/pin.
+  - backend/src/controllers/users.controller.ts: parsea `userId` de la ruta (`^[0-9]+$`, entero, entre 1 y 2147483647; si no, AppError VALIDATION_ERROR con issues `[{ path: 'userId', message: 'El identificador del usuario no es válido.' }]`), parsea el cuerpo con los esquemas de shared (ZodError al errorHandler), responde 201/200/204.
+  - backend/src/routes/users.routes.ts: middleware con `Cache-Control: no-store` y `requireAuth` + `requireRole('admin')` aplicados a todas sus rutas; GET /, POST /, PATCH /:userId, POST /:userId/pin.
   - app.ts: un solo LoginLimiter compartido entre authService y userAdminService (sacarlo de la llamada a createAuthService a una constante); montar `/users` en createApiRouter.
   - Aprobado en la pregunta 4 (S-004-06): create-admin.ts valida el PIN con strongPinSchema (sin más cambios).
   - createUserService no se toca: el alta web valida el PIN con createUserRequestSchema antes de llamarlo.
@@ -118,25 +118,25 @@ Reglas comunes:
 - Responsable: frontend-dev
 - Dependencias: T-04, T-06
 - AC: AC-19
-- Descripción: apps/web/src/lib/api/client.ts suma 'PATCH' a `ApiRequestOptions.method` (nada más cambia). apps/web/src/lib/api/users.ts nuevo con getUsers, createUser, updateUser y resetUserPin según la sección 11: respuestas JSON validadas con los esquemas de shared (usersResponseSchema, adminUserSchema; si no cumple, ApiError UNEXPECTED_RESPONSE) y `expectedStatus` 201 en createUser, 200 en updateUser y 204 en resetUserPin.
+- Descripción: frontend/src/lib/api/client.ts suma 'PATCH' a `ApiRequestOptions.method` (nada más cambia). frontend/src/lib/api/users.ts nuevo con getUsers, createUser, updateUser y resetUserPin según la sección 11: respuestas JSON validadas con los esquemas de shared (usersResponseSchema, adminUserSchema; si no cumple, ApiError UNEXPECTED_RESPONSE) y `expectedStatus` 201 en createUser, 200 en updateUser y 204 en resetUserPin.
 
 ### T-11. Enlace en Administración y lista de usuarios
 - Responsable: frontend-dev
 - Dependencias: T-04, T-10
 - AC: AC-20, AC-21
-- Descripción: enlace 'Usuarios' en app/admin/page.tsx; apps/web/src/app/admin/usuarios/page.tsx con RoleGuard area '/admin': encabezado 'Usuarios', 'Agregar usuario' a /admin/usuarios/nuevo, filas con displayName, username, etiquetas de roles (formatRoleLabels de la 003), 'Desactivado', '(tú)' comparando con el id de la sesión en caché y el enlace 'Editar' a /admin/usuarios/<id>. Estados 'Cargando usuarios...', 'No se pudo cargar la lista de usuarios.' + 'Reintentar'.
+- Descripción: enlace 'Usuarios' en app/admin/page.tsx; frontend/src/app/admin/usuarios/page.tsx con RoleGuard area '/admin': encabezado 'Usuarios', 'Agregar usuario' a /admin/usuarios/nuevo, filas con displayName, username, etiquetas de roles (formatRoleLabels de la 003), 'Desactivado', '(tú)' comparando con el id de la sesión en caché y el enlace 'Editar' a /admin/usuarios/<id>. Estados 'Cargando usuarios...', 'No se pudo cargar la lista de usuarios.' + 'Reintentar'.
 
 ### T-12. Formulario de alta
 - Responsable: frontend-dev
 - Dependencias: T-04, T-10, T-11
 - AC: AC-22
-- Descripción: apps/web/src/app/admin/usuarios/nuevo/page.tsx con RoleGuard area '/admin' y el formulario de 10.3: validación local con los esquemas de shared y 'Los PIN no coinciden.', un solo envío ('Creando...'), éxito con replace('/admin/usuarios') e invalidación, y los mensajes de error de AC-22 con los campos de PIN vacíos tras un error del servidor.
+- Descripción: frontend/src/app/admin/usuarios/nuevo/page.tsx con RoleGuard area '/admin' y el formulario de 10.3: validación local con los esquemas de shared y 'Los PIN no coinciden.', un solo envío ('Creando...'), éxito con replace('/admin/usuarios') e invalidación, y los mensajes de error de AC-22 con los campos de PIN vacíos tras un error del servidor.
 
 ### T-13. Página de edición (perfil, PIN y estado)
 - Responsable: frontend-dev
 - Dependencias: T-04, T-10, T-11
 - AC: AC-23, AC-24, AC-25
-- Descripción: apps/web/src/app/admin/usuarios/[id]/page.tsx con RoleGuard area '/admin' según 10.4: usuario tomado de la lista (consulta GET /api/users y buscar por id; si no está, 'Ese usuario no existe.' sin formulario), username fijo, sección de perfil con 'Guardar cambios' y 'Cambios guardados.', sección de PIN con confirmación 'Se cerrarán las sesiones de <displayName>. ¿Restablecer su PIN?' y 'PIN actualizado.', y sección de estado con 'Desactivar'/'¿Desactivar a <displayName>? No podrá iniciar sesión.'/'Sí, desactivar'/'Cancelar' y 'Activar' sin confirmación. Errores de AC-23 a AC-25.
+- Descripción: frontend/src/app/admin/usuarios/[id]/page.tsx con RoleGuard area '/admin' según 10.4: usuario tomado de la lista (consulta GET /api/users y buscar por id; si no está, 'Ese usuario no existe.' sin formulario), username fijo, sección de perfil con 'Guardar cambios' y 'Cambios guardados.', sección de PIN con confirmación 'Se cerrarán las sesiones de <displayName>. ¿Restablecer su PIN?' y 'PIN actualizado.', y sección de estado con 'Desactivar'/'¿Desactivar a <displayName>? No podrá iniciar sesión.'/'Sí, desactivar'/'Cancelar' y 'Activar' sin confirmación. Errores de AC-23 a AC-25.
 
 ### T-14. Extremo a extremo en verde
 - Responsable: frontend-dev
@@ -152,7 +152,7 @@ Reglas comunes:
 - AC: todos (requisitos R-004-01 a R-004-07)
 - Descripción:
   - `pnpm test`, `pnpm lint`, `pnpm typecheck` y `pnpm test:coverage` con código 0 (services de la API, incluido services/users, con 90 % o más; shared con 90 % o más).
-  - R-004-03 (`git diff main -- apps/api/.env.example apps/api/src/config/env.ts` vacío), R-004-04 (`git status --porcelain apps/api/src/db/migrations` vacío) y R-004-06 (grep de R-14 de la 001).
+  - R-004-03 (`git diff main -- backend/.env.example backend/src/config/env.ts` vacío), R-004-04 (`git status --porcelain backend/src/db/migrations` vacío) y R-004-06 (grep de R-14 de la 001).
   - `pnpm test:e2e` con `pnpm dev` detenido.
   - Anotar en el reporte los pendientes manuales para el usuario: sección 17 de la spec.
 

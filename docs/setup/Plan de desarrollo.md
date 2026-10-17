@@ -28,7 +28,7 @@ Los modelos son una sugerencia: opus para razonar y criticar, sonnet para implem
    - El stock se descuenta en una transacción con bloqueo de fila: si dos mozos piden el último cuarto de pecho a la vez, solo uno lo consigue.
    - El precio se copia al ítem del pedido en el momento de la venta, así un cambio de precio no altera cuentas abiertas.
 4. **Impresión detrás de una interfaz.** Un `PrinterService` con un driver falso (escribe la comanda en un archivo) para desarrollo y tests, y uno ESC/POS real para la impresora térmica.
-5. **Monorepo en TypeScript:** `apps/web`, `apps/api` y `packages/shared` (tipos, esquemas Zod y reglas de dominio compartidas). Next.js es solo frontend: toda la lógica vive en Express. Socket.IO avisa a mozos y caja.
+5. **Monorepo en TypeScript:** `frontend`, `backend` y `packages/shared` (tipos, esquemas Zod y reglas de dominio compartidas). Next.js es solo frontend: toda la lógica vive en Express. Socket.IO avisa a mozos y caja.
 6. **Herramientas de prueba:** Vitest (unitarias), Supertest contra un Postgres real de prueba en Docker (API), React Testing Library (componentes), Playwright (flujos completos) y fast-check (pruebas por propiedades del adversarial tester).
 7. **Constitución del proyecto** en `CLAUDE.md`: stack con versiones fijas, reglas de dominio, glosario, flujo de trabajo y definición de terminado. Claude Code la carga en la sesión principal y en cada subagente.
 8. **Puntos de control humano.** Tú apruebas cada spec antes de que se programe y revisas al cierre de cada fase. El orquestador no avanza sin tu visto bueno.

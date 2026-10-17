@@ -37,7 +37,7 @@ Confirmadas por el usuario el 2026-10-10: S-010-01 a S-010-18 con las respuestas
 
 **D-010-01. Alcance: solo dominio + API, sin pantallas (SUPUESTO S-010-01).**
 - Igual que las specs 005, 006, 007 y 009: esta spec deja listo el modelo (order_items, order_item_components, order_item_sauces, kitchen_tickets, idempotency_keys), los esquemas compartidos, los servicios y las rutas. Las pantallas del mozo son la spec 011. No hay tareas de frontend-dev ni pruebas E2E.
-- Consecuencia: ningún archivo de apps/web cambia.
+- Consecuencia: ningún archivo de frontend cambia.
 
 **D-010-02. El ítem es una fila de `order_items` que copia todo lo que cobra y describe (regla 4; SUPUESTO S-010-02).**
 - Columnas: `id`, `order_id` (FK a orders), `product_id` (FK a products — el vínculo histórico para reportes), `product_name`, `product_category` (copias del nombre y la categoría: la comanda y los reportes no dependen de que el producto siga igual), `quantity` (1-99), `price_cents` (precio unitario copiado), `portion`, `cut`, `breast_eighths`, `leg_eighths` (octavos resueltos de la línea, regla 1), `notes` (observación), `status` ('sent' | 'void_requested' | 'voided'), `kitchen_ticket_id` (la comanda que lo creó), `void_requested_at` + `void_requested_by_user_id` + `void_request_reason` (la solicitud de anulación del mozo), `void_ticket_id` + `voided_at` + `voided_by_user_id` + `void_reason` (la anulación aprobada/ejecutada por el admin), `ordered_at_table_id` (la mesa de origen para la traza de uniones, §19 de la 009), `created_by_user_id` (quién lo envió), `created_at`, `updated_at`.
@@ -167,7 +167,7 @@ Confirmadas por el usuario el 2026-10-10: S-010-01 a S-010-18 con las respuestas
 
 ## 4. Criterios de aceptación (AC)
 
-Todos ejecutables con `pnpm test` en esta rama (packages/shared y apps/api contra su base aislada polleria_test). Casos felices y errores con el formato común `{ error: { code, message, details } }`, cuerpos exactos. Los datos de carta se siembran por servicio/SQL en la misma base de pruebas.
+Todos ejecutables con `pnpm test` en esta rama (packages/shared y backend contra su base aislada polleria_test). Casos felices y errores con el formato común `{ error: { code, message, details } }`, cuerpos exactos. Los datos de carta se siembran por servicio/SQL en la misma base de pruebas.
 
 ### 4.1 Esquemas y tipos compartidos (packages/shared/src/order-items.ts + orders.ts y errors.ts)
 
@@ -192,7 +192,7 @@ Todos ejecutables con `pnpm test` en esta rama (packages/shared y apps/api contr
 - `menuProductSchema` (estricto): `{ id, name, category, priceCents, portions: [{portion, cut, priceCents}], items: [{product, quantity, portion, cut}] }` con `product` = productSchema; `menuResponseSchema` = `{ products: [...] }`.
 - `ERROR_CODES` suma `'ORDER_ITEM_NOT_FOUND'`, `'ORDER_ITEM_ALREADY_VOIDED'`, `'ORDER_ITEM_VOID_REQUESTED'`, `'ORDER_ITEM_NOT_REQUESTED'`, `'ORDER_HAS_ACTIVE_ITEMS'`, `'ORDER_ITEMS_LIMIT'` e `'IDEMPOTENCY_CONFLICT'`; `errorResponseSchema` acepta sus cuerpos.
 
-### 4.2 Tablas y migración (apps/api contra la base de pruebas)
+### 4.2 Tablas y migración (backend contra la base de pruebas)
 
 **AC-03 (`kitchen_tickets` y `order_items` existen con sus restricciones).** Dada la base con las migraciones al día, cuando se inspecciona e inserta, entonces:
 
@@ -212,7 +212,7 @@ Todos ejecutables con `pnpm test` en esta rama (packages/shared y apps/api contr
 - `migrateUp` lo ejecuta, entonces crea las cinco tablas con todas las restricciones de AC-03 y AC-04 (kitchen_tickets antes que order_items, por la FK).
 - `migrateDown` lo revierte, entonces las cinco dejan de existir y un `migrateUp` posterior las recrea sin errores — el down encadenado de `users-migrations` gana este paso nuevo antes de revertir tables/orders.
 
-### 4.3 Servicios (apps/api contra la base de pruebas)
+### 4.3 Servicios (backend contra la base de pruebas)
 
 Carta semilla de referencia para los AC siguientes: 'Pollo a la brasa' (chicken, con porciones quarter-breast S/ 15.00, quarter-leg S/ 14.00, half S/ 26.00 y whole S/ 48.00 — sin eighth), 'Anticucho de pollo' (chicken SIN porciones, S/ 12.00), 'Inca Kola 1L' (drink, S/ 8.00), 'Ají' (sauce, S/ 0.00), 'Ocopa' (sauce, S/ 3.00), 'Mostrito' (combo, S/ 22.00, con 1 componente 'Pollo a la brasa' quarter-leg ×1 y 1 componente 'Inca Kola 1L' ×1). Pedido P abierto por el mozo Juan sobre Mesa 3.
 
@@ -267,7 +267,7 @@ Carta semilla de referencia para los AC siguientes: 'Pollo a la brasa' (chicken,
 
 **AC-14 (listMenu: la carta armada).** Cuando `listMenu()` con la carta semilla (más un producto inactivo), entonces devuelve `{ products }` solo con los ACTIVOS, ordenados por categoría/nombre/id; el pollo trae `portions` solo con las filas ofertadas, en el orden de la carta (quarter-breast, quarter-leg, half, whole) y `items: []`; el combo trae `items` con el producto componente embebido (incluido `isActive`) y `portions: []`; un chicken sin porciones trae ambas listas vacías.
 
-### 4.4 API por HTTP (apps/api contra la base de pruebas, con sesiones reales)
+### 4.4 API por HTTP (backend contra la base de pruebas, con sesiones reales)
 
 **AC-15 (POST /api/orders/{orderId}/items).** Cuando:
 
@@ -318,9 +318,9 @@ Carta semilla de referencia para los AC siguientes: 'Pollo a la brasa' (chicken,
 | --- | --- | --- |
 | R-010-01 | Las rutas nuevas exigen sesión y los roles de D-010-16; `Idempotency-Key` en los cuatro POST | reviewer lee el router y los controllers |
 | R-010-02 | openapi.yaml (versión propuesta 0.9.0) sigue siendo OpenAPI 3.1 válido y coincide con lo implementado | `pnpm dlx @redocly/cli lint docs/api/openapi.yaml`; contraste de AC-15 a AC-19 |
-| R-010-03 | Ninguna variable de entorno nueva | `git diff` vacío en apps/api/.env.example y CONFIG_VARIABLES |
+| R-010-03 | Ninguna variable de entorno nueva | `git diff` vacío en backend/.env.example y CONFIG_VARIABLES |
 | R-010-04 | Una sola migración nueva, al final de MIGRATIONS | ls de la carpeta de migraciones; AC-05 |
-| R-010-05 | apps/web no cambia | `git diff` vacío en apps/web; sin fetch/axios nuevo |
+| R-010-05 | frontend no cambia | `git diff` vacío en frontend; sin fetch/axios nuevo |
 | R-010-06 | Cobertura ≥ 90 % en shared y en los services nuevos; order.service no baja de lo que tenía (90 % líneas / 81 % ramas — refuerzo en las guardias nuevas) | `pnpm test:coverage` |
 | R-010-07 | Idempotencia real: un reenvío no duplica ítems, comandas ni claves (regla 5) | AC-08 y AC-15 contando filas antes/después |
 | R-010-08 | Dinero en céntimos enteros en toda la cadena (entrada, columna, respuesta, totalCents) | AC-01, AC-03, AC-06 |
@@ -540,7 +540,7 @@ Base `/api`; todas protegidas con la cookie `polleria_session` y `Cache-Control:
 - Sin eventos Socket.IO (D-010-20).
 - Cambio propuesto del contrato OpenAPI 0.8.0 → 0.9.0: aditivo salvo el `Order` que gana las dos claves requeridas (cambio señalado, sección 12). Se propone: tag `menu` nuevo y tag `orders` con descripción ampliada; las 6 rutas de la tabla; esquemas `OrderItemStatus` (3 valores), `KitchenTicketKind`, `OrderItemSauce` (respuesta), `OrderItemComponent` (respuesta), `OrderItem`, `KitchenTicket`, `KitchenTicketsResponse`, `OrderItemSauceInput`, `OrderItemComponentInput`, `OrderItemInput`, `SendOrderItemsRequest`, `SendOrderItemsResponse` (`{order, ticket}`), `OrderResponse` (`{order}` — para request-void y reject-void), `MenuPortion` (`{portion, cut, priceCents}`), `MenuComboItem` (`{product, quantity, portion, cut}`), `MenuProduct`, `MenuResponse`; parámetro `ItemId` (misma regla que OrderId) y parámetro de cabecera `IdempotencyKey` (string, patrón `^[\x21-\x7E]{1,128}$`, required en los cuatro POST — en reject-void documentar que no lleva cuerpo); respuestas reutilizables `OrderItemNotFound`, `OrderItemAlreadyVoided`, `OrderItemVoidRequested`, `OrderItemNotRequested`, `OrderHasActiveItems`, `OrderItemsLimit`, `IdempotencyConflict`; `ErrorCode` suma los siete códigos; `Order` documenta `items` y `totalCents`; las descripciones de join y cancel de la 009 se actualizan (mueven ítems / guardias con ítems y solicitudes pendientes). `RequestVoidItemRequest` reutiliza la forma `{reason}` de `CancelOrderRequest` (igual que `VoidOrderItemRequest`). La deuda de componentes huérfanos de la 009 queda como estaba — los nuevos sí se referencian.
 
-## 10. Interfaz (apps/web)
+## 10. Interfaz (frontend)
 
 Sin pantallas en esta spec (D-010-01). Notas para la 011 (toma de pedido del mozo):
 
@@ -561,15 +561,15 @@ Sin pantallas en esta spec (D-010-01). Notas para la 011 (toma de pedido del moz
 | packages/shared/src/errors.ts | ERROR_CODES suma los siete códigos |
 | packages/shared/src/index.ts | exporta order-items.ts |
 | packages/shared/src/combos.ts | `comboChickenConsumption` con firma `Iterable` (cambio señalado 007) |
-| apps/api/src/db/migrations/20261011120000-create-order-items.ts (nueva) | las cinco tablas + CHECKs + única + índices (D-010-19) |
-| apps/api/src/db/models/index.ts | KitchenTicket, OrderItem, OrderItemComponent, OrderItemSauce, IdempotencyKey + `initOrderItemAssociations` |
-| apps/api/src/services/order-items/order-item.service.ts (nuevo) | `createOrderItemService({ models })` → `sendItems(orderId, body, key, actor)`, `requestVoid(orderId, itemId, reason, key, actor)`, `voidItem(orderId, itemId, reason, key, actor)`, `rejectVoid(orderId, itemId, key, actor)`, `listOrderTickets(orderId)` |
-| apps/api/src/services/menu/menu.service.ts (nuevo) | `createMenuService({ models })` → `listMenu()` |
-| apps/api/src/services/orders/order.service.ts | `cancelOrder` gana las dos guardias de D-010-11; `joinTable` mueve ítems y comandas; `loadOrderViews`/`getOrder` embeben ítems y `totalCents` (order-view.ts se extiende con la carga en lote de ítems/sauces/components/usuarios) |
-| apps/api/src/controllers/orders.controller.ts + order-items.controller.ts + menu.controller.ts | handlers; `itemId` con `parseIdParam` (mismo helper); la cabecera se valida antes que params y cuerpo |
-| apps/api/src/routes/orders/orders.routes.ts | suma `GET /:orderId/tickets`, `POST /:orderId/items`, `POST /:orderId/items/:itemId/request-void`, `POST /:orderId/items/:itemId/void`, `POST /:orderId/items/:itemId/reject-void` con `Cache-Control: no-store` y el lector JSON en las que tienen cuerpo (reject-void es bodiless) |
-| apps/api/src/routes/menu/menu.routes.ts (nuevo) + routes/index.ts + app.ts | `GET /api/menu` montado antes del 404; `NO_STORE_PATH_PREFIXES` suma '/api/menu' |
-| apps/api/tests/helpers/test-database.ts | `resetMigrationTables` borra las cinco tablas antes que 'orders'; `clearOrderTables` pasa a un TRUNCATE de siete tablas (sauces, components, order_items, idempotency_keys, kitchen_tickets, orders, tables), cada una tras su `tableExists` |
+| backend/src/db/migrations/20261011120000-create-order-items.ts (nueva) | las cinco tablas + CHECKs + única + índices (D-010-19) |
+| backend/src/db/models/index.ts | KitchenTicket, OrderItem, OrderItemComponent, OrderItemSauce, IdempotencyKey + `initOrderItemAssociations` |
+| backend/src/services/order-items/order-item.service.ts (nuevo) | `createOrderItemService({ models })` → `sendItems(orderId, body, key, actor)`, `requestVoid(orderId, itemId, reason, key, actor)`, `voidItem(orderId, itemId, reason, key, actor)`, `rejectVoid(orderId, itemId, key, actor)`, `listOrderTickets(orderId)` |
+| backend/src/services/menu/menu.service.ts (nuevo) | `createMenuService({ models })` → `listMenu()` |
+| backend/src/services/orders/order.service.ts | `cancelOrder` gana las dos guardias de D-010-11; `joinTable` mueve ítems y comandas; `loadOrderViews`/`getOrder` embeben ítems y `totalCents` (order-view.ts se extiende con la carga en lote de ítems/sauces/components/usuarios) |
+| backend/src/controllers/orders.controller.ts + order-items.controller.ts + menu.controller.ts | handlers; `itemId` con `parseIdParam` (mismo helper); la cabecera se valida antes que params y cuerpo |
+| backend/src/routes/orders/orders.routes.ts | suma `GET /:orderId/tickets`, `POST /:orderId/items`, `POST /:orderId/items/:itemId/request-void`, `POST /:orderId/items/:itemId/void`, `POST /:orderId/items/:itemId/reject-void` con `Cache-Control: no-store` y el lector JSON en las que tienen cuerpo (reject-void es bodiless) |
+| backend/src/routes/menu/menu.routes.ts (nuevo) + routes/index.ts + app.ts | `GET /api/menu` montado antes del 404; `NO_STORE_PATH_PREFIXES` suma '/api/menu' |
+| backend/tests/helpers/test-database.ts | `resetMigrationTables` borra las cinco tablas antes que 'orders'; `clearOrderTables` pasa a un TRUNCATE de siete tablas (sauces, components, order_items, idempotency_keys, kitchen_tickets, orders, tables), cada una tras su `tableExists` |
 | docs/api/openapi.yaml | 0.8.0 → 0.9.0 (lo edita la implementación) |
 
 ## 12. Cambios a specs y documentos anteriores (señalados)
@@ -589,7 +589,7 @@ Ninguna nueva. Reutiliza lo ya instalado: Sequelize (transacción con bloqueo `F
 
 ## 14. Fuera de alcance
 
-- Pantalla de toma de pedido del mozo y cualquier cambio en apps/web: spec 011. La 010 solo deja la API y el dominio.
+- Pantalla de toma de pedido del mozo y cualquier cambio en frontend: spec 011. La 010 solo deja la API y el dominio.
 - Impresión de la comanda en la impresora térmica (formato, 48 columnas, destinos, reintentos, número diario) y aviso de "pedido listo" por impresora: Fase 3 (RF-08 a RF-11) sobre PrinterService — aquí la comanda es solo un registro consultable por API.
 - Pre-cuenta impresa, cobro, división de cuenta, `closed` del pedido, apertura/cierre de caja: Fase 4 (RF-13 a RF-17). `totalCents` queda listo como base del cálculo.
 - Descuento de stock por ítems y merma: Fase 5 (RF-20 a RF-24). Los octavos ya quedan copiados para descontarlos con bloqueo (regla 3) cuando llegue.
@@ -624,7 +624,7 @@ Confirmados por el usuario el 2026-10-10: S-010-01 a S-010-18 con las respuestas
 
 | ID | Supuesto |
 | --- | --- |
-| S-010-01 | Solo dominio + API; la pantalla de toma es la 011 y apps/web no cambia (D-010-01). |
+| S-010-01 | Solo dominio + API; la pantalla de toma es la 011 y frontend no cambia (D-010-01). |
 | S-010-02 | El ítem copia producto, nombre, categoría y precio unitario; `product_id` es solo vínculo histórico (D-010-02). |
 | S-010-03 | Precio del pollo = la fila de presentación cuando hay porciones; `products.price_cents` en los demás casos, incluido el combo (D-010-03). |
 | S-010-04 | Octavos copiados como total de línea; el medio admite distribución real que suma 4 por unidad sin cambio de precio (D-010-04). |

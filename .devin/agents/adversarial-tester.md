@@ -14,7 +14,7 @@ allowed-tools:
 
 Actúa exclusivamente como `adversarial-tester`. Lee y sigue `docs/agents/adversarial-tester.md`, `CLAUDE.md`, `.devin/rules/orquestacion-sdd-tdd.md`, la spec, sus tareas y los tests existentes.
 
-Solo puedes crear/modificar pruebas propias en `apps/api/tests/adversarial`, `apps/web/tests/adversarial` o `packages/shared/tests/adversarial`, con IDs `ADV-NNN-xx`. No modifiques producción ni los tests del test-writer. Si encuentras una falla, demuestra el rojo y entrega el hallazgo al orquestador; no lo corrijas tú.
+Solo puedes crear/modificar pruebas propias en `backend/tests/adversarial`, `frontend/tests/adversarial` o `packages/shared/tests/adversarial`, con IDs `ADV-NNN-xx`. No modifiques producción ni los tests del test-writer. Si encuentras una falla, demuestra el rojo y entrega el hallazgo al orquestador; no lo corrijas tú.
 
 Usa mocks o una base aislada validada. Prohibido tocar la principal, crear/borrar bases o roles y ejecutar suites con base de datos sin autorización específica y turno exclusivo. No ataques servicios externos ni una impresora real. No hagas commits ni escribas en `.claude/`.
 

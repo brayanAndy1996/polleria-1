@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 
-Ataque a la 002 (servicio de impresión) el 2026-10-08, commit 0c62834 en feat/002-printer-service. Tests en apps/api/tests/adversarial/printer-*.adversarial.test.ts y packages/shared/tests/adversarial/lima-time.adversarial.test.ts. Abiertos al cerrar el ataque:
+Ataque a la 002 (servicio de impresión) el 2026-10-08, commit 0c62834 en feat/002-printer-service. Tests en backend/tests/adversarial/printer-*.adversarial.test.ts y packages/shared/tests/adversarial/lima-time.adversarial.test.ts. Abiertos al cerrar el ataque:
 
 - ADV-002-01 (Medio): NFC reordena marcas combinantes en tiempo cuadrático. 500 líneas de `'x' + '̈́'×1000 + '̣'×999` (documento válido) tardan ~2,07 s la primera vez y ~6 s al repetir (AC-17 pide < 2 s; D-002-06 decía ~100 ms). Ver [[project-attack-techniques]].
 - ADV-002-02 (Medio): createPrinterDriver (exportado por index.ts) devuelve un driver cuyo print escribe ESC/GS/NUL y líneas > 48 si se llama sin el servicio. El driver valida el jobId pero no las líneas.

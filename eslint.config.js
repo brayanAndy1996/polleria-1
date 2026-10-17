@@ -36,7 +36,7 @@ export default defineConfig([
 
   // Web: reglas de hooks y sin fuentes de Google (RNF-05: el sistema funciona sin internet).
   {
-    files: ['apps/web/**/*.{ts,tsx,js,mjs}'],
+    files: ['frontend/**/*.{ts,tsx,js,mjs}'],
     extends: [reactHooks.configs.flat.recommended],
     rules: {
       'no-restricted-imports': [
@@ -57,8 +57,8 @@ export default defineConfig([
   // API: sequelize.sync() prohibido fuera de las pruebas (CLAUDE.md, regla 6).
   // Todo cambio de esquema es una migración.
   {
-    files: ['apps/api/src/**/*.ts'],
-    ignores: ['apps/api/src/**/*.test.ts'],
+    files: ['backend/src/**/*.ts'],
+    ignores: ['backend/src/**/*.test.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',

@@ -19,7 +19,7 @@ Detén `pnpm dev` antes de preparar la base.
 
 `polleria_test` es la base para pruebas automáticas. Para usar la aplicación, crea también **polleria_dev** en pgAdmin si aún no existe: Bases de datos → Crear → Base de datos. Elige como propietario el usuario de PostgreSQL con el que conectarás la aplicación. No borres ni renombres polleria_test.
 
-Si no tienes `apps/api/.env`, copia `apps/api/.env.example` a ese nombre. Si ya existe, edítalo conservando tus conexiones. Configura:
+Si no tienes `backend/.env`, copia `backend/.env.example` a ese nombre. Si ya existe, edítalo conservando tus conexiones. Configura:
 
 ```dotenv
 NODE_ENV=development

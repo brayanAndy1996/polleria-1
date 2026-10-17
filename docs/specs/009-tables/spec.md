@@ -43,7 +43,7 @@ Todas fueron confirmadas por el usuario el 2026-10-10 con la respuesta recomenda
 
 **D-009-01. Alcance: solo dominio + API, sin pantallas (SUPUESTO S-009-01).**
 - Igual que las specs 005, 006 y 007: esta spec deja listo el modelo (tables y orders), los esquemas compartidos, los servicios y las rutas. Las pantallas del mozo son la spec 011 y la administración de mesas por pantalla la 012 (o la 011 si el usuario lo prefiere). No hay tareas de frontend-dev ni pruebas E2E.
-- Consecuencia: ningún archivo de apps/web cambia.
+- Consecuencia: ningún archivo de frontend cambia.
 
 **D-009-02. Una mesa apunta a su pedido abierto: `tables.current_order_id` (SUPUESTO S-009-02).**
 - `tables` guarda la configuración del salón (nombre, activa) y un puntero `current_order_id` al pedido abierto que la cubre, o NULL si está libre. Un pedido puede cubrir varias mesas (mesas unidas): las mesas de un pedido son las que apuntan a él (`WHERE current_order_id = :orderId`).
@@ -145,7 +145,7 @@ Todas fueron confirmadas por el usuario el 2026-10-10 con la respuesta recomenda
 
 ## 4. Criterios de aceptación (AC)
 
-Todos ejecutables con `pnpm test` en esta rama (packages/shared y apps/api contra su base aislada polleria_test). Casos felices y errores con el formato común `{ error: { code, message, details } }`, cuerpos exactos.
+Todos ejecutables con `pnpm test` en esta rama (packages/shared y backend contra su base aislada polleria_test). Casos felices y errores con el formato común `{ error: { code, message, details } }`, cuerpos exactos.
 
 ### 4.1 Esquemas y tipos compartidos (packages/shared/src/tables.ts y orders.ts + errors.ts)
 
@@ -165,7 +165,7 @@ Todos ejecutables con `pnpm test` en esta rama (packages/shared y apps/api contr
 - `tablesResponseSchema` = `{ tables: tableSchema[] }` estricto.
 - `ERROR_CODES` suma `'TABLE_NOT_FOUND'`, `'ORDER_NOT_FOUND'`, `'TABLE_NAME_TAKEN'`, `'TABLE_OCCUPIED'`, `'TABLE_INACTIVE'`, `'TABLE_HAS_OPEN_ORDER'`, `'TABLE_HAS_NO_ORDER'`, `'ORDER_NOT_OPEN'` y `'ORDER_NEEDS_TABLE'`; `errorResponseSchema` acepta sus cuerpos y sigue rechazando un código fuera de lista.
 
-### 4.2 Tablas y migración (apps/api contra la base de pruebas)
+### 4.2 Tablas y migración (backend contra la base de pruebas)
 
 **AC-03 (la tabla `tables` existe con sus restricciones).** Dada la base de pruebas con las migraciones al día, cuando se inspecciona e inserta, entonces:
 
@@ -188,7 +188,7 @@ Todos ejecutables con `pnpm test` en esta rama (packages/shared y apps/api contr
 - `migrateUp` lo ejecuta, entonces crea `orders` y `tables` con todas las restricciones de AC-03 y AC-04.
 - `migrateDown` lo revierte, entonces ambas tablas dejan de existir y un `migrateUp` posterior las recrea sin errores — el down encadenado de `users-migrations` gana este paso nuevo antes de revertir combo_items.
 
-### 4.3 Servicios (apps/api contra la base de pruebas)
+### 4.3 Servicios (backend contra la base de pruebas)
 
 **AC-06 (listTables: el tablero con estados derivados).** Dadas las mesas 'Mesa 10', 'Mesa 2', 'Barra' (activas) y 'Depósito' (inactiva), un pedido abierto cubriendo Mesa 2 y Barra (unidas) con `ready_at` puesto, otro cubriendo Mesa 10 con `bill_requested_at` puesto, cuando se llama `listTables()`, entonces:
 
@@ -242,7 +242,7 @@ Todos ejecutables con `pnpm test` en esta rama (packages/shared y apps/api contr
 - `cancelOrder(P.id, { reason: 'Se sentaron por error', userId: adminId })` → `status: 'cancelled'`, `cancel_reason`, `closed_at`/`closed_by_user_id` puestos, ambas mesas libres (punteros en NULL) en la misma transacción; el GET posterior muestra el pedido cancelado con su motivo y quién lo hizo.
 - Sin `reason` o fuera de forma → ZodError sin tocar nada; sobre pedido no abierto → ORDER_NOT_OPEN.
 
-### 4.4 API por HTTP (apps/api contra la base de pruebas, con sesiones reales)
+### 4.4 API por HTTP (backend contra la base de pruebas, con sesiones reales)
 
 **AC-15 (GET /api/tables).** Cuando:
 
@@ -296,9 +296,9 @@ Todos ejecutables con `pnpm test` en esta rama (packages/shared y apps/api contr
 | --- | --- | --- |
 | R-009-01 | GET /api/tables y GET /api/orders/{orderId} responden a cualquier rol con sesión; las operaciones exigen los roles de D-009-05 | reviewer lee las líneas del router |
 | R-009-02 | openapi.yaml (versión propuesta 0.8.0) sigue siendo OpenAPI 3.1 válido y coincide con lo implementado | `pnpm dlx @redocly/cli lint docs/api/openapi.yaml`; contraste de AC-15 a AC-21 |
-| R-009-03 | Ninguna variable de entorno nueva | `git diff` vacío en apps/api/.env.example y CONFIG_VARIABLES |
+| R-009-03 | Ninguna variable de entorno nueva | `git diff` vacío en backend/.env.example y CONFIG_VARIABLES |
 | R-009-04 | Una sola migración nueva, en el orden de MIGRATIONS | ls de la carpeta de migraciones; AC-05 |
-| R-009-05 | apps/web no cambia | `git diff` vacío en apps/web; sin fetch/axios nuevo |
+| R-009-05 | frontend no cambia | `git diff` vacío en frontend; sin fetch/axios nuevo |
 | R-009-06 | Cobertura ≥ 90 % en shared y en los services nuevos | `pnpm test:coverage` |
 | R-009-07 | Definición de terminado de CLAUDE.md | orquestador en el cierre |
 
@@ -423,7 +423,7 @@ Base `/api`; todas protegidas con la cookie `polleria_session` y `Cache-Control:
 - Sin eventos Socket.IO (D-009-16).
 - Cambio propuesto del contrato OpenAPI 0.7.0 → 0.8.0, solo aditivo: tags `tables` y `orders`; las 12 rutas de la tabla; esquemas TableName, TableState, OrderStatus, UserRef (`{id, displayName}`), TableRef (`{id, name}`), Table, Order, TablesResponse, CreateTableRequest, UpdateTableRequest, MoveOrderRequest, JoinTableRequest, CancelOrderRequest; parámetros TableId y OrderId (misma regla que ProductId); respuestas reutilizables TableNotFound, OrderNotFound, TableNameTaken, TableOccupied, TableInactive, TableHasOpenOrder, TableHasNoOrder, OrderNotOpen, OrderNeedsTable; ErrorCode suma los nueve códigos. No se renombra ni se quita nada de la 0.7.0.
 
-## 10. Interfaz (apps/web)
+## 10. Interfaz (frontend)
 
 Sin pantallas en esta spec (D-009-01). Notas para la 011 (mozo) y la 012 (administración de mesas):
 
@@ -441,14 +441,14 @@ Sin pantallas en esta spec (D-009-01). Notas para la 011 (mozo) y la 012 (admini
 | packages/shared/src/orders.ts (nuevo) | `ORDER_STATUSES`, `orderStatusSchema`, `userRefSchema` (`{id, displayName}`), `tableRefSchema` (`{id, name}`), `orderSchema`, `moveOrderRequestSchema`, `joinTableRequestSchema`, `cancelOrderRequestSchema` (CANCEL_REASON_MAX = 200), tipos |
 | packages/shared/src/errors.ts | ERROR_CODES suma los nueve códigos |
 | packages/shared/src/index.ts | exporta tables.ts y orders.ts |
-| apps/api/src/db/migrations/20261010120000-create-tables-orders.ts (nueva) | orders + tables + CHECKs + única + índices (D-009-15) |
-| apps/api/src/db/models/index.ts | Order, Table + `initOrderTableAssociations` |
-| apps/api/src/services/tables/table.service.ts (nuevo) | `createTableService({ models })` → `listTables()`, `createTable(input)`, `updateTable(tableId, changes)` |
-| apps/api/src/services/orders/order.service.ts (nuevo) | `createOrderService({ models })` → `openOrder(tableId, actor)`, `getOrder(orderId)`, `moveOrder(orderId, tableId, actor)`, `joinTable(tableId, intoTableId, actor)`, `leaveTable(tableId, actor)`, `requestBill(orderId, actor)`, `markReady(orderId, actor)`, `markServed(orderId, actor)`, `cancelOrder(orderId, reason, actor)` |
-| apps/api/src/controllers/tables.controller.ts + orders.controller.ts (nuevos) | handlers; `tableId`/`orderId` con el parser de parámetros de products.controller.ts generalizado (misma regla `^[0-9]+$`, 1..2147483647) |
-| apps/api/src/routes/tables/tables.routes.ts + routes/orders/orders.routes.ts (nuevos) | routers con `Cache-Control: no-store` propio, requireJsonContentType/requireJsonObject solo en las rutas con cuerpo |
-| apps/api/src/routes/index.ts y app.ts | monta ambos routers antes del 404; `NO_STORE_PATH_PREFIXES` suma '/api/tables' y '/api/orders' |
-| apps/api/tests/helpers/test-database.ts | `clearOrderTables` (orders + tables tras `tableExists`, un solo TRUNCATE); `resetMigrationTables` suma 'tables' y 'orders' antes que 'combo_items' |
+| backend/src/db/migrations/20261010120000-create-tables-orders.ts (nueva) | orders + tables + CHECKs + única + índices (D-009-15) |
+| backend/src/db/models/index.ts | Order, Table + `initOrderTableAssociations` |
+| backend/src/services/tables/table.service.ts (nuevo) | `createTableService({ models })` → `listTables()`, `createTable(input)`, `updateTable(tableId, changes)` |
+| backend/src/services/orders/order.service.ts (nuevo) | `createOrderService({ models })` → `openOrder(tableId, actor)`, `getOrder(orderId)`, `moveOrder(orderId, tableId, actor)`, `joinTable(tableId, intoTableId, actor)`, `leaveTable(tableId, actor)`, `requestBill(orderId, actor)`, `markReady(orderId, actor)`, `markServed(orderId, actor)`, `cancelOrder(orderId, reason, actor)` |
+| backend/src/controllers/tables.controller.ts + orders.controller.ts (nuevos) | handlers; `tableId`/`orderId` con el parser de parámetros de products.controller.ts generalizado (misma regla `^[0-9]+$`, 1..2147483647) |
+| backend/src/routes/tables/tables.routes.ts + routes/orders/orders.routes.ts (nuevos) | routers con `Cache-Control: no-store` propio, requireJsonContentType/requireJsonObject solo en las rutas con cuerpo |
+| backend/src/routes/index.ts y app.ts | monta ambos routers antes del 404; `NO_STORE_PATH_PREFIXES` suma '/api/tables' y '/api/orders' |
+| backend/tests/helpers/test-database.ts | `clearOrderTables` (orders + tables tras `tableExists`, un solo TRUNCATE); `resetMigrationTables` suma 'tables' y 'orders' antes que 'combo_items' |
 | docs/api/openapi.yaml | 0.7.0 → 0.8.0 (lo edita la implementación con las rutas y esquemas propuestos) |
 
 ## 12. Cambios a specs y documentos anteriores (señalados)
@@ -490,7 +490,7 @@ Confirmados por el usuario el 2026-10-10: S-009-01 a S-009-14, todos con la resp
 
 | ID | Supuesto |
 | --- | --- |
-| S-009-01 | Solo dominio + API, sin pantallas: las del mozo en la 011 y la administración de mesas en la 012; ningún archivo de apps/web cambia. |
+| S-009-01 | Solo dominio + API, sin pantallas: las del mozo en la 011 y la administración de mesas en la 012; ningún archivo de frontend cambia. |
 | S-009-02 | `tables.current_order_id` es el puntero al pedido abierto (NULL = libre); un pedido puede cubrir varias mesas y la unicidad sale del UPDATE condicional atómico. |
 | S-009-03 | El estado de la mesa se deriva (free, occupied, ready, bill_requested), nunca se guarda; con ambas marcas gana 'ready'. |
 | S-009-04 | `orders` es la cuenta con ciclo open/closed/cancelled/merged; registra quién la abrió y quién la cerró; nunca se borra. |

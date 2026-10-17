@@ -16,7 +16,7 @@ Spec 003 (docs/specs/003-users-pin-login/spec.md), Borrador con revisión 1 del 
 - Áreas web (orden Mozo, Caja, Cocina, Administración): /mozo (waiter, admin), /caja (cashier, admin), /cocina (kitchen, admin), /admin (admin). resolveLandingPath: una sola área → directo; varias → última área del DISPOSITIVO ('polleria:lastArea', de cualquier usuario, S-003-14) si le corresponde; si no → /areas ("¿Dónde vas a trabajar?", nav 'Áreas'). /areas nunca salta a la última área. Enlace 'Cambiar de área' (href /areas) en la barra si tiene más de un área; reemplazó 'Ir a Mozo'/'Ir a Caja'. El admin pasa por /areas la primera vez en cada dispositivo (S-003-15). ROLE_HOME_PATHS se eliminó. Línea 'Juan · Mozo, Cajero'.
 - Login con lista pública de activos (username + displayName, sin roles) y teclado de PIN 4-6; recuerda 'polleria:lastUsername'.
 - Bootstrap: `pnpm users:create-admin` crea solo roles ['admin'] (S-003-16); otros roles en la 004.
-- Web: cliente central apps/web/src/lib/api/client.ts, 401 UNAUTHENTICATED → hardNavigate('/login'). RoleGuard({ area }) en el cliente, sin proxy de Next.
+- Web: cliente central frontend/src/lib/api/client.ts, 401 UNAUTHENTICATED → hardNavigate('/login'). RoleGuard({ area }) en el cliente, sin proxy de Next.
 - Test helper resetMigrationTables debe borrar también las tablas de dominio; toda spec que agregue tablas debe ampliarlo.
 
 **Why:** la 004 (gestión de usuarios y roles), la Fase 2 (autorización con PIN de admin) y Socket.IO reutilizan estas piezas; la elección arreglo vs tabla de unión y el destino por dispositivo no son obvios leyendo el código.

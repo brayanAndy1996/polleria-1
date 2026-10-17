@@ -5,7 +5,7 @@
 - Contrato: docs/api/openapi.yaml 0.9.0, SIN CAMBIOS (la spec es solo web; consumo de las rutas de la 009/010)
 - ADR: ninguno — composición de lo ya decidido
 - Dependencias: ninguna nueva
-- Alcance especial: solo apps/web + e2e/global-setup.ts (semilla). apps/api y packages/shared no se tocan: ni código, ni pruebas (RN-011-01, D-011-01, D-011-15). Si apareciera un hueco real en la API se reporta al orquestador como tarea de backend separada — no se improvisa (pregunta 11 de la spec).
+- Alcance especial: solo frontend + e2e/global-setup.ts (semilla). backend y packages/shared no se tocan: ni código, ni pruebas (RN-011-01, D-011-01, D-011-15). Si apareciera un hueco real en la API se reporta al orquestador como tarea de backend separada — no se improvisa (pregunta 11 de la spec).
 - Cambios señalados: el cliente de la web suma la opción `idempotencyKey` (cabecera `Idempotency-Key`, D-011-09); las etiquetas del salón se suman a las etiquetas del producto; `app/mozo/page.tsx` reemplaza el placeholder de la 003; `e2e/global-setup.ts` suma la limpieza del salón y la semilla ampliada conservando usuarios y carta (D-011-16).
 
 ## Orden y por qué
@@ -26,7 +26,7 @@ TDD de la 008/010: el test-writer va primero y deja el rojo comprobado (funcione
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-01
-- Descripción: `apps/web/src/lib/api/tables.test.ts` — MSW sirve `GET /api/tables` (lista con mesas libres/ocupadas y `order` embebido con `items`/`totalCents`), `POST /api/tables/{id}/orders` (201 con `orderSchema`), `POST /api/tables/{id}/join` (`{ intoTableId }`, 200) y `POST /api/tables/{id}/leave` (200). Verifica método+ruta+cuerpo, validación por esquema, propagación de ApiError con sus códigos (TABLE_OCCUPIED, TABLE_INACTIVE, TABLE_HAS_NO_ORDER, ORDER_NEEDS_TABLE) y UNEXPECTED_RESPONSE conservando el status.
+- Descripción: `frontend/src/lib/api/tables.test.ts` — MSW sirve `GET /api/tables` (lista con mesas libres/ocupadas y `order` embebido con `items`/`totalCents`), `POST /api/tables/{id}/orders` (201 con `orderSchema`), `POST /api/tables/{id}/join` (`{ intoTableId }`, 200) y `POST /api/tables/{id}/leave` (200). Verifica método+ruta+cuerpo, validación por esquema, propagación de ApiError con sus códigos (TABLE_OCCUPIED, TABLE_INACTIVE, TABLE_HAS_NO_ORDER, ORDER_NEEDS_TABLE) y UNEXPECTED_RESPONSE conservando el status.
 
 ### T-02 — Tests de `lib/api/orders.ts`, `lib/api/order-items.ts`, `lib/api/menu.ts` y `lib/idempotency.ts` (AC-02, AC-03, AC-04)
 - Responsable: test-writer
@@ -77,7 +77,7 @@ Tras T-01 a T-08, correr `pnpm test` y `pnpm test:e2e` serializados y adjuntar a
 ### Implementación en verde (frontend-dev) — reglas comunes
 
 - No crea, modifica ni elimina pruebas. Si una parece incorrecta, la reporta al orquestador.
-- Solo apps/web + lo estrictamente señalado (client.ts suma `idempotencyKey`; etiquetas del salón; app/mozo/*). apps/api y packages/shared quedan sin diff.
+- Solo frontend + lo estrictamente señalado (client.ts suma `idempotencyKey`; etiquetas del salón; app/mozo/*). backend y packages/shared quedan sin diff.
 - Reutiliza los patrones de la 008: TanStack Query con retry:false, apiErrorMessage/issuesFromApiError/issuesFromZod/uniqueMessages, RoleGuard con su marco, selectores nativos, min-h-12, formatSoles, formatPortionCutLabel, toLimaDateTimeParts, useRef+isPending para envío único.
 - Commits `feat:` sin archivos de test.
 
@@ -115,7 +115,7 @@ Tras T-01 a T-08, correr `pnpm test` y `pnpm test:e2e` serializados y adjuntar a
 - Responsable: orquestador (verifica; no implementa)
 - Dependencias: T-09 a T-13
 - AC: R-011-01 a R-011-08
-- Descripción: `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm test:e2e` y `pnpm test:coverage` en verde (80 % líneas en apps/web); `git status --porcelain apps/api packages/shared` vacío; openapi.yaml en 0.9.0 sin diff; grep sin recursos de internet; las tres rutas bajo RoleGuard '/mozo'. Verificación manual de la spec §18 (recorridos del mozo y del admin, corte de wifi con reintento, pedido típico < 30 s). ADV-007-27 y ADV-002-01 quedan como baseline ruidosa conocida — no pertenecen a esta spec.
+- Descripción: `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm test:e2e` y `pnpm test:coverage` en verde (80 % líneas en frontend); `git status --porcelain backend packages/shared` vacío; openapi.yaml en 0.9.0 sin diff; grep sin recursos de internet; las tres rutas bajo RoleGuard '/mozo'. Verificación manual de la spec §18 (recorridos del mozo y del admin, corte de wifi con reintento, pedido típico < 30 s). ADV-007-27 y ADV-002-01 quedan como baseline ruidosa conocida — no pertenecen a esta spec.
 
 ## Matriz AC, pruebas e implementación
 

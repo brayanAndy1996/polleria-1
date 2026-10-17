@@ -36,10 +36,10 @@ Hoy el mozo memoriza o anota en papel, camina a la cocina a dictar y suma la cue
 
 Confirmadas por el usuario el 2026-10-11: S-011-01 a S-011-16 con las respuestas recomendadas de la sección 17. Se conservan abajo como registro.
 
-**D-011-01. Alcance: solo apps/web (SUPUESTO S-011-01).**
+**D-011-01. Alcance: solo frontend (SUPUESTO S-011-01).**
 - La API, la base de datos, packages/shared y el contrato no cambian: docs/api/openapi.yaml queda en la versión 0.9.0 sin una línea nueva. La 011 consume tal cual las 17 rutas de salón de las specs 009 y 010 más GET /api/menu.
 - Todos los esquemas de respuesta y petición que la web necesita ya existen en shared (los de la 008, 009 y 010); las etiquetas en español y las funciones de API son de la web, siguiendo el patrón de la 008.
-- Excepción interna de la web: el cliente central suma una opción para emitir la cabecera `Idempotency-Key` (D-011-09), como la 004 sumó 'PATCH' y la 008 sumó 'PUT'. Fuera de eso, apps/api y shared quedan sin diff. Si en la implementación se descubre un hueco real en la API, se reporta al orquestador — no se cubre desde la web (ver pregunta 11).
+- Excepción interna de la web: el cliente central suma una opción para emitir la cabecera `Idempotency-Key` (D-011-09), como la 004 sumó 'PATCH' y la 008 sumó 'PUT'. Fuera de eso, backend y shared quedan sin diff. Si en la implementación se descubre un hueco real en la API, se reporta al orquestador — no se cubre desde la web (ver pregunta 11).
 - Sin migraciones, sin variables de entorno, sin dependencias y sin ADR (D-011-15).
 
 **D-011-02. Rutas y navegación dentro del área /mozo (SUPUESTO S-011-02).**
@@ -115,7 +115,7 @@ Confirmadas por el usuario el 2026-10-11: S-011-01 a S-011-16 con las respuestas
 - El pedido típico en menos de 30 s (RNF-01) se apoya en: preselección cuarto/pierna, carta por secciones sin búsqueda, stepper de cantidad, envío de toda la tanda en un toque y confirmación inmediata. No hay métrica en pantalla: el requisito se verifica en la demo manual, no con telemetría.
 
 **D-011-15. Sin cambios de contrato, de base, de configuración ni de dependencias (SUPUESTO S-011-15).**
-- docs/api/openapi.yaml queda en 0.9.0; apps/api, la base y packages/shared sin diff; .env.example y CONFIG_VARIABLES iguales; sin paquetes nuevos (TanStack Query, MSW, HeroUI, Tailwind, Playwright, Zod y los esquemas de shared ya están); sin ADR — es composición de lo ya decidido.
+- docs/api/openapi.yaml queda en 0.9.0; backend, la base y packages/shared sin diff; .env.example y CONFIG_VARIABLES iguales; sin paquetes nuevos (TanStack Query, MSW, HeroUI, Tailwind, Playwright, Zod y los esquemas de shared ya están); sin ADR — es composición de lo ya decidido.
 
 **D-011-16. E2E: tres recorridos, todos en mobile-chrome (SUPUESTO S-011-16).**
 - La pantalla del mozo es el celular: los tres recorridos corren en el proyecto mobile-chrome (360×740) y cada uno verifica que el ancho del documento no supere el viewport (misma técnica de AC-21 de la 008).
@@ -126,7 +126,7 @@ Confirmadas por el usuario el 2026-10-11: S-011-01 a S-011-16 con las respuestas
 
 Todos ejecutables: unitarios y de componentes con MSW + `pnpm test`, y E2E con `pnpm test:e2e` en mobile-chrome sobre polleria_test. Los datos de carta, mesas y pedidos se siembran por servicios reales o por MSW según corresponda. Casos felices y errores con el formato común `{ error: { code, message, details } }`.
 
-### 4.1 Funciones de API, clave de idempotencia y etiquetas (apps/web/src/lib)
+### 4.1 Funciones de API, clave de idempotencia y etiquetas (frontend/src/lib)
 
 **AC-01 (funciones de API de mesas).** Dado `lib/api/tables.ts`, cuando se llama con MSW interceptando, entonces:
 
@@ -220,10 +220,10 @@ Todos ejecutables: unitarios y de componentes con MSW + `pnpm test`, y E2E con `
 | ID | Requisito | Cómo se verifica |
 | --- | --- | --- |
 | R-011-01 | docs/api/openapi.yaml queda en la versión 0.9.0 sin cambios y sigue válido | diff vacío respecto a main; lint de Redocly como en las specs anteriores |
-| R-011-02 | apps/api y packages/shared no cambian: ni rutas, ni servicios, ni modelos, ni esquemas, ni tests | `git status --porcelain apps/api packages/shared` vacío al cerrar la funcionalidad |
+| R-011-02 | backend y packages/shared no cambian: ni rutas, ni servicios, ni modelos, ni esquemas, ni tests | `git status --porcelain backend packages/shared` vacío al cerrar la funcionalidad |
 | R-011-03 | Sin migraciones ni variables de entorno nuevas | diff vacío en las migraciones y en los .env.example |
-| R-011-04 | La web sigue sin recursos de internet y llama solo a /api del mismo origen | grep de R-14 de la 001 sobre apps/web/src y revisión del cliente |
-| R-011-05 | Cobertura de líneas: 80 % o más en apps/web (shared no cambia) | pnpm test:coverage |
+| R-011-04 | La web sigue sin recursos de internet y llama solo a /api del mismo origen | grep de R-14 de la 001 sobre frontend/src y revisión del cliente |
+| R-011-05 | Cobertura de líneas: 80 % o más en frontend (shared no cambia) | pnpm test:coverage |
 | R-011-06 | Definición de terminado de CLAUDE.md | pnpm test, pnpm lint, pnpm typecheck y pnpm test:e2e en verde; cada AC con al menos una prueba que empieza con su ID |
 | R-011-07 | Las tres rutas nuevas pasan por RoleGuard area '/mozo' | el reviewer lee las páginas |
 | R-011-08 | Las cuatro operaciones que escriben ítems emiten la cabecera Idempotency-Key y el reintento reusa la clave del intento | AC-03 y AC-17 con MSW + revisión del cliente |
@@ -299,7 +299,7 @@ Errores que las pantallas manejan: 400 VALIDATION_ERROR (issues por path, inclui
 
 ## 10. Interfaz
 
-Textos en español de Perú, botones y tarjetas de al menos 48 px, marco de RoleGuard area '/mozo'. Las rutas exactas de los componentes internos las decide el implementador dentro de apps/web/src/components/waiter/; lo que fija esta spec son los nombres accesibles y los textos (los tests los buscan por rol y nombre).
+Textos en español de Perú, botones y tarjetas de al menos 48 px, marco de RoleGuard area '/mozo'. Las rutas exactas de los componentes internos las decide el implementador dentro de frontend/src/components/waiter/; lo que fija esta spec son los nombres accesibles y los textos (los tests los buscan por rol y nombre).
 
 ### 10.1 /mozo — tablero de mesas
 
@@ -334,22 +334,22 @@ Textos en español de Perú, botones y tarjetas de al menos 48 px, marco de Role
 
 | Módulo | Expone / cambia |
 | --- | --- |
-| apps/web/src/lib/api/client.ts | `ApiRequestOptions` suma `idempotencyKey?: string` → cabecera `Idempotency-Key` (nada más cambia) |
-| apps/web/src/lib/api/tables.ts (nuevo) | getTables, openTableOrder, joinTable, leaveTable |
-| apps/web/src/lib/api/orders.ts (nuevo) | getOrder, moveOrder, requestBill, markReady, markServed, cancelOrder, getOrderTickets |
-| apps/web/src/lib/api/order-items.ts (nuevo) | sendOrderItems, requestVoidItem, voidOrderItem, rejectVoidItem |
-| apps/web/src/lib/api/menu.ts (nuevo) | getMenu |
-| apps/web/src/lib/idempotency.ts (nuevo) | createIdempotencyKey (crypto.randomUUID) |
-| apps/web/src/lib/menu-labels.ts | suma TABLE_STATE_LABELS, ORDER_ITEM_STATUS_LABELS, KITCHEN_TICKET_KIND_LABELS (o un labels.ts nuevo del salón; lo decide el implementador) |
-| apps/web/src/app/mozo/page.tsx | tablero (reemplaza el placeholder) |
-| apps/web/src/app/mozo/mesas/[tableId]/page.tsx y agregar/page.tsx (nuevos, 'use client', RoleGuard area '/mozo') | la mesa/pedido y la toma; componentes en apps/web/src/components/waiter/ |
+| frontend/src/lib/api/client.ts | `ApiRequestOptions` suma `idempotencyKey?: string` → cabecera `Idempotency-Key` (nada más cambia) |
+| frontend/src/lib/api/tables.ts (nuevo) | getTables, openTableOrder, joinTable, leaveTable |
+| frontend/src/lib/api/orders.ts (nuevo) | getOrder, moveOrder, requestBill, markReady, markServed, cancelOrder, getOrderTickets |
+| frontend/src/lib/api/order-items.ts (nuevo) | sendOrderItems, requestVoidItem, voidOrderItem, rejectVoidItem |
+| frontend/src/lib/api/menu.ts (nuevo) | getMenu |
+| frontend/src/lib/idempotency.ts (nuevo) | createIdempotencyKey (crypto.randomUUID) |
+| frontend/src/lib/menu-labels.ts | suma TABLE_STATE_LABELS, ORDER_ITEM_STATUS_LABELS, KITCHEN_TICKET_KIND_LABELS (o un labels.ts nuevo del salón; lo decide el implementador) |
+| frontend/src/app/mozo/page.tsx | tablero (reemplaza el placeholder) |
+| frontend/src/app/mozo/mesas/[tableId]/page.tsx y agregar/page.tsx (nuevos, 'use client', RoleGuard area '/mozo') | la mesa/pedido y la toma; componentes en frontend/src/components/waiter/ |
 | e2e/global-setup.ts (terreno del test-writer) | clearOrderTables + mesas E2E + crema y combo de la semilla |
 | e2e/waiter.spec.ts (nuevo) | los tres recorridos de AC-22 a AC-24 |
-| apps/api, packages/shared, la base, docs/api/openapi.yaml | sin cambios |
+| backend, packages/shared, la base, docs/api/openapi.yaml | sin cambios |
 
 ## 12. Cambios a specs anteriores
 
-Ninguno en contrato ni dominio. La 011 solo consume lo ya aprobado (openapi.yaml queda en 0.9.0) con toques aditivos dentro de apps/web: client.ts suma la opción `idempotencyKey`, menu-labels.ts (o un labels nuevo) suma las etiquetas del salón, y app/mozo/page.tsx reemplaza el placeholder de la 003 — el enlace/área ya existen. e2e/global-setup.ts suma la limpieza del salón y la semilla ampliada conservando usuarios y carta.
+Ninguno en contrato ni dominio. La 011 solo consume lo ya aprobado (openapi.yaml queda en 0.9.0) con toques aditivos dentro de frontend: client.ts suma la opción `idempotencyKey`, menu-labels.ts (o un labels nuevo) suma las etiquetas del salón, y app/mozo/page.tsx reemplaza el placeholder de la 003 — el enlace/área ya existen. e2e/global-setup.ts suma la limpieza del salón y la semilla ampliada conservando usuarios y carta.
 
 ## 13. Dependencias
 
@@ -387,7 +387,7 @@ Ninguna nueva ni de soporte: TanStack Query, MSW, Playwright, HeroUI, Tailwind, 
 
 | ID | Supuesto |
 | --- | --- |
-| S-011-01 | Solo apps/web + la opción `idempotencyKey` del cliente; API, base, shared y openapi.yaml 0.9.0 sin cambios (D-011-01). |
+| S-011-01 | Solo frontend + la opción `idempotencyKey` del cliente; API, base, shared y openapi.yaml 0.9.0 sin cambios (D-011-01). |
 | S-011-02 | Rutas /mozo, /mozo/mesas/[tableId] y /mozo/mesas/[tableId]/agregar bajo RoleGuard '/mozo' (D-011-02). |
 | S-011-03 | Polling de 5 s en tablero y pedido; menú al entrar; sin Socket.IO (D-011-03). |
 | S-011-04 | Tablero: tarjetas por mesa activa con etiqueta+color, mozo y total, mesas unidas, ambas marcas y 'Anulación pedida' (D-011-04). |

@@ -5,7 +5,7 @@
 - Contrato: docs/api/openapi.yaml (versión 0.7.0, sin cambios: /products GET/POST, /products/{productId} PATCH, /products/{productId}/portions GET/PUT, /products/{productId}/items GET/PUT)
 - ADR: ninguno nuevo (reutiliza lo ya decidido: sesión en la base, RoleGuard, TanStack Query, MSW, Playwright, formato de errores)
 - Dependencias: ninguna nueva. Sin variables de entorno nuevas ni migraciones nuevas.
-- Alcance especial: la 008 es web (apps/web) más dos funciones puras nuevas en shared (money.ts). apps/api no se toca: no hay comportamiento de API nuevo que probar ni implementar (D-008-01, D-008-15).
+- Alcance especial: la 008 es web (frontend) más dos funciones puras nuevas en shared (money.ts). backend no se toca: no hay comportamiento de API nuevo que probar ni implementar (D-008-01, D-008-15).
 
 ## Orden y por qué
 
@@ -22,7 +22,7 @@ Reglas comunes:
 - Cada archivo de prueba de esta spec envuelve sus pruebas en un `describe` cuyo nombre empieza con `008:` y el nombre de cada prueba empieza con el ID del AC: `it('AC-08: crea un producto', ...)`.
 - Importar desde las rutas de la sección 11 de la spec; que fallen por módulo inexistente es un rojo válido.
 - Base de pruebas: solo polleria_test (DATABASE_URL_TEST) con las guardias de RN-001-02. La 008 no tiene pruebas de API; la limpieza de la carta solo la usa e2e/global-setup.ts (clearMenuTables ya existe y cubre combo_items, product_portions y products).
-- Web: simular `next/navigation` (useRouter con `replace`/`push` espiados; `useParams` devuelve el id de la ruta para /admin/carta/[id]) y `apps/web/src/lib/navigation.ts` con `vi.mock`; MSW intercepta /api en el nivel fetch; `fireEvent.click` basta para los controles; limpiar localStorage entre pruebas; el render usa el Providers con TanStack Query de siempre. La sesión simulada por defecto es la de un administrador.
+- Web: simular `next/navigation` (useRouter con `replace`/`push` espiados; `useParams` devuelve el id de la ruta para /admin/carta/[id]) y `frontend/src/lib/navigation.ts` con `vi.mock`; MSW intercepta /api en el nivel fetch; `fireEvent.click` basta para los controles; limpiar localStorage entre pruebas; el render usa el Providers con TanStack Query de siempre. La sesión simulada por defecto es la de un administrador.
 - Para las pruebas de componentes con varios árboles montados a la vez, usar el patrón de usePrimaryInstance como en las páginas existentes.
 - Textos con caracteres especiales siempre con escapes, nunca literales.
 - Commits con prefijo test, por ejemplo `test(008): pruebas de la lista de la carta`.
@@ -38,8 +38,8 @@ Reglas comunes:
 - Dependencias: ninguna
 - AC: AC-03, AC-04
 - Descripción:
-  - apps/web/src/lib/menu-labels.test.ts nuevo: las siete etiquetas de PRODUCT_CATEGORY_LABELS sobre todas las claves de PRODUCT_CATEGORIES, PORTION_LABELS, CUT_LABELS y la tabla de formatPortionCutLabel de AC-03.
-  - Archivos nuevos junto al código: apps/web/src/lib/api/client-put.test.ts con `describe('008: ...')` solo para el caso 'PUT' (client.test.ts de la 003 no se toca) y apps/web/src/lib/api/products.test.ts con MSW: las siete funciones de la sección 11 con su método, ruta y expectedStatus (201 en createProduct, 200 en las demás), validación de la respuesta con UNEXPECTED_RESPONSE cuando no cuadra y propagación de ApiError con code, message y details (PRODUCT_NAME_TAKEN, VALIDATION_ERROR con issues 'items.N.*', COMBO_ITEMS_NOT_ALLOWED, PRODUCT_NOT_FOUND).
+  - frontend/src/lib/menu-labels.test.ts nuevo: las siete etiquetas de PRODUCT_CATEGORY_LABELS sobre todas las claves de PRODUCT_CATEGORIES, PORTION_LABELS, CUT_LABELS y la tabla de formatPortionCutLabel de AC-03.
+  - Archivos nuevos junto al código: frontend/src/lib/api/client-put.test.ts con `describe('008: ...')` solo para el caso 'PUT' (client.test.ts de la 003 no se toca) y frontend/src/lib/api/products.test.ts con MSW: las siete funciones de la sección 11 con su método, ruta y expectedStatus (201 en createProduct, 200 en las demás), validación de la respuesta con UNEXPECTED_RESPONSE cuando no cuadra y propagación de ApiError con code, message y details (PRODUCT_NAME_TAKEN, VALIDATION_ERROR con issues 'items.N.*', COMBO_ITEMS_NOT_ALLOWED, PRODUCT_NOT_FOUND).
 
 ### T-03. Enlace, guardias y lista de la carta
 - Responsable: test-writer
@@ -81,9 +81,9 @@ Reglas comunes:
 ## Implementación compartida (backend-dev)
 
 Reglas comunes:
-- No crear, modificar ni borrar archivos de prueba (`*.test.ts`, `*.test.tsx`, apps/api/tests/, e2e/). Si una prueba parece contradecir la spec, detenerse y reportarlo.
+- No crear, modificar ni borrar archivos de prueba (`*.test.ts`, `*.test.tsx`, backend/tests/, e2e/). Si una prueba parece contradecir la spec, detenerse y reportarlo.
 - Sintaxis borrable (D-02 de la 001), imports relativos con .ts, mensajes exactos de la spec.
-- Sin dependencias nuevas ni variables de entorno nuevas. apps/api no se toca en esta spec.
+- Sin dependencias nuevas ni variables de entorno nuevas. backend no se toca en esta spec.
 - Commits con prefijo feat, sin archivos de prueba. Antes de cada commit: `pnpm --filter @polleria/shared run typecheck` (o el equivalente del paquete) y `pnpm lint`.
 
 ### T-07. Funciones de dinero en shared
@@ -105,37 +105,37 @@ Reglas comunes:
 - Responsable: frontend-dev
 - Dependencias: T-02, T-07
 - AC: AC-03, AC-04
-- Descripción: apps/web/src/lib/api/client.ts suma 'PUT' a `ApiRequestOptions.method` (nada más cambia). apps/web/src/lib/api/products.ts nuevo con getProducts, createProduct, updateProduct, getProductPortions, replaceProductPortions, getComboItems y replaceComboItems según la sección 11: respuestas validadas con los esquemas de shared (UNEXPECTED_RESPONSE si no cuadra) y expectedStatus 201 en createProduct y 200 en las demás. apps/web/src/lib/menu-labels.ts nuevo con PRODUCT_CATEGORY_LABELS, PORTION_LABELS, CUT_LABELS y formatPortionCutLabel.
+- Descripción: frontend/src/lib/api/client.ts suma 'PUT' a `ApiRequestOptions.method` (nada más cambia). frontend/src/lib/api/products.ts nuevo con getProducts, createProduct, updateProduct, getProductPortions, replaceProductPortions, getComboItems y replaceComboItems según la sección 11: respuestas validadas con los esquemas de shared (UNEXPECTED_RESPONSE si no cuadra) y expectedStatus 201 en createProduct y 200 en las demás. frontend/src/lib/menu-labels.ts nuevo con PRODUCT_CATEGORY_LABELS, PORTION_LABELS, CUT_LABELS y formatPortionCutLabel.
 
 ### T-09. Enlace en Administración y lista de la carta
 - Responsable: frontend-dev
 - Dependencias: T-03, T-08
 - AC: AC-05, AC-06, AC-07
-- Descripción: enlace 'Carta' en app/admin/page.tsx; apps/web/src/app/admin/carta/page.tsx con RoleGuard area '/admin': h1 'Carta', enlace 'Agregar producto', secciones h2 por categoría presente en el orden de la carta, filas con nombre, precio formateado con formatSoles, marca 'Desactivado', enlace 'Editar' y 'Desactivar'/'Activar' con la confirmación de 10.2; estados 'Cargando carta...', 'No se pudo cargar la carta.' + 'Reintentar' y 'La carta está vacía.'.
+- Descripción: enlace 'Carta' en app/admin/page.tsx; frontend/src/app/admin/carta/page.tsx con RoleGuard area '/admin': h1 'Carta', enlace 'Agregar producto', secciones h2 por categoría presente en el orden de la carta, filas con nombre, precio formateado con formatSoles, marca 'Desactivado', enlace 'Editar' y 'Desactivar'/'Activar' con la confirmación de 10.2; estados 'Cargando carta...', 'No se pudo cargar la carta.' + 'Reintentar' y 'La carta está vacía.'.
 
 ### T-10. Formulario de alta
 - Responsable: frontend-dev
 - Dependencias: T-04, T-08, T-09
 - AC: AC-08, AC-09
-- Descripción: apps/web/src/app/admin/carta/nuevo/page.tsx con RoleGuard area '/admin' según 10.3: campos con sus nombres accesibles, radios de categoría en el orden de la carta, vista previa 'S/ X.XX' con formatSoles/parseSolesToCents, validación local con los esquemas de shared, un solo POST ('Creando...'), destino bifurcado tras el 201 e invalidación; errores de AC-09 conservando lo escrito.
+- Descripción: frontend/src/app/admin/carta/nuevo/page.tsx con RoleGuard area '/admin' según 10.3: campos con sus nombres accesibles, radios de categoría en el orden de la carta, vista previa 'S/ X.XX' con formatSoles/parseSolesToCents, validación local con los esquemas de shared, un solo POST ('Creando...'), destino bifurcado tras el 201 e invalidación; errores de AC-09 conservando lo escrito.
 
 ### T-11. Página de edición: datos y estado
 - Responsable: frontend-dev
 - Dependencias: T-04, T-08, T-09
 - AC: AC-10, AC-11
-- Descripción: apps/web/src/app/admin/carta/[id]/page.tsx con RoleGuard area '/admin' según 10.4: el producto sale de la consulta de la lista por el id ('Ese producto no existe.' si no está); sección 'Datos' con PATCH y 'Cambios guardados.'; aparición de la sección especial tras cambiar la categoría a chicken/combo; nota de precio de referencia cuando el chicken tiene presentaciones cargadas; sección 'Estado' con la confirmación de desactivado y 'Activar' directo; los 409 y 404 con su message.
+- Descripción: frontend/src/app/admin/carta/[id]/page.tsx con RoleGuard area '/admin' según 10.4: el producto sale de la consulta de la lista por el id ('Ese producto no existe.' si no está); sección 'Datos' con PATCH y 'Cambios guardados.'; aparición de la sección especial tras cambiar la categoría a chicken/combo; nota de precio de referencia cuando el chicken tiene presentaciones cargadas; sección 'Estado' con la confirmación de desactivado y 'Activar' directo; los 409 y 404 con su message.
 
 ### T-12. Grilla de presentaciones
 - Responsable: frontend-dev
 - Dependencias: T-05, T-08, T-11
 - AC: AC-12, AC-13
-- Descripción: sección 'Presentaciones del pollo' dentro de la página de edición (componente interno en apps/web/src/components/menu/), visible solo con categoría guardada 'chicken': las seis filas fijas con checkbox y 'Precio de <etiqueta>', precarga desde GET /portions, PUT de reemplazo con las marcadas ({ portions: [] } cuando no hay ninguna), 'Presentaciones guardadas.', validación por fila, reparto de los issues 'portions.N.*' junto a su fila y el 409 con su mensaje; nota fija sobre la categoría.
+- Descripción: sección 'Presentaciones del pollo' dentro de la página de edición (componente interno en frontend/src/components/menu/), visible solo con categoría guardada 'chicken': las seis filas fijas con checkbox y 'Precio de <etiqueta>', precarga desde GET /portions, PUT de reemplazo con las marcadas ({ portions: [] } cuando no hay ninguna), 'Presentaciones guardadas.', validación por fila, reparto de los issues 'portions.N.*' junto a su fila y el 409 con su mensaje; nota fija sobre la categoría.
 
 ### T-13. Editor de componentes y comparación
 - Responsable: frontend-dev
 - Dependencias: T-05, T-08, T-11
 - AC: AC-14, AC-15, AC-16, AC-17
-- Descripción: sección 'Componentes del combo' dentro de la página de edición (componente interno en apps/web/src/components/menu/), visible solo con categoría guardada 'combo': filas 'Componente N' con 'Producto' (sin combos, optgroup por categoría, inactivos marcados), 'Cantidad', 'Presentación' y 'Parte' solo para chicken (parte solo con octavo/cuarto, preselección cuarto/pierna), agregar/quitar con tope 10, PUT de reemplazo con nulls correctos, 'Componentes guardados.', estado vacío con su nota; la comparación de AC-16 con las consultas GET /portions de los pollos referenciados y el respaldo al priceCents; errores locales por fila, issues 'items.N.*' junto a su fila y los de raíz de sección.
+- Descripción: sección 'Componentes del combo' dentro de la página de edición (componente interno en frontend/src/components/menu/), visible solo con categoría guardada 'combo': filas 'Componente N' con 'Producto' (sin combos, optgroup por categoría, inactivos marcados), 'Cantidad', 'Presentación' y 'Parte' solo para chicken (parte solo con octavo/cuarto, preselección cuarto/pierna), agregar/quitar con tope 10, PUT de reemplazo con nulls correctos, 'Componentes guardados.', estado vacío con su nota; la comparación de AC-16 con las consultas GET /portions de los pollos referenciados y el respaldo al priceCents; errores locales por fila, issues 'items.N.*' junto a su fila y los de raíz de sección.
 
 ### T-14. Extremo a extremo en verde
 - Responsable: frontend-dev
@@ -151,7 +151,7 @@ Reglas comunes:
 - AC: todos (requisitos R-008-01 a R-008-07)
 - Descripción:
   - `pnpm test`, `pnpm lint`, `pnpm typecheck` y `pnpm test:coverage` con código 0 (shared con 90 % o más; web con 80 % o más).
-  - R-008-01 (openapi.yaml sin diff respecto a main y lint de Redocly), R-008-02 (`git status --porcelain apps/api` vacío), R-008-03 (sin migraciones ni .env.example tocados) y R-008-04 (grep de R-14 de la 001).
+  - R-008-01 (openapi.yaml sin diff respecto a main y lint de Redocly), R-008-02 (`git status --porcelain backend` vacío), R-008-03 (sin migraciones ni .env.example tocados) y R-008-04 (grep de R-14 de la 001).
   - `pnpm test:e2e` con `pnpm dev` detenido.
   - Anotar en el reporte los pendientes manuales para el usuario: sección 18 de la spec (recorrido manual, incluido el celular a 360 px).
 

@@ -1,5 +1,17 @@
 # Instrucciones para Codex
 
+## Organización y área de trabajo
+
+La estructura autorizada el 2026-10-16 es `frontend/`, `backend/`,
+`packages/shared/`, `docs/`, `e2e/`, `scripts/` e `infra/` en la raíz.
+El usuario trabajará principalmente en frontend: para cambios de interfaz,
+limitar las modificaciones a `frontend/`. No cambiar lógica, migraciones ni
+contratos del backend salvo encargo explícito. Si falta soporte de API,
+documentar la necesidad y coordinarla antes de ampliar el alcance.
+La guía de entrada es `docs/FRONTEND.md`.
+
+## Metodología
+
 Lee CLAUDE.md, docs/PROGRESS.md y docs/CONTINUAR.md al iniciar. La metodología reducida aprobada el 2026-10-12 en docs/agents/modelos-codex.md prevalece sobre perfiles históricos de Claude/Devin y el flujo anterior de siete roles.
 
 Tres funciones: orquestador principal, test-writer y un implementer que cubre backend/frontend/shared. El principal redacta specs, mantiene OpenAPI/documentación, revisa y verifica; no escribe producción ni tests. Solo los dos roles ejecutores usan subagentes. No crear agentes separados spec-writer, reviewer o adversarial-tester, ni duplicar un rol en paralelo.

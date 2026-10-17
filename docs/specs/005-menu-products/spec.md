@@ -28,7 +28,7 @@ Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Pre
 
 **D-005-01. Alcance: solo dominio + API, sin pantallas (SUPUESTO S-005-08).**
 - La división aprobada del orquestador asigna las pantallas de administración de la carta a la spec 008. Esta spec deja listo todo lo que esas pantallas y la carta del mozo (Fase 2) necesitan: el modelo de datos, los esquemas compartidos, el servicio y las rutas. No hay tareas de frontend-dev ni pruebas E2E.
-- Consecuencia: ningún archivo de apps/web cambia y el cliente HTTP no se toca (GET, POST y PATCH ya existen desde la 004).
+- Consecuencia: ningún archivo de frontend cambia y el cliente HTTP no se toca (GET, POST y PATCH ya existen desde la 004).
 
 **D-005-02. El producto mínimo.**
 - Campos: `id` (entero autoincremental), `name`, `category`, `priceCents`, `isActive`, `createdAt`, `updatedAt`. Nada más: sin descripción, foto, código/SKU ni orden manual (SUPUESTO S-005-09); sin stock (Fase 5); sin presentaciones, partes ni consumo en octavos (RF-19, spec 006); sin componentes de combo (spec 007).
@@ -75,8 +75,8 @@ Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Pre
 - Todas las respuestas de /api/products/* llevan `Cache-Control: no-store`, también las de error: '/api/products' se suma a NO_STORE_PATH_PREFIXES de app.ts (la cabecera se fija antes del lector del cuerpo, como quedó tras ADV-004-25) y el router la fija también, de forma idempotente.
 
 **D-005-10. Migración y limpieza de pruebas.**
-- Una migración nueva `20261008180000-create-products.ts` en apps/api/src/db/migrations (umzug, D-05 de la 001), con `up` que crea la tabla con sus CHECK y el índice único, y `down` que la borra. Las restricciones viven también en la base, no solo en Zod (D-003-14).
-- Consecuencia para las pruebas (como en la 003, D-003-14): el helper resetMigrationTables (apps/api/tests/helpers/test-database.ts) debe borrar también `products` antes de las tablas de registro de umzug, y la limpieza entre pruebas de esta spec debe truncar `products` (helper nuevo sugerido, por ejemplo `clearMenuTables`). Lo ajusta el test-writer (sección 12).
+- Una migración nueva `20261008180000-create-products.ts` en backend/src/db/migrations (umzug, D-05 de la 001), con `up` que crea la tabla con sus CHECK y el índice único, y `down` que la borra. Las restricciones viven también en la base, no solo en Zod (D-003-14).
+- Consecuencia para las pruebas (como en la 003, D-003-14): el helper resetMigrationTables (backend/tests/helpers/test-database.ts) debe borrar también `products` antes de las tablas de registro de umzug, y la limpieza entre pruebas de esta spec debe truncar `products` (helper nuevo sugerido, por ejemplo `clearMenuTables`). Lo ajusta el test-writer (sección 12).
 
 **D-005-11. El precio de la carta vs. pedidos (regla de dominio 4).**
 - Cambiar `price_cents` nunca debe alterar pedidos ya registrados: en la Fase 2 el ítem del pedido copiará el precio vigente al agregarse. En esta spec no hay pedidos todavía; la regla queda declarada (RN-005-08) para que 006 y la Fase 2 la respeten desde el diseño.
@@ -85,11 +85,11 @@ Las que no confirmó el usuario están marcadas como SUPUESTO y repetidas en Pre
 - Todo producto tiene su `price_cents` obligatorio, incluidos los de categoría 'chicken' (por ejemplo "1/4 de Pollo" S/ 18.50 como ítem simple). En la 006 los productos con presentaciones definirán precio por presentación y parte; esa spec decidirá si `price_cents` queda como precio base, se reemplaza o se ignora para ellos. Para no bloquearla, esta spec no agrega ningún campo de porción ni de consumo en octavos.
 
 **D-005-13. Servicio de productos.**
-- Módulo nuevo `apps/api/src/services/products/product.service.ts`: `createProductService({ models })` con `listProducts()`, `createProduct(input)` y `updateProduct(productId, input)`. Los dos últimos parsean su entrada con los esquemas de shared (ZodError, igual que user.service), el choque del índice único se traduce a PRODUCT_NAME_TAKEN y el id inexistente a PRODUCT_NOT_FOUND.
+- Módulo nuevo `backend/src/services/products/product.service.ts`: `createProductService({ models })` con `listProducts()`, `createProduct(input)` y `updateProduct(productId, input)`. Los dos últimos parsean su entrada con los esquemas de shared (ZodError, igual que user.service), el choque del índice único se traduce a PRODUCT_NAME_TAKEN y el id inexistente a PRODUCT_NOT_FOUND.
 - Sin transacciones ni bloqueos: a diferencia de la guardia del último administrador (004), aquí no hay ningún invariante entre filas que proteger. Crear es un solo INSERT (el índice resuelve la carrera de duplicados con 409) y editar un solo UPDATE.
 
 **D-005-14. Sin variables de entorno ni dependencias nuevas.**
-- Nada se configura por .env: CONFIG_VARIABLES sigue con las 7 variables y apps/api/.env.example no cambia.
+- Nada se configura por .env: CONFIG_VARIABLES sigue con las 7 variables y backend/.env.example no cambia.
 - Sin paquetes nuevos ni ADR: se reutilizan Sequelize, Zod, requireAuth/requireRole y el formato de errores ya decididos.
 
 ## 4. Criterios de aceptación
@@ -139,7 +139,7 @@ Datos comunes de las pruebas:
 
 ### 4.2 Base de datos (migraciones reales sobre polleria_test)
 
-**AC-06. Tabla products** (integración, apps/api)
+**AC-06. Tabla products** (integración, backend)
 - Dado polleria_test con `migrateUp(sequelize)` aplicado,
 - entonces information_schema muestra la tabla products con: id integer (clave primaria y autoincremental: SERIAL o IDENTITY), name character varying(60), category character varying(16), price_cents integer, is_active boolean, created_at y updated_at timestamp with time zone, todas NOT NULL, y is_active, created_at y updated_at con valor por defecto;
 - y un INSERT con solo name '1/4 de Pollo', category 'chicken' y price_cents 1850 funciona y deja is_active true;
@@ -147,15 +147,15 @@ Datos comunes de las pruebas:
 - y tras insertar 'Chicha' un INSERT con name 'chicha' (o 'CHICHA') falla por el índice único `products_name_unique` sobre `lower(name)`;
 - y pg_indexes muestra el índice `products_name_unique`.
 
-**AC-07. Las migraciones se aplican y se revierten** (integración, apps/api)
+**AC-07. Las migraciones se aplican y se revierten** (integración, backend)
 - Dado polleria_test sin tablas de dominio ni de registro (helper de limpieza de la sección 12),
 - cuando se ejecuta `migrateUp(sequelize)`, entonces devuelve `['20261008120000-create-users.ts', '20261008120100-create-sessions.ts', '20261008180000-create-products.ts']` en ese orden y existen users, sessions y products;
 - cuando luego se ejecuta `migrateDown(sequelize)`, devuelve `['20261008180000-create-products.ts']`, products ya no existe y users y sessions sí;
 - y al ejecutar `migrateUp(sequelize)` otra vez, products vuelve a existir (la migración es reaplicable tras revertir).
 
-### 4.3 Servicios (apps/api, con polleria_test)
+### 4.3 Servicios (backend, con polleria_test)
 
-**AC-08. Listar la carta** (integración, apps/api/tests)
+**AC-08. Listar la carta** (integración, backend/tests)
 - Dado `createProductService({ models })` sobre polleria_test con estos productos (en desorden de creación): 'Chicha Morada' (drink, 500), 'Pollo entero' (chicken, 6500), '1/4 de Pollo' (chicken, 1850), 'Chaufa' (dish, 1400), 'agua' (drink, 200), 'Ají' (sauce, 0) y 'Tres Leches' (dessert, inactivo por SQL o por updateProduct),
 - cuando se llama `listProducts()`, entonces devuelve los siete productos (los inactivos también) en el orden de la carta de D-005-04: primero los de categoría chicken por nombre ('1/4 de Pollo', 'Pollo entero'), luego dish ('Chaufa'), luego drink por nombre sin distinguir mayúsculas ('agua', 'Chicha Morada'), luego dessert ('Tres Leches') y luego sauce ('Ají');
 - y cada elemento tiene exactamente las claves `id`, `name`, `category`, `priceCents` e `isActive` (false para 'Tres Leches'); ninguna lleva `createdAt`, `updatedAt` ni `price_cents`;
@@ -231,11 +231,11 @@ No son comportamiento, por eso no llevan AC. Los comandos se ejecutan en Git Bas
 
 | ID | Requisito | Comando | Resultado esperado |
 | --- | --- | --- | --- |
-| R-005-01 | Todas las rutas de apps/api/src/routes/products.routes.ts pasan por requireAuth, y POST y PATCH además por requireRole('admin'). | Revisión del reviewer | Se cumple. |
+| R-005-01 | Todas las rutas de backend/src/routes/products.routes.ts pasan por requireAuth, y POST y PATCH además por requireRole('admin'). | Revisión del reviewer | Se cumple. |
 | R-005-02 | docs/api/openapi.yaml es OpenAPI 3.1 válido, versión 0.5.0, y coincide con lo implementado. | `npx -y @redocly/cli@latest lint docs/api/openapi.yaml` (desde una carpeta temporal) | "valid", sin errores. |
-| R-005-03 | Sin variables de entorno nuevas ni cambios de configuración (D-005-14). | `git diff main -- apps/api/.env.example apps/api/src/config/env.ts` | Sin resultados. |
-| R-005-04 | Una sola migración nueva, .ts con up/down (D-005-10). | `git status --porcelain apps/api/src/db/migrations` | Solo `?? .../20261008180000-create-products.ts`. |
-| R-005-05 | La web sigue sin recursos de internet (R-14 de la 001) y apps/web no cambia (D-005-01). | `git status --porcelain apps/web` y el grep de R-14 de la 001 | Sin resultados. |
+| R-005-03 | Sin variables de entorno nuevas ni cambios de configuración (D-005-14). | `git diff main -- backend/.env.example backend/src/config/env.ts` | Sin resultados. |
+| R-005-04 | Una sola migración nueva, .ts con up/down (D-005-10). | `git status --porcelain backend/src/db/migrations` | Solo `?? .../20261008180000-create-products.ts`. |
+| R-005-05 | La web sigue sin recursos de internet (R-14 de la 001) y frontend no cambia (D-005-01). | `git status --porcelain frontend` y el grep de R-14 de la 001 | Sin resultados. |
 | R-005-06 | Cobertura: services de la API (incluido services/products) y shared con 90 % o más de líneas. | `pnpm test:coverage` | Código 0. |
 | R-005-07 | Definición de terminado de CLAUDE.md. | `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm test:coverage` | Código 0 en los cuatro. |
 
@@ -376,23 +376,23 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
   - `productSchema` (estricto: id entero positivo, name, category, priceCents, isActive boolean) y `type Product`.
   - `productsResponseSchema` (estricto: `products` con arreglo de productSchema) y `type ProductsResponse`.
 - **packages/shared/src/errors.ts** (modificado): ERROR_CODES suma PRODUCT_NOT_FOUND y PRODUCT_NAME_TAKEN.
-- **apps/api/src/db/migrations/20261008180000-create-products.ts** (nuevo): `up` y `down` con `{ context: QueryInterface }`; `up` crea la tabla de 8.1 con sus CHECK y el índice único `products_name_unique` sobre `lower(name)`; `down` borra la tabla.
-- **apps/api/src/models/index.ts** (modificado):
+- **backend/src/db/migrations/20261008180000-create-products.ts** (nuevo): `up` y `down` con `{ context: QueryInterface }`; `up` crea la tabla de 8.1 con sus CHECK y el índice único `products_name_unique` sobre `lower(name)`; `down` borra la tabla.
+- **backend/src/models/index.ts** (modificado):
   - `interface ProductAttributes { id: number; name: string; category: ProductCategory; priceCents: number; isActive: boolean; createdAt: Date; updatedAt: Date }`, `type ProductModel` y `Models` suma `Product: ModelStatic<ProductModel>`.
   - `defineModels` lo define (`tableName: 'products'`, `underscored`) y la guardia `isDefined` contempla también 'Product'.
-- **apps/api/src/services/products/product.service.ts** (nuevo):
+- **backend/src/services/products/product.service.ts** (nuevo):
   - `interface ProductService { listProducts(): Promise<Product[]>; createProduct(input: unknown): Promise<Product>; updateProduct(productId: number, input: unknown): Promise<Product> }` — createProduct y updateProduct parsean su entrada con los esquemas (ZodError) para que el servicio sea seguro aunque se llame sin HTTP.
   - `createProductService(deps: { models: Models }): ProductService`.
   - `listProducts` devuelve todos los productos en el orden de D-005-04 (Intl.Collator 'es' sensibilidad base; empates por id), cada uno con exactamente las cinco claves de Product.
   - `createProduct` guarda la fila y traduce el choque del índice único (UniqueConstraintError) a AppError PRODUCT_NAME_TAKEN (409 'Ya existe un producto con ese nombre.'); `updateProduct` busca por id (PRODUCT_NOT_FOUND 404 'Ese producto no existe.'), aplica los campos recibidos y traduce igual el choque de nombre.
   - Funciones de error exportadas: `createProductNotFoundError()` y `createProductNameTakenError()`.
-- **apps/api/src/controllers/products.controller.ts** (nuevo): `parseProductIdParam` (`^[0-9]+$`, entero entre 1 y 2147483647; si no, AppError VALIDATION_ERROR con issues `[{ path: 'productId', message: 'El identificador del producto no es válido.' }]`), parsea el cuerpo con los esquemas y responde 200/201.
-- **apps/api/src/routes/products.routes.ts** (nuevo): middleware que fija `Cache-Control: no-store`; `GET /` con requireAuth; `POST /` y `PATCH /:productId` con requireAuth + requireRole('admin').
-- **apps/api/src/routes/index.ts** y **apps/api/src/app.ts** (modificados): createApiRouter recibe el controller de productos y monta `/products`; app.ts crea el servicio y el controller y suma '/api/products' a NO_STORE_PATH_PREFIXES (la comparación en minúsculas ya cubre /api/PRODUCTS, ADV-004-25).
-- **apps/api/tests/helpers/test-database.ts** (modificado por el test-writer): resetMigrationTables borra también `products` junto a sessions y users; helper nuevo sugerido `clearMenuTables` (o equivalente) que hace `TRUNCATE products RESTART IDENTITY` tras la doble verificación de la base _test.
-- **apps/web**: sin cambios (D-005-01).
+- **backend/src/controllers/products.controller.ts** (nuevo): `parseProductIdParam` (`^[0-9]+$`, entero entre 1 y 2147483647; si no, AppError VALIDATION_ERROR con issues `[{ path: 'productId', message: 'El identificador del producto no es válido.' }]`), parsea el cuerpo con los esquemas y responde 200/201.
+- **backend/src/routes/products.routes.ts** (nuevo): middleware que fija `Cache-Control: no-store`; `GET /` con requireAuth; `POST /` y `PATCH /:productId` con requireAuth + requireRole('admin').
+- **backend/src/routes/index.ts** y **backend/src/app.ts** (modificados): createApiRouter recibe el controller de productos y monta `/products`; app.ts crea el servicio y el controller y suma '/api/products' a NO_STORE_PATH_PREFIXES (la comparación en minúsculas ya cubre /api/PRODUCTS, ADV-004-25).
+- **backend/tests/helpers/test-database.ts** (modificado por el test-writer): resetMigrationTables borra también `products` junto a sessions y users; helper nuevo sugerido `clearMenuTables` (o equivalente) que hace `TRUNCATE products RESTART IDENTITY` tras la doble verificación de la base _test.
+- **frontend**: sin cambios (D-005-01).
 
-Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/products.test.ts`); integración en apps/api/tests/ (`products-migration.test.ts`, `products-service.test.ts`, `products.test.ts`).
+Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/products.test.ts`); integración en backend/tests/ (`products-migration.test.ts`, `products-service.test.ts`, `products.test.ts`).
 
 ## 12. Cambios a specs y documentos anteriores (señalados)
 
@@ -400,7 +400,7 @@ Ningún cambio altera lo que ya ve el usuario ni toca código existente fuera de
 
 | Elemento | Cambio | Quién |
 | --- | --- | --- |
-| 003/004, helper resetMigrationTables (apps/api/tests/helpers/test-database.ts) | Además de sessions, users y las tablas de registro, borra products (siempre después de la doble verificación de la base _test); helper nuevo de limpieza de products entre pruebas. | test-writer (T-02) |
+| 003/004, helper resetMigrationTables (backend/tests/helpers/test-database.ts) | Además de sessions, users y las tablas de registro, borra products (siempre después de la doble verificación de la base _test); helper nuevo de limpieza de products entre pruebas. | test-writer (T-02) |
 | 003, app.ts (NO_STORE_PATH_PREFIXES) | Suma '/api/products' para que también los errores del lector del cuerpo lleven no-store (lección ADV-004-25). | backend-dev (T-08) |
 | 004, routes/index.ts y ApiRouterDependencies | Suma el controller de productos y monta /products. | backend-dev (T-08) |
 | 001, R-12 | `pnpm db:migrate` sobre una base nueva aplica también la migración de products. | — (nota) |
@@ -460,7 +460,7 @@ Respondidas el 2026-10-08, todas con la respuesta recomendada: 1 (las categoría
 
 ## 17. Acción del usuario y verificación manual
 
-Acción en apps/api/.env: ninguna. Una migración nueva (products); aplicarla con `pnpm db:migrate` sobre polleria_dev cuando la funcionalidad esté implementada.
+Acción en backend/.env: ninguna. Una migración nueva (products); aplicarla con `pnpm db:migrate` sobre polleria_dev cuando la funcionalidad esté implementada.
 
 Después de que la funcionalidad esté implementada (no hay pantallas; la verificación es por API, desde PowerShell o una consola):
 1. `pnpm db:migrate`: debe decir 'Migración aplicada: 20261008180000-create-products.ts'.
@@ -475,7 +475,7 @@ Después de que la funcionalidad esté implementada (no hay pantallas; la verifi
 
 - 006 (presentaciones y partes, RF-19): modelar las presentaciones (eighth, quarter, half, whole) y las partes (breast, leg) sobre products — probablemente solo de categoría 'chicken'— con consumo en octavos y precio por presentación; decidir cómo convive con `price_cents` del producto (precio base, reemplazo o ignorado). Preguntas del dueño pendientes: ¿vende 1/8?, ¿cómo arma el 1/2?, ¿cobra distinto pecho y pierna?
 - 007 (combos): decidir si un combo es un producto con categoría 'combo' (migración que amplíe el CHECK `products_category_allowed`) o una tabla propia con componentes que referencian products.
-- 008 (pantallas de administración de la carta): consumir GET/POST/PATCH /api/products tal cual; cliente `apps/web/src/lib/api/products.ts` (mismo patrón que users.ts: esquemas de shared, expectedStatus 200/201); etiquetas de categorías en la web; formatear priceCents a soles solo en la interfaz; la lista ya viene ordenada (D-005-04) y se agrupa por categoría.
+- 008 (pantallas de administración de la carta): consumir GET/POST/PATCH /api/products tal cual; cliente `frontend/src/lib/api/products.ts` (mismo patrón que users.ts: esquemas de shared, expectedStatus 200/201); etiquetas de categorías en la web; formatear priceCents a soles solo en la interfaz; la lista ya viene ordenada (D-005-04) y se agrupa por categoría.
 - Fase 2 (mozo y pedidos): la carta del mozo filtra `isActive` y agrupa por categoría en el orden del enum; el ítem del pedido copia `priceCents` y el nombre al registrarse (regla 4, RN-005-08); si se quiere una vista de carta con disponibilidad de stock, se evalúa un GET /api/menu dedicado cuando llegue RF-22 (Fase 5).
 - Fase 5 (inventario): stock por producto/insumo, producción de refrescos (jarra → vasos, pendiente del dueño: cuántos vasos rinde una jarra) y descartables como insumo.
 - Fase 6: auditoría de cambios de productos y precios (RF-27); seeds de la carta real del dueño.

@@ -9,6 +9,11 @@
   },
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
+    "dev:frontend": "pnpm --filter @polleria/web dev",
+    "dev:backend": "pnpm --filter @polleria/api dev",
+    "build:frontend": "pnpm --filter @polleria/web build",
+    "test:frontend": "vitest run --project web --maxWorkers=2",
+    "typecheck:frontend": "pnpm --filter @polleria/web typecheck",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:coverage": "vitest run --coverage",

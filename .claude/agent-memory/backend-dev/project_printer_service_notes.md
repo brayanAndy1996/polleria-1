@@ -13,7 +13,7 @@ Verificado en T-11 a T-18 (spec 002, 2026-10-07) con Node 24.1.0, Zod 4.6.5, Win
 - Regla ESLint de la 001 prohíbe `.sync(` por nombre exacto: `handle.datasync()` pasa. Temporal con `open(path, 'wx')` y `createdTemp` evita borrar el .tmp ajeno.
 - Los nombres con `\uXXXX` en comentarios o código se evitan por completo en print-document.ts (códigos numéricos + `String.fromCharCode`); no hay regex literal con U+2028.
 - Solo existe la herramienta Bash (Git Bash). Para probar PowerShell: escribir un `.ps1` en el scratchpad y llamar `powershell.exe -NoProfile -ExecutionPolicy Bypass -File`; el `-Command` inline con `$` y backticks rompe el parseo de bash.
-- `pnpm typecheck` de apps/api falla en cascada mientras falten módulos que importan las pruebas; con `grep "error TS" | grep -v "Cannot find module"` se ven los errores propios de lo ya implementado.
+- `pnpm typecheck` de backend falla en cascada mientras falten módulos que importan las pruebas; con `grep "error TS" | grep -v "Cannot find module"` se ven los errores propios de lo ya implementado.
 - Observación sin arreglar (spec literal): un grafema como `'ñ' + ZWJ` pierde la tilde porque D-002-04 paso 4d quita las marcas M tras NFKD (sale `'n'`). No hay AC; muy raro.
 
 **Why:** evita redescubrir el comportamiento de Zod 4/Segmenter y cómo verificar PowerShell sin herramienta propia.

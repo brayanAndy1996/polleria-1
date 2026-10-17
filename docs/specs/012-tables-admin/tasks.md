@@ -5,7 +5,7 @@
 - Contrato: docs/api/openapi.yaml 0.9.0, SIN CAMBIOS (la spec es solo web; consumo de las rutas de la 009)
 - ADR: ninguno — composición de lo ya decidido
 - Dependencias: ninguna nueva
-- Alcance especial: solo apps/web (+ e2e/tables-admin.spec.ts). apps/api y packages/shared no se tocan: ni código, ni pruebas (RN-012-01, D-012-01, D-012-10). Si apareciera un hueco real en la API se reporta al orquestador como tarea de backend separada — no se improvisa (pregunta 7 de la spec).
+- Alcance especial: solo frontend (+ e2e/tables-admin.spec.ts). backend y packages/shared no se tocan: ni código, ni pruebas (RN-012-01, D-012-01, D-012-10). Si apareciera un hueco real en la API se reporta al orquestador como tarea de backend separada — no se improvisa (pregunta 7 de la spec).
 - Cambios señalados: lib/api/tables.ts suma createTable y updateTable junto a las funciones de la 011; app/admin/page.tsx suma el enlace 'Mesas'; nace app/admin/mesas/page.tsx.
 
 ## Orden y por qué
@@ -27,13 +27,13 @@ TDD de la 008/011: el test-writer va primero y deja el rojo comprobado (funcione
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-01
-- Descripción: ampliar `apps/web/src/lib/api/tables.test.ts` — MSW sirve `POST /api/tables` (201 con `tableSchema`) y `PATCH /api/tables/{id}` (200) para `createTable(name)` y `updateTable(tableId, { name } / { isActive })`. Verifica método+ruta+cuerpo exacto, validación por esquema, propagación de ApiError con sus códigos (TABLE_NAME_TAKEN, TABLE_HAS_OPEN_ORDER, TABLE_NOT_FOUND, VALIDATION_ERROR) y UNEXPECTED_RESPONSE conservando el status. Las pruebas de la 011 siguen verdes intactas.
+- Descripción: ampliar `frontend/src/lib/api/tables.test.ts` — MSW sirve `POST /api/tables` (201 con `tableSchema`) y `PATCH /api/tables/{id}` (200) para `createTable(name)` y `updateTable(tableId, { name } / { isActive })`. Verifica método+ruta+cuerpo exacto, validación por esquema, propagación de ApiError con sus códigos (TABLE_NAME_TAKEN, TABLE_HAS_OPEN_ORDER, TABLE_NOT_FOUND, VALIDATION_ERROR) y UNEXPECTED_RESPONSE conservando el status. Las pruebas de la 011 siguen verdes intactas.
 
 ### T-02 — Tests de la lista y la navegación /admin/mesas (AC-02, AC-03, AC-04)
 - Responsable: test-writer
 - Dependencias: T-01
 - AC: AC-02, AC-03, AC-04
-- Descripción: `apps/web/src/app/admin/mesas/page.test.tsx` con MSW — una fila por mesa (activas e inactivas, orden recibido) con nombre, etiqueta del estado derivado en las activas (Libre/Ocupada/Pedido listo/Pidió la cuenta), 'Desactivada' sin etiqueta en las inactivas, y 'Renombrar' + 'Desactivar'/'Activar' por fila; 'Cargando mesas...' (role status), 'No se pudo cargar la lista de mesas.' (role alert) + 'Reintentar', 'Todavía no hay mesas.'; el enlace 'Mesas' en /admin; RoleGuard lleva a un mozo a /mozo y deja pasar al admin; la pantalla no ofrece acciones del ciclo del pedido.
+- Descripción: `frontend/src/app/admin/mesas/page.test.tsx` con MSW — una fila por mesa (activas e inactivas, orden recibido) con nombre, etiqueta del estado derivado en las activas (Libre/Ocupada/Pedido listo/Pidió la cuenta), 'Desactivada' sin etiqueta en las inactivas, y 'Renombrar' + 'Desactivar'/'Activar' por fila; 'Cargando mesas...' (role status), 'No se pudo cargar la lista de mesas.' (role alert) + 'Reintentar', 'Todavía no hay mesas.'; el enlace 'Mesas' en /admin; RoleGuard lleva a un mozo a /mozo y deja pasar al admin; la pantalla no ofrece acciones del ciclo del pedido.
 
 ### T-03 — Tests del alta y el renombrado (AC-05, AC-06, AC-07, AC-08)
 - Responsable: test-writer
@@ -60,7 +60,7 @@ Tras T-01 a T-05, correr `pnpm test` y `pnpm test:e2e` serializados y adjuntar a
 ### Implementación en verde (frontend-dev) — reglas comunes
 
 - No crea, modifica ni elimina pruebas. Si una parece incorrecta, la reporta al orquestador.
-- Solo apps/web + lo estrictamente señalado (lib/api/tables.ts, app/admin/mesas/, el enlace en app/admin/page.tsx). apps/api y packages/shared quedan sin diff.
+- Solo frontend + lo estrictamente señalado (lib/api/tables.ts, app/admin/mesas/, el enlace en app/admin/page.tsx). backend y packages/shared quedan sin diff.
 - Reutiliza los patrones de la 008/011: TanStack Query con retry:false, apiErrorMessage/issuesFromApiError/uniqueMessages, RoleGuard con su marco, min-h-12, TABLE_STATE_LABELS de menu-labels.ts, useRef+isPending para envío único, diálogos y confirmaciones del patrón /admin.
 - Commits `feat:` sin archivos de test.
 
@@ -68,7 +68,7 @@ Tras T-01 a T-05, correr `pnpm test` y `pnpm test:e2e` serializados y adjuntar a
 - Responsable: frontend-dev
 - Dependencias: T-01 en rojo
 - AC: AC-01
-- Descripción: `apps/web/src/lib/api/tables.ts` suma `createTable(name)` (POST, expectedStatus 201, tableSchema) y `updateTable(tableId, changes)` (PATCH, 200, tableSchema) con las firmas que los tests esperan; las funciones de la 011 quedan intactas.
+- Descripción: `frontend/src/lib/api/tables.ts` suma `createTable(name)` (POST, expectedStatus 201, tableSchema) y `updateTable(tableId, changes)` (PATCH, 200, tableSchema) con las firmas que los tests esperan; las funciones de la 011 quedan intactas.
 
 ### T-07 — Pantalla /admin/mesas completa (verde T-02 a T-04)
 - Responsable: frontend-dev
@@ -80,7 +80,7 @@ Tras T-01 a T-05, correr `pnpm test` y `pnpm test:e2e` serializados y adjuntar a
 - Responsable: orquestador (verifica; no implementa)
 - Dependencias: T-07
 - AC: R-012-01 a R-012-07
-- Descripción: `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm test:e2e` y `pnpm test:coverage` en verde (80 % líneas en apps/web); `git status --porcelain apps/api packages/shared` vacío; openapi.yaml en 0.9.0 sin diff; grep sin recursos de internet; /admin/mesas bajo RoleGuard '/admin' sin acciones del ciclo. Verificación manual de la spec §18 (alta, renombrar, nombre repetido, desactivar libre/ocupada, reactivar, a 360 px y en la PC). ADV-007-27 y ADV-002-01 quedan como baseline ruidosa conocida — no pertenecen a esta spec.
+- Descripción: `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm test:e2e` y `pnpm test:coverage` en verde (80 % líneas en frontend); `git status --porcelain backend packages/shared` vacío; openapi.yaml en 0.9.0 sin diff; grep sin recursos de internet; /admin/mesas bajo RoleGuard '/admin' sin acciones del ciclo. Verificación manual de la spec §18 (alta, renombrar, nombre repetido, desactivar libre/ocupada, reactivar, a 360 px y en la PC). ADV-007-27 y ADV-002-01 quedan como baseline ruidosa conocida — no pertenecen a esta spec.
 
 ## Matriz AC, pruebas e implementación
 

@@ -34,15 +34,15 @@ Reglas comunes:
 - Dependencias: ninguna
 - AC: AC-02, AC-03, AC-04, AC-05 (y AC-04 y AC-07 de la 001)
 - Descripción:
-  - Archivo nuevo apps/api/src/config/printer-env.test.ts con AC-02 a AC-05. Para AC-02, simular `process.cwd()` con `vi.spyOn(process, 'cwd')` y restaurarlo. Para AC-05, leer apps/api/.env.example con `util.parseEnv` y `path.resolve(import.meta.dirname, ...)`.
-  - apps/api/src/config/env.test.ts (001, AC-04): en las dos pruebas con toStrictEqual, agregar `printer: { driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR }` al objeto esperado (importar DEFAULT_PRINTER_FILE_DIR de ./env.ts). No cambiar nombres ni el resto de aserciones.
-  - apps/api/src/config/env-example.test.ts (001, AC-07): la lista fija pasa a las 7 variables de AC-05 de la spec 002. No cambiar nada más.
+  - Archivo nuevo backend/src/config/printer-env.test.ts con AC-02 a AC-05. Para AC-02, simular `process.cwd()` con `vi.spyOn(process, 'cwd')` y restaurarlo. Para AC-05, leer backend/.env.example con `util.parseEnv` y `path.resolve(import.meta.dirname, ...)`.
+  - backend/src/config/env.test.ts (001, AC-04): en las dos pruebas con toStrictEqual, agregar `printer: { driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR }` al objeto esperado (importar DEFAULT_PRINTER_FILE_DIR de ./env.ts). No cambiar nombres ni el resto de aserciones.
+  - backend/src/config/env-example.test.ts (001, AC-07): la lista fija pasa a las 7 variables de AC-05 de la spec 002. No cambiar nada más.
 
 ### T-03. Pruebas de normalización: líneas imprimibles, cortes y saltos
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-07, AC-08, AC-09
-- Descripción: apps/api/src/services/printer/print-document.test.ts. Casos exactos de las tablas de AC-07 a AC-09, incluida la entrada congelada con Object.freeze y la comprobación de que la entrada no cambia.
+- Descripción: backend/src/services/printer/print-document.test.ts. Casos exactos de las tablas de AC-07 a AC-09, incluida la entrada congelada con Object.freeze y la comprobación de que la entrada no cambia.
 
 ### T-04. Pruebas de normalización: caracteres especiales e invariantes
 - Responsable: test-writer
@@ -54,19 +54,19 @@ Reglas comunes:
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-14, AC-15, AC-16, AC-17, AC-18
-- Descripción: apps/api/src/services/printer/printer.service.test.ts. Driver falso que guarda los trabajos y devuelve `{ jobId: job.jobId, destination: 'falso' }`. Reloj y aleatorio inyectados donde el AC los fija; en AC-15, sin inyectar. Tabla de documentos inválidos de AC-16 con `it.each` (el getter que lanza se arma con `Object.defineProperty`). En AC-17, medir con `performance.now()` que el documento más grande termina en menos de 2 s.
+- Descripción: backend/src/services/printer/printer.service.test.ts. Driver falso que guarda los trabajos y devuelve `{ jobId: job.jobId, destination: 'falso' }`. Reloj y aleatorio inyectados donde el AC los fija; en AC-15, sin inyectar. Tabla de documentos inválidos de AC-16 con `it.each` (el getter que lanza se arma con `Object.defineProperty`). En AC-17, medir con `performance.now()` que el documento más grande termina en menos de 2 s.
 
 ### T-06. Pruebas de errores del driver y de PrinterError
 - Responsable: test-writer
 - Dependencias: T-05 (driver falso)
 - AC: AC-19, AC-20
-- Descripción: AC-19 en printer.service.test.ts (drivers falsos que rechazan o lanzan de forma síncrona); AC-20 en apps/api/src/services/printer/printer-error.test.ts.
+- Descripción: AC-19 en printer.service.test.ts (drivers falsos que rechazan o lanzan de forma síncrona); AC-20 en backend/src/services/printer/printer-error.test.ts.
 
 ### T-07. Pruebas del driver file: archivo, carpeta, simultaneidad y nombres peligrosos
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-21, AC-22, AC-23, AC-27
-- Descripción: apps/api/src/services/printer/file-driver.test.ts con disco real en carpetas temporales. AC-21 compara los bytes del archivo con `Buffer.from(..., 'utf8')`. AC-27 comprueba que la carpeta temporal queda vacía (no se crea 'interna') y que la creación con ruta relativa o vacía lanza de inmediato.
+- Descripción: backend/src/services/printer/file-driver.test.ts con disco real en carpetas temporales. AC-21 compara los bytes del archivo con `Buffer.from(..., 'utf8')`. AC-27 comprueba que la carpeta temporal queda vacía (no se crea 'interna') y que la creación con ruta relativa o vacía lanza de inmediato.
 
 ### T-08. Pruebas del driver file: atomicidad, reintentos y fallas reales
 - Responsable: test-writer
@@ -78,15 +78,15 @@ Reglas comunes:
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-28, AC-29
-- Descripción: AC-28 en apps/api/src/services/printer/index.test.ts, importando desde ./index.ts (así la puerta pública también cuenta en la cobertura) y loadConfig desde ../../config/env.ts. AC-29 en apps/api/src/services/printer/test-page.test.ts.
+- Descripción: AC-28 en backend/src/services/printer/index.test.ts, importando desde ./index.ts (así la puerta pública también cuenta en la cobertura) y loadConfig desde ../../config/env.ts. AC-29 en backend/src/services/printer/test-page.test.ts.
 
 ### T-10. Pruebas de procesos: API con escpos y comando de hoja de prueba
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-06, AC-30, AC-31
 - Descripción:
-  - En apps/api/tests/helpers/child-process.ts, agregar la ruta de apps/api/src/print-test-page.ts y una función para ejecutarlo y esperar su salida (como `runCli`).
-  - Archivo nuevo apps/api/tests/printer-process.test.ts: AC-06 con `startServer` y `UNREACHABLE_DATABASE_URL`; AC-30 y AC-31 con el comando nuevo. Tiempo límite de 10 s por proceso.
+  - En backend/tests/helpers/child-process.ts, agregar la ruta de backend/src/print-test-page.ts y una función para ejecutarlo y esperar su salida (como `runCli`).
+  - Archivo nuevo backend/tests/printer-process.test.ts: AC-06 con `startServer` y `UNREACHABLE_DATABASE_URL`; AC-30 y AC-31 con el comando nuevo. Tiempo límite de 10 s por proceso.
   - Para AC-31 con traza: comprobar que ninguna línea de stderr cumple `/^\s+at /m`.
 
 ### Verificación del rojo (al terminar T-01 a T-10)
@@ -96,10 +96,10 @@ Reglas comunes:
 ## Implementación (backend-dev)
 
 Reglas comunes:
-- No crear, modificar ni borrar archivos de prueba (`*.test.ts`, apps/api/tests/, e2e/). Si una prueba parece contradecir la spec, detenerse y reportarlo.
+- No crear, modificar ni borrar archivos de prueba (`*.test.ts`, backend/tests/, e2e/). Si una prueba parece contradecir la spec, detenerse y reportarlo.
 - Sintaxis borrable (D-02 de la 001), imports relativos con .ts, mensajes exactos de la spec.
 - Sin dependencias nuevas (R-002-04). Solo node:fs/promises, node:path, node:crypto, Intl y zod.
-- Usar `FileHandle.datasync()`, nunca un método llamado `sync` (la regla de ESLint R-06 de la 001 lo prohíbe en apps/api/src).
+- Usar `FileHandle.datasync()`, nunca un método llamado `sync` (la regla de ESLint R-06 de la 001 lo prohíbe en backend/src).
 - Commits con prefijo feat, por ejemplo `feat(002): driver file con escritura atómica`, sin archivos de prueba. Antes de cada commit: `pnpm --filter @polleria/api run typecheck` y `pnpm lint`.
 
 ### T-11. Hora de Lima en packages/shared
@@ -113,29 +113,29 @@ Reglas comunes:
 - Dependencias: T-02 (y T-10 para verificar AC-06)
 - AC: AC-02, AC-03, AC-04, AC-05, AC-06 (y AC-04 y AC-07 de la 001)
 - Descripción:
-  - apps/api/src/config/env.ts: PROJECT_ROOT_DIR (desde `import.meta.dirname`), DEFAULT_PRINTER_FILE_DIR, PrinterConfig, AppConfig.printer, CONFIG_VARIABLES con 7 variables y las reglas y mensajes de D-002-09. Los issues de impresión se juntan con los demás en un solo ConfigError.
+  - backend/src/config/env.ts: PROJECT_ROOT_DIR (desde `import.meta.dirname`), DEFAULT_PRINTER_FILE_DIR, PrinterConfig, AppConfig.printer, CONFIG_VARIABLES con 7 variables y las reglas y mensajes de D-002-09. Los issues de impresión se juntan con los demás en un solo ConfigError.
   - PRINTER_FILE_DIR: quitar los espacios en blanco del inicio y del final (como `String.prototype.trim`) antes de revisar si está vacía y de resolver la ruta; `' tmp/otra '` se usa como `'tmp/otra'` (por ejemplo `z.string().trim().min(1, ...)`; D-002-09, S-002-10). PRINTER_DRIVER no se recorta: `' file'` se sigue rechazando (AC-04).
-  - apps/api/.env.example: agregar `PRINTER_DRIVER=file` y `PRINTER_FILE_DIR=tmp/comandas`, con un comentario en español (qué hace el driver file, que escpos llegará con la impresora térmica y que una ruta relativa se toma desde la raíz del proyecto).
+  - backend/.env.example: agregar `PRINTER_DRIVER=file` y `PRINTER_FILE_DIR=tmp/comandas`, con un comentario en español (qué hace el driver file, que escpos llegará con la impresora térmica y que una ruta relativa se toma desde la raíz del proyecto).
   - server.ts y db/cli.ts no cambian: ya muestran el mensaje de ConfigError y terminan con código 1 (AC-06).
 
 ### T-13. PrinterError y normalización de documentos
 - Responsable: backend-dev
 - Dependencias: T-03, T-04, T-06
 - AC: AC-07, AC-08, AC-09, AC-10, AC-11, AC-12, AC-13, AC-20
-- Descripción: apps/api/src/services/printer/printer-error.ts y print-document.ts según D-002-03, D-002-04, D-002-07 y la sección 11 (constantes, PRINTABLE_CHARACTERS, printDocumentSchema estricto con z.strictObject, normalizeDocumentLines). Seguir el orden de pasos de D-002-04 al pie de la letra, incluido el paso 7: después de cortar en trozos de 48, quitar los espacios finales de cada trozo (sin eso AC-13 falla con `'a'.repeat(47) + ' b'`).
+- Descripción: backend/src/services/printer/printer-error.ts y print-document.ts según D-002-03, D-002-04, D-002-07 y la sección 11 (constantes, PRINTABLE_CHARACTERS, printDocumentSchema estricto con z.strictObject, normalizeDocumentLines). Seguir el orden de pasos de D-002-04 al pie de la letra, incluido el paso 7: después de cortar en trozos de 48, quitar los espacios finales de cada trozo (sin eso AC-13 falla con `'a'.repeat(47) + ' b'`).
 - Nota sobre el límite de 2000 (D-002-06): PRINTER_MAX_INPUT_LINE_LENGTH se mide con `String.prototype.length` (`line.length`, unidades UTF-16). No basta `z.string().max(2000)`: en zod 4.6.5 cuenta puntos de código y acepta una línea de 1001 emojis (2002 unidades), que AC-16 exige rechazar. Comparar `line.length` de forma explícita, por ejemplo con `.refine((line) => line.length <= PRINTER_MAX_INPUT_LINE_LENGTH)`.
 
 ### T-14. Trabajo de impresión y PrinterService
 - Responsable: backend-dev
 - Dependencias: T-05, T-06, T-11, T-13
 - AC: AC-14, AC-15, AC-16, AC-17, AC-18, AC-19
-- Descripción: apps/api/src/services/printer/print-job.ts (tipos, JOB_ID_PATTERN, JOB_ID_MAX_LENGTH) y printer.service.ts (createPrinterService). jobId con toLimaDateTimeParts de '@polleria/shared' y `randomBytes(4).toString('hex')`. `print` es async (nunca lanza de forma síncrona); cualquier excepción al validar es PRINTER_INVALID_DOCUMENT; las fallas del driver se tratan según D-002-07.
+- Descripción: backend/src/services/printer/print-job.ts (tipos, JOB_ID_PATTERN, JOB_ID_MAX_LENGTH) y printer.service.ts (createPrinterService). jobId con toLimaDateTimeParts de '@polleria/shared' y `randomBytes(4).toString('hex')`. `print` es async (nunca lanza de forma síncrona); cualquier excepción al validar es PRINTER_INVALID_DOCUMENT; las fallas del driver se tratan según D-002-07.
 
 ### T-15. Driver file
 - Responsable: backend-dev
 - Dependencias: T-07, T-08, T-13, T-14
 - AC: AC-21, AC-22, AC-23, AC-24, AC-25, AC-26, AC-27
-- Descripción: apps/api/src/services/printer/file-driver.ts según D-002-08: validación del jobId antes de tocar el disco, mkdir recursivo, temporal `<jobId>.tmp` abierto con 'wx', datasync, cierre, renombrado con reintentos (EPERM, EACCES, EBUSY; esperas de FILE_DRIVER_RENAME_RETRY_DELAYS_MS), limpieza del temporal propio y PRINTER_OUTPUT_FAILED con cause. Nunca copiar el mensaje de un error de Node (trae rutas) al PrinterError.
+- Descripción: backend/src/services/printer/file-driver.ts según D-002-08: validación del jobId antes de tocar el disco, mkdir recursivo, temporal `<jobId>.tmp` abierto con 'wx', datasync, cierre, renombrado con reintentos (EPERM, EACCES, EBUSY; esperas de FILE_DRIVER_RENAME_RETRY_DELAYS_MS), limpieza del temporal propio y PRINTER_OUTPUT_FAILED con cause. Nunca copiar el mensaje de un error de Node (trae rutas) al PrinterError.
 
 ### T-16. Fábrica, hoja de prueba y puerta pública
 - Responsable: backend-dev
@@ -148,9 +148,9 @@ Reglas comunes:
 - Dependencias: T-10, T-12, T-16
 - AC: AC-30, AC-31 (requisitos R-002-01 y R-002-02)
 - Descripción:
-  - apps/api/src/print-test-page.ts: loadConfig(process.env), createPrinterDriver, createPrinterService, print(buildTestPage({ now: new Date(), driverName })) y la salida exacta de la sección 10 de la spec. Usar `process.exitCode`, no `process.exit`. Importar solo desde ./config/env.ts y ./services/printer/index.ts (nada de db).
-  - Scripts: en apps/api/package.json `"printer:test": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/print-test-page.ts"`; en el package.json raíz `"printer:test": "pnpm --filter @polleria/api run printer:test"`.
-  - vitest.config.ts: agregar 'apps/api/src/print-test-page.ts' a coverage.exclude.
+  - backend/src/print-test-page.ts: loadConfig(process.env), createPrinterDriver, createPrinterService, print(buildTestPage({ now: new Date(), driverName })) y la salida exacta de la sección 10 de la spec. Usar `process.exitCode`, no `process.exit`. Importar solo desde ./config/env.ts y ./services/printer/index.ts (nada de db).
+  - Scripts: en backend/package.json `"printer:test": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/print-test-page.ts"`; en el package.json raíz `"printer:test": "pnpm --filter @polleria/api run printer:test"`.
+  - vitest.config.ts: agregar 'backend/src/print-test-page.ts' a coverage.exclude.
 
 ## Cierre
 
@@ -161,7 +161,7 @@ Reglas comunes:
 - Descripción:
   - `pnpm test`, `pnpm lint`, `pnpm typecheck` y `pnpm test:coverage` con código 0 (services de la API con 90 % o más).
   - R-002-03 (grep de imports), R-002-04 (`git diff main --stat -- pnpm-lock.yaml` vacío) y R-002-05 (tmp/comandas no cambia con `pnpm test`).
-  - R-002-01 a mano: `pnpm printer:test` en PowerShell y en Git Bash con apps/api/.env; anotar en el reporte la ruta del archivo creado y borrarlo.
+  - R-002-01 a mano: `pnpm printer:test` en PowerShell y en Git Bash con backend/.env; anotar en el reporte la ruta del archivo creado y borrarlo.
 
 ## Matriz AC, pruebas e implementación
 

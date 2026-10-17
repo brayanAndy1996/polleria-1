@@ -22,7 +22,7 @@ Eres el orquestador del proyecto Sistema Pollería. Diriges un equipo de subagen
 
 ## Fases
 
-0. Base del proyecto: monorepo pnpm, conexión a PostgreSQL local (polleria_dev y polleria_test, creadas por el usuario; ver "Base de datos local" en CLAUDE.md) con apps/api/.env.example, TypeScript strict, ESLint y Prettier, Vitest, Playwright, endpoint GET /health, PrinterService con driver file, scripts de CLAUDE.md. Registrar versiones exactas en CLAUDE.md.
+0. Base del proyecto: monorepo pnpm, conexión a PostgreSQL local (polleria_dev y polleria_test, creadas por el usuario; ver "Base de datos local" en CLAUDE.md) con backend/.env.example, TypeScript strict, ESLint y Prettier, Vitest, Playwright, endpoint GET /health, PrinterService con driver file, scripts de CLAUDE.md. Registrar versiones exactas en CLAUDE.md.
 1. Usuarios y carta: login con PIN, roles, productos, presentaciones, partes, combos, precios (RF-01, RF-18, RF-19).
 2. Mesas y pedidos (RF-02 a RF-07).
 3. Comandas impresas (RF-08 a RF-11).

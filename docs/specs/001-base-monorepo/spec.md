@@ -40,7 +40,7 @@ Estas decisiones aplican desde esta spec. Las que no confirmó el usuario están
 
 **D-02. TypeScript en tiempo de ejecución sin compilar.**
 - La API y los comandos de base de datos corren con el type stripping nativo de Node 24 (`node archivo.ts`), sin tsx ni ts-node. Verificado en Node 24.1.0: funciona y muestra un ExperimentalWarning, que se oculta con `--disable-warning=ExperimentalWarning`.
-- Consecuencia obligatoria para apps/api y packages/shared: solo sintaxis borrable (tsconfig `erasableSyntaxOnly: true`): prohibidos enum, namespace, propiedades de parámetro en constructores y decoradores. Usar objetos `as const` y uniones de strings. Los imports relativos llevan extensión .ts.
+- Consecuencia obligatoria para backend y packages/shared: solo sintaxis borrable (tsconfig `erasableSyntaxOnly: true`): prohibidos enum, namespace, propiedades de parámetro en constructores y decoradores. Usar objetos `as const` y uniones de strings. Los imports relativos llevan extensión .ts.
 - En desarrollo la API se reinicia con `node --watch` (sin nodemon).
 
 **D-03. packages/shared sin paso de compilación.**
@@ -49,15 +49,15 @@ Estas decisiones aplican desde esta spec. Las que no confirmó el usuario están
 - Solo contiene lo de esta fase: TIME_ZONE, esquemas Zod de la salud y del formato de error, y ERROR_CODES. Nada de lógica de dominio de fases posteriores.
 
 **D-04. Variables de entorno sin dotenv.**
-- Los scripts de apps/api cargan el archivo con la opción nativa `node --env-file-if-exists=.env`. Las variables que ya existen en el entorno tienen prioridad sobre el archivo (verificado en Node 24.1.0). Por eso Playwright puede forzar DATABASE_URL de pruebas aunque apps/api/.env apunte a polleria_dev.
+- Los scripts de backend cargan el archivo con la opción nativa `node --env-file-if-exists=.env`. Las variables que ya existen en el entorno tienen prioridad sobre el archivo (verificado en Node 24.1.0). Por eso Playwright puede forzar DATABASE_URL de pruebas aunque backend/.env apunte a polleria_dev.
 - server.ts y cli.ts no leen el archivo .env por su cuenta: solo leen process.env. Así las pruebas que arrancan esos procesos controlan todo el entorno.
-- Vitest y Playwright leen apps/api/.env (si existe) con `process.loadEnvFile` o `util.parseEnv`, sin sobrescribir variables ya definidas (verificado: loadEnvFile no sobrescribe en Node 24.1.0).
-- La web usa la carga nativa de Next.js (apps/web/.env*).
+- Vitest y Playwright leen backend/.env (si existe) con `process.loadEnvFile` o `util.parseEnv`, sin sobrescribir variables ya definidas (verificado: loadEnvFile no sobrescribe en Node 24.1.0).
+- La web usa la carga nativa de Next.js (frontend/.env*).
 - Toda variable se valida con Zod al arrancar (loadConfig en la API, loadWebServerConfig en la web).
 
 **D-05. Migraciones y seeds con umzug.**
 - Se usa umzug 3 con su SequelizeStorage, en lugar de sequelize-cli, porque permite migraciones en TypeScript con type stripping y una API programática que las pruebas usan para migrar polleria_test.
-- Migraciones en apps/api/src/db/migrations y seeds en apps/api/src/db/seeders. Archivos `.ts` con sintaxis borrable, nombre `AAAAMMDDHHmmss-descripcion.ts`, que exportan `up({ context })` y `down({ context })`, donde context es el QueryInterface de Sequelize. Se aplican en orden alfabético del nombre.
+- Migraciones en backend/src/db/migrations y seeds en backend/src/db/seeders. Archivos `.ts` con sintaxis borrable, nombre `AAAAMMDDHHmmss-descripcion.ts`, que exportan `up({ context })` y `down({ context })`, donde context es el QueryInterface de Sequelize. Se aplican en orden alfabético del nombre.
 - Registro de migraciones aplicadas en la tabla SequelizeMeta; registro de seeds aplicados en SequelizeData (SUPUESTO S-06: cada seed se aplica una sola vez).
 - En esta funcionalidad no hay migraciones ni seeds; las carpetas existen vacías (con .gitkeep).
 - migrateUp, migrateDown y seedUp se serializan con un bloqueo consultivo de PostgreSQL de clave fija (D-13, enmienda 1).
@@ -96,8 +96,8 @@ Cada AC tiene al menos un test cuyo nombre empieza con su ID (por ejemplo `it('A
 ### 4.1 Paquete compartido (packages/shared)
 
 **AC-01. La zona horaria se comparte entre api y web** (unitaria, una prueba en cada paquete)
-- Dado el paquete @polleria/shared declarado como dependencia `workspace:*` de apps/api y apps/web,
-- cuando una prueba de packages/shared, una de apps/api y una de apps/web importan TIME_ZONE desde '@polleria/shared',
+- Dado el paquete @polleria/shared declarado como dependencia `workspace:*` de backend y frontend,
+- cuando una prueba de packages/shared, una de backend y una de frontend importan TIME_ZONE desde '@polleria/shared',
 - entonces en los tres casos TIME_ZONE vale exactamente 'America/Lima'.
 
 **AC-02. Esquema de la respuesta de salud** (unitaria, packages/shared)
@@ -117,55 +117,55 @@ Cada AC tiene al menos un test cuyo nombre empieza con su ID (por ejemplo `it('A
 
 ### 4.2 Configuración de la API (RNF-12)
 
-**AC-04. Configuración válida con valores por defecto** (unitaria, apps/api)
+**AC-04. Configuración válida con valores por defecto** (unitaria, backend)
 - Dado un objeto de entorno que solo tiene `DATABASE_URL=postgres://polleria:clave@localhost:5432/polleria_dev`,
 - cuando se llama `loadConfig(env)`,
 - entonces devuelve `{ nodeEnv: 'development', host: '127.0.0.1', port: 4000, databaseUrl: <la misma URL>, databaseUrlTest: undefined }`;
 - y con además `PORT='4500'`, `HOST='0.0.0.0'` y `NODE_ENV='production'` devuelve `port: 4500` (número), `host: '0.0.0.0'` y `nodeEnv: 'production'`.
 - (Spec 002: el objeto completo suma `printer: { driver: 'file', fileDir: DEFAULT_PRINTER_FILE_DIR }`; ver AC-02 y la sección 12 de la spec 002.)
 
-**AC-05. Configuración inválida: mensaje claro y sin secretos** (unitaria, apps/api)
+**AC-05. Configuración inválida: mensaje claro y sin secretos** (unitaria, backend)
 - Dado un entorno sin DATABASE_URL y con `PORT='abc'`,
 - cuando se llama `loadConfig(env)`,
 - entonces lanza ConfigError con `issues` que contiene, a la vez, `{ variable: 'DATABASE_URL', message: 'es obligatoria.' }` y `{ variable: 'PORT', message: 'debe ser un número entero entre 1 y 65535.' }`; el `message` del error empieza con 'Configuración inválida.' e incluye una línea `- VARIABLE: mensaje` por cada problema;
 - y dado `DATABASE_URL='mysql://polleria:SuperSecreta123@localhost/polleria_dev'`, o un texto que no es URL, o una URL de PostgreSQL sin nombre de base, el issue de DATABASE_URL es 'debe ser una URL de PostgreSQL (postgres://usuario:clave@host:puerto/base).', y ni `message` ni `issues` contienen 'SuperSecreta123' ni la URL recibida;
 - y PORT con '0', '65536', '4000.5' o '-1' produce el issue de PORT; `NODE_ENV='staging'` produce `{ variable: 'NODE_ENV', message: 'debe ser development, test o production.' }`; `HOST=''` produce `{ variable: 'HOST', message: 'no puede estar vacía.' }`.
 
-**AC-06. Protección de la base en modo test** (unitaria, apps/api)
+**AC-06. Protección de la base en modo test** (unitaria, backend)
 - Dado `NODE_ENV='test'` y DATABASE_URL apuntando a polleria_dev,
 - cuando se llama `loadConfig(env)`,
 - entonces lanza ConfigError con el issue `{ variable: 'DATABASE_URL', message: 'con NODE_ENV=test la base debe terminar en _test.' }`;
 - y con DATABASE_URL apuntando a polleria_test no lanza;
 - y con cualquier NODE_ENV, si DATABASE_URL_TEST está definida y su base no termina en _test (según las reglas de AC-11), lanza el issue `{ variable: 'DATABASE_URL_TEST', message: 'debe apuntar a una base cuyo nombre termine en _test.' }`.
 
-**AC-07. El archivo .env.example documenta toda la configuración de la API** (unitaria, apps/api)
-- Dado el archivo versionado apps/api/.env.example,
+**AC-07. El archivo .env.example documenta toda la configuración de la API** (unitaria, backend)
+- Dado el archivo versionado backend/.env.example,
 - cuando se leen sus variables con `util.parseEnv` y se pasan a `loadConfig`,
 - entonces loadConfig no lanza error;
 - y el conjunto de variables del archivo es exactamente CONFIG_VARIABLES: NODE_ENV, HOST, PORT, DATABASE_URL y DATABASE_URL_TEST;
 - y DATABASE_URL y DATABASE_URL_TEST usan la clave de ejemplo 'cambia_esta_clave' (no una clave real).
 - (Spec 002: CONFIG_VARIABLES suma PRINTER_DRIVER y PRINTER_FILE_DIR, 7 variables en total; ver AC-05 y la sección 12 de la spec 002.)
 
-**AC-08. La API no arranca con configuración inválida o puerto ocupado** (integración con proceso real, apps/api)
-- Dado el proceso `node --disable-warning=ExperimentalWarning apps/api/src/server.ts` iniciado sin archivo .env y con un entorno sin DATABASE_URL,
+**AC-08. La API no arranca con configuración inválida o puerto ocupado** (integración con proceso real, backend)
+- Dado el proceso `node --disable-warning=ExperimentalWarning backend/src/server.ts` iniciado sin archivo .env y con un entorno sin DATABASE_URL,
 - cuando arranca,
 - entonces termina solo en menos de 10 s con código de salida 1 y escribe en stderr el mensaje de ConfigError (contiene 'Configuración inválida.' y 'DATABASE_URL');
 - y dado un entorno válido (DATABASE_URL de polleria_test, NODE_ENV=test, HOST=127.0.0.1) con un PORT que la prueba ya ocupó,
-- entonces termina en menos de 10 s con código 1 y stderr contiene 'El puerto <PORT> ya está en uso. Cambia PORT en apps/api/.env.'
+- entonces termina en menos de 10 s con código 1 y stderr contiene 'El puerto <PORT> ya está en uso. Cambia PORT en backend/.env.'
 
-**AC-09. La API escucha en el puerto configurado** (integración con proceso real, apps/api)
+**AC-09. La API escucha en el puerto configurado** (integración con proceso real, backend)
 - Dado un entorno con DATABASE_URL de polleria_test, NODE_ENV=test, HOST=127.0.0.1 y PORT igual a un puerto libre elegido por la prueba,
-- cuando se inicia `node --disable-warning=ExperimentalWarning apps/api/src/server.ts`,
+- cuando se inicia `node --disable-warning=ExperimentalWarning backend/src/server.ts`,
 - entonces escribe en stdout 'API escuchando en http://127.0.0.1:<PORT>' y `GET http://127.0.0.1:<PORT>/api/health` responde 200 en menos de 10 s.
 
 ### 4.3 Guardia de la base de pruebas
 
-**AC-10. La guardia acepta solo bases de prueba** (unitaria, apps/api)
+**AC-10. La guardia acepta solo bases de prueba** (unitaria, backend)
 - Dado `assertTestDatabase`,
 - cuando recibe `postgres://polleria:clave@localhost:5432/polleria_test`, `postgresql://polleria:clave@127.0.0.1:5432/polleria_test` o `postgres://polleria:clave@localhost:5432/polleria_test?sslmode=disable`,
 - entonces no lanza y devuelve 'polleria_test'.
 
-**AC-11. La guardia rechaza cualquier otra base sin filtrar secretos** (unitaria, apps/api)
+**AC-11. La guardia rechaza cualquier otra base sin filtrar secretos** (unitaria, backend)
 - Dado `assertTestDatabase`,
 - cuando recibe cualquiera de estos valores:
 
@@ -190,18 +190,18 @@ La enmienda 1 no cambia esta regla: la guardia sigue aceptando, por ejemplo, `..
 
 ### 4.4 Salud del sistema (GET /api/health)
 
-**AC-12. Salud con base disponible** (integración, apps/api, polleria_test)
+**AC-12. Salud con base disponible** (integración, backend, polleria_test)
 - Dado la app creada con `createApp({ sequelize })` conectada a polleria_test,
 - cuando se hace `GET /api/health`,
 - entonces responde 200 con Content-Type application/json y un cuerpo que cumple healthResponseSchema con status 'ok', database 'ok' y un timestamp a no más de 5 s de la hora actual.
 
-**AC-13. Salud con base caída, sin filtrar secretos** (integración, apps/api)
+**AC-13. Salud con base caída, sin filtrar secretos** (integración, backend)
 - Dado la app creada con `createApp({ sequelize })` donde sequelize apunta a `postgres://polleria:Clave_Secreta_99@127.0.0.1:1/polleria_test` (puerto sin servidor),
 - cuando se hace `GET /api/health`,
 - entonces responde 503 en menos de 5 s con un cuerpo que cumple healthResponseSchema con status 'error' y database 'error', con exactamente las claves status, database y timestamp;
 - y el cuerpo y las cabeceras de la respuesta no contienen 'Clave_Secreta_99', 'postgres://', '127.0.0.1:1' ni 'polleria_test'.
 
-**AC-14. El servicio de salud nunca se queda esperando** (unitaria, apps/api/src/services)
+**AC-14. El servicio de salud nunca se queda esperando** (unitaria, backend/src/services)
 - Dado `createHealthService({ sequelize, timeoutMs, now })` con un sequelize falso y `now` fijo en 2026-10-07T20:00:00.000Z,
 - cuando `authenticate()` se resuelve, `check()` devuelve `{ status: 'ok', database: 'ok', timestamp: '2026-10-07T20:00:00.000Z' }`;
 - cuando `authenticate()` se rechaza, `check()` devuelve `{ status: 'error', database: 'error', timestamp: '2026-10-07T20:00:00.000Z' }`;
@@ -209,19 +209,19 @@ La enmienda 1 no cambia esta regla: la guardia sigue aceptando, por ejemplo, `..
 - en ningún caso `check()` lanza una excepción;
 - y DEFAULT_HEALTH_TIMEOUT_MS vale 2000.
 
-**AC-15. Cabeceras de caché y seguridad** (integración, apps/api)
+**AC-15. Cabeceras de caché y seguridad** (integración, backend)
 - Dado la app (con base disponible y con base caída),
 - cuando se hace `GET /api/health` con la cabecera `Origin: http://sitio-ajeno.example`,
 - entonces la respuesta (200 o 503) incluye `Cache-Control: no-store`, no incluye X-Powered-By y no incluye Access-Control-Allow-Origin.
 
 ### 4.5 Formato común de errores
 
-**AC-16. Ruta inexistente** (integración, apps/api)
+**AC-16. Ruta inexistente** (integración, backend)
 - Dado la app,
 - cuando se hace `GET /api/no-existe`, `GET /` o `POST /api/health` sin cuerpo,
 - entonces responde 404 con `{ error: { code: 'NOT_FOUND', message: 'La ruta solicitada no existe.', details: null } }`, que cumple errorResponseSchema.
 
-**AC-17. Cuerpo JSON inválido o demasiado grande** (integración, apps/api)
+**AC-17. Cuerpo JSON inválido o demasiado grande** (integración, backend)
 - Dado la app,
 - cuando se hace `POST /api/health` con `Content-Type: application/json` y el cuerpo `{"a":`,
 - entonces responde 400 con `{ error: { code: 'INVALID_JSON', message: 'El cuerpo de la solicitud no es un JSON válido.', details: null } }`;
@@ -229,32 +229,32 @@ La enmienda 1 no cambia esta regla: la guardia sigue aceptando, por ejemplo, `..
 - entonces responde 413 con `{ error: { code: 'PAYLOAD_TOO_LARGE', message: 'La solicitud es demasiado grande.', details: null } }`.
 - (Enmienda 1: los demás errores del lector del cuerpo están en AC-33 a AC-37.)
 
-**AC-18. AppError produce su código y estado HTTP** (unitaria con app de prueba, apps/api)
+**AC-18. AppError produce su código y estado HTTP** (unitaria con app de prueba, backend)
 - Dado una app Express de prueba que monta `errorHandler` y una ruta que lanza `new AppError({ code: 'TEST_CONFLICT', message: 'Conflicto de prueba.', httpStatus: 409, details: { field: 'x' } })`,
 - cuando se llama a esa ruta, tanto si la ruta es síncrona como si es async y la promesa se rechaza,
 - entonces responde 409 con `{ error: { code: 'TEST_CONFLICT', message: 'Conflicto de prueba.', details: { field: 'x' } } }`;
 - y si el AppError se crea sin details, la respuesta trae `details: null`.
 
-**AC-19. Error de validación de Zod** (unitaria con app de prueba, apps/api)
+**AC-19. Error de validación de Zod** (unitaria con app de prueba, backend)
 - Dado una app de prueba con `errorHandler` y una ruta que ejecuta `z.object({ name: z.string().min(1) }).parse({ name: '' })`,
 - cuando se llama a esa ruta,
 - entonces responde 400 con code 'VALIDATION_ERROR', message 'Los datos enviados no son válidos.' y `details.issues` igual a una lista con un elemento cuyo path es 'name' y cuyo message es un texto no vacío;
 - y para un error en un campo anidado (por ejemplo items[0].quantity) el path es 'items.0.quantity'.
 
-**AC-20. Error inesperado** (unitaria con app de prueba, apps/api)
+**AC-20. Error inesperado** (unitaria con app de prueba, backend)
 - Dado una app de prueba con `errorHandler` y una ruta que lanza `new Error('detalle interno secreto')` (y otra que lanza un valor que no es Error, por ejemplo la cadena 'falla'),
 - cuando se llama a esas rutas,
 - entonces responden 500 con `{ error: { code: 'INTERNAL_ERROR', message: 'Ocurrió un error inesperado. Intenta nuevamente.', details: null } }` y el cuerpo no contiene 'detalle interno secreto' ni la traza (stack).
 
 ### 4.6 Migraciones y seeds
 
-**AC-21. Migrar es seguro de repetir** (integración, apps/api, polleria_test)
-- Dado polleria_test y las migraciones reales de apps/api/src/db/migrations,
+**AC-21. Migrar es seguro de repetir** (integración, backend, polleria_test)
+- Dado polleria_test y las migraciones reales de backend/src/db/migrations,
 - cuando se ejecuta `migrateUp(sequelize)` dos veces seguidas,
 - entonces ninguna llamada lanza error, existe la tabla SequelizeMeta y la segunda llamada devuelve `[]`.
 - (Enmienda 1: las llamadas simultáneas se cubren en AC-42 a AC-44.)
 
-**AC-22. Aplicar y revertir migraciones en orden** (integración, apps/api, polleria_test)
+**AC-22. Aplicar y revertir migraciones en orden** (integración, backend, polleria_test)
 - Dado dos migraciones de prueba (fixtures del test-writer) `20260101000000-create-fixture-a.ts` y `20260101000001-create-fixture-b.ts`, que crean las tablas fixture_a y fixture_b, y la tabla de registro FixtureMeta,
 - cuando se ejecuta `migrateUp(sequelize, { glob, tableName: 'FixtureMeta' })`,
 - entonces devuelve `['20260101000000-create-fixture-a.ts', '20260101000001-create-fixture-b.ts']` en ese orden, ambas tablas existen y FixtureMeta tiene ambos nombres;
@@ -262,14 +262,14 @@ La enmienda 1 no cambia esta regla: la guardia sigue aceptando, por ejemplo, `..
 - entonces devuelve `['20260101000001-create-fixture-b.ts']`, fixture_b ya no existe, fixture_a sigue existiendo y FixtureMeta solo tiene el nombre de a;
 - y `migrateDown` sin migraciones aplicadas devuelve `[]`.
 
-**AC-23. Los seeds se aplican una sola vez** (integración, apps/api, polleria_test)
+**AC-23. Los seeds se aplican una sola vez** (integración, backend, polleria_test)
 - Dado polleria_test,
 - cuando se ejecuta `seedUp(sequelize)` dos veces con los seeders reales,
 - entonces no lanza error, existe la tabla SequelizeData y la segunda llamada devuelve `[]`;
 - y con un seeder de prueba (glob propio y `tableName: 'FixtureData'`) que inserta una fila en una tabla de fixture, la primera llamada devuelve el nombre del seeder, la segunda devuelve `[]` y la tabla tiene una sola fila.
 
-**AC-24. Comandos de base de datos** (integración con proceso real, apps/api, polleria_test)
-- Dado el proceso `node --disable-warning=ExperimentalWarning apps/api/src/db/cli.ts <comando>` con DATABASE_URL de polleria_test y NODE_ENV=test,
+**AC-24. Comandos de base de datos** (integración con proceso real, backend, polleria_test)
+- Dado el proceso `node --disable-warning=ExperimentalWarning backend/src/db/cli.ts <comando>` con DATABASE_URL de polleria_test y NODE_ENV=test,
 - cuando se ejecuta `migrate` dos veces, entonces ambas terminan con código 0 y la segunda escribe en stdout 'No hay migraciones pendientes.';
 - cuando se ejecuta `seed` dos veces, entonces ambas terminan con código 0 y la segunda escribe 'No hay seeds pendientes.';
 - cuando se ejecuta `migrate:undo` y luego `migrate`, entonces ambos terminan con código 0 (sin migraciones aplicadas, `migrate:undo` escribe 'No hay migraciones para revertir.');
@@ -281,7 +281,7 @@ Formato de salida cuando sí hay trabajo: una línea por elemento, 'Migración a
 
 ### 4.7 Web
 
-**AC-25. Interpretación de la respuesta de salud** (unitaria, apps/web, con MSW)
+**AC-25. Interpretación de la respuesta de salud** (unitaria, frontend, con MSW)
 - Dado `getServerStatus` y la API simulada con MSW en `*/api/health`,
 - cuando responde 200 con `{ status: 'ok', database: 'ok', timestamp }` válido, devuelve 'connected';
 - cuando responde 503 con `{ status: 'error', database: 'error', timestamp }` válido, devuelve 'databaseDown';
@@ -290,25 +290,25 @@ Formato de salida cuando sí hay trabajo: una línea por elemento, 'Migración a
 - en ningún caso lanza una excepción;
 - y la solicitud es un GET a /api/health del mismo origen de la página.
 
-**AC-26. Indicador de estado del servidor** (componente, apps/web, React Testing Library y MSW)
+**AC-26. Indicador de estado del servidor** (componente, frontend, React Testing Library y MSW)
 - Dado el componente ServerStatus dentro de un QueryClientProvider y la API simulada con MSW,
 - mientras la primera consulta está en curso, el elemento con role="status" muestra 'Verificando conexión...';
 - cuando la API responde 200 válido, muestra 'Conectado';
 - cuando responde 503 válido, muestra 'Sin conexión con la base de datos';
 - cuando hay error de red o responde 500, muestra 'Sin conexión con el servidor'.
 
-**AC-27. Página inicial** (componente, apps/web)
-- Dado la página de inicio (default export de apps/web/src/app/page.tsx) renderizada dentro de Providers, con la API simulada respondiendo 200 válido,
+**AC-27. Página inicial** (componente, frontend)
+- Dado la página de inicio (default export de frontend/src/app/page.tsx) renderizada dentro de Providers, con la API simulada respondiendo 200 válido,
 - cuando se muestra,
 - entonces hay un encabezado de nivel 1 con el texto 'Sistema Pollería' y el indicador de estado (role="status") llega a mostrar 'Conectado'.
 
-**AC-28. Configuración de la web** (unitaria, apps/web)
+**AC-28. Configuración de la web** (unitaria, frontend)
 - Dado `loadWebServerConfig(env)`,
 - cuando env no trae variables, devuelve `{ apiInternalUrl: 'http://127.0.0.1:4000', allowedDevOrigins: [] }`;
 - cuando `API_INTERNAL_URL='http://192.168.1.50:4000/'`, devuelve apiInternalUrl 'http://192.168.1.50:4000' (sin barra final);
 - cuando `WEB_ALLOWED_DEV_ORIGINS=' 192.168.1.20, ,192.168.1.21 '`, devuelve allowedDevOrigins `['192.168.1.20', '192.168.1.21']`;
 - cuando `API_INTERNAL_URL` es 'ftp://192.168.1.50' o 'no-es-url', lanza un Error cuyo mensaje empieza con 'Configuración inválida de la web.' y nombra API_INTERNAL_URL;
-- y el archivo versionado apps/web/.env.example contiene exactamente las variables de WEB_CONFIG_VARIABLES (API_INTERNAL_URL y WEB_ALLOWED_DEV_ORIGINS) y sus valores pasan la validación.
+- y el archivo versionado frontend/.env.example contiene exactamente las variables de WEB_CONFIG_VARIABLES (API_INTERNAL_URL y WEB_ALLOWED_DEV_ORIGINS) y sus valores pasan la validación.
 - (Enmienda 1: API_INTERNAL_URL se reduce a su origen y se rechaza si trae usuario o clave; ver AC-45 y AC-46.)
 
 ### 4.8 Extremo a extremo (Playwright, contra polleria_test)
@@ -351,16 +351,16 @@ No son comportamiento, por eso no llevan AC. El orquestador y el reviewer los ve
 | R-02 | Versiones exactas en todos los package.json (sin ^ ni ~; solo `workspace:*` para @polleria/shared). Archivo .npmrc con `save-exact=true`. Versiones según el ADR 0001. | `grep -nE '"[~^][0-9]' package.json apps/*/package.json packages/*/package.json` | Sin resultados. |
 | R-03 | pnpm-workspace.yaml con apps/* y packages/*. Paquetes @polleria/web, @polleria/api y @polleria/shared, todos `"private": true` y `"type": "module"`. | `pnpm -r ls --depth -1` | Lista los tres paquetes. |
 | R-04 | Scripts raíz con estos nombres exactos: dev, test, test:e2e, test:coverage, lint, typecheck, db:migrate, db:seed. Se permite además format (prettier --write) y, desde la spec 002, printer:test. | `pnpm run` | Muestra los ocho scripts. |
-| R-05 | tsconfig.base.json con strict, noUncheckedIndexedAccess, noImplicitOverride, verbatimModuleSyntax, isolatedModules y skipLibCheck. api y shared agregan erasableSyntaxOnly, allowImportingTsExtensions, noEmit, module y moduleResolution nodenext. web extiende la base con lo que exige Next (moduleResolution bundler, jsx react-jsx, plugin next). Cada tsconfig declara types de forma explícita (por ejemplo node). | `pnpm typecheck` | Código 0. Revisa apps/api, apps/web (con `next typegen` antes de tsc), packages/shared, e2e/ y los archivos de configuración de la raíz. |
-| R-06 | ESLint 10 con configuración plana en eslint.config.js de la raíz: @eslint/js recommended, typescript-eslint recommendedTypeChecked (projectService), react-hooks en apps/web, no-restricted-imports que prohíbe next/font/google, y no-restricted-syntax que prohíbe llamar a `.sync(` en apps/api/src (regla 6 de CLAUDE.md). | `pnpm lint` y `pnpm exec eslint --print-config apps/web/src/app/page.tsx` | lint termina con código 0 y cero advertencias (`--max-warnings=0`); print-config muestra las reglas. |
+| R-05 | tsconfig.base.json con strict, noUncheckedIndexedAccess, noImplicitOverride, verbatimModuleSyntax, isolatedModules y skipLibCheck. api y shared agregan erasableSyntaxOnly, allowImportingTsExtensions, noEmit, module y moduleResolution nodenext. web extiende la base con lo que exige Next (moduleResolution bundler, jsx react-jsx, plugin next). Cada tsconfig declara types de forma explícita (por ejemplo node). | `pnpm typecheck` | Código 0. Revisa backend, frontend (con `next typegen` antes de tsc), packages/shared, e2e/ y los archivos de configuración de la raíz. |
+| R-06 | ESLint 10 con configuración plana en eslint.config.js de la raíz: @eslint/js recommended, typescript-eslint recommendedTypeChecked (projectService), react-hooks en frontend, no-restricted-imports que prohíbe next/font/google, y no-restricted-syntax que prohíbe llamar a `.sync(` en backend/src (regla 6 de CLAUDE.md). | `pnpm lint` y `pnpm exec eslint --print-config frontend/src/app/page.tsx` | lint termina con código 0 y cero advertencias (`--max-warnings=0`); print-config muestra las reglas. |
 | R-07 | Prettier 3 con .prettierrc.json (singleQuote true, printWidth 100, endOfLine lf; el resto por defecto) y .prettierignore con docs/, .claude/, CLAUDE.md, pnpm-lock.yaml, .next/, coverage/, playwright-report/, test-results/, tmp/ y dist/. | `pnpm lint` (incluye `prettier --check .`) | Código 0. |
-| R-08 | vitest.config.ts en la raíz con cuatro proyectos: shared (node, `packages/shared/{src,tests}/**/*.test.ts`), api-unit (node, `apps/api/src/**/*.test.ts`), api-integration (node, `apps/api/tests/**/*.test.ts`, archivos en serie, testTimeout 15000) y web (jsdom 29.1.1, `apps/web/{src,tests}/**/*.test.{ts,tsx}`). e2e/ queda fuera. JSX automático sin @vitejs/plugin-react. | `pnpm test` | Ejecuta los cuatro proyectos. |
-| R-09 | Cobertura v8 con include `packages/shared/src/**`, `apps/api/src/**` y `apps/web/src/**`; exclude pruebas, `*.d.ts`, archivos de configuración, apps/api/src/server.ts, apps/api/src/db/cli.ts, apps/api/src/db/migrations/**, apps/api/src/db/seeders/** y apps/web/src/app/layout.tsx (desde la spec 002, también apps/api/src/print-test-page.ts). Umbrales de líneas: 90 en `packages/shared/src/**`, 90 en `apps/api/src/services/**` y 80 global para el resto. | `pnpm test:coverage` | Código 0; falla si no se alcanza algún umbral. |
-| R-10 | playwright.config.ts en la raíz: testDir e2e, testMatch `**/*.spec.ts`, proyectos desktop-chrome (1366×768) y mobile-chrome (360×740, isMobile, hasTouch, Chromium), baseURL http://localhost:3100. webServer de la API: `node --disable-warning=ExperimentalWarning apps/api/src/server.ts` con NODE_ENV=test, HOST=127.0.0.1, PORT=4100 y DATABASE_URL = DATABASE_URL_TEST; espera http://127.0.0.1:4100/api/health. webServer de la web: `next dev --port 3100` en apps/web con API_INTERNAL_URL=http://127.0.0.1:4100; espera http://localhost:3100. `reuseExistingServer: false` y timeout de 120 s. Antes de levantar nada, lee DATABASE_URL_TEST (del entorno o de apps/api/.env sin sobrescribir) y la verifica con assertTestDatabase; si falta o no es de pruebas, aborta con un mensaje en español. | `pnpm test:e2e` (con `pnpm dev` detenido) | Código 0 cuando la implementación está completa. |
+| R-08 | vitest.config.ts en la raíz con cuatro proyectos: shared (node, `packages/shared/{src,tests}/**/*.test.ts`), api-unit (node, `backend/src/**/*.test.ts`), api-integration (node, `backend/tests/**/*.test.ts`, archivos en serie, testTimeout 15000) y web (jsdom 29.1.1, `frontend/{src,tests}/**/*.test.{ts,tsx}`). e2e/ queda fuera. JSX automático sin @vitejs/plugin-react. | `pnpm test` | Ejecuta los cuatro proyectos. |
+| R-09 | Cobertura v8 con include `packages/shared/src/**`, `backend/src/**` y `frontend/src/**`; exclude pruebas, `*.d.ts`, archivos de configuración, backend/src/server.ts, backend/src/db/cli.ts, backend/src/db/migrations/**, backend/src/db/seeders/** y frontend/src/app/layout.tsx (desde la spec 002, también backend/src/print-test-page.ts). Umbrales de líneas: 90 en `packages/shared/src/**`, 90 en `backend/src/services/**` y 80 global para el resto. | `pnpm test:coverage` | Código 0; falla si no se alcanza algún umbral. |
+| R-10 | playwright.config.ts en la raíz: testDir e2e, testMatch `**/*.spec.ts`, proyectos desktop-chrome (1366×768) y mobile-chrome (360×740, isMobile, hasTouch, Chromium), baseURL http://localhost:3100. webServer de la API: `node --disable-warning=ExperimentalWarning backend/src/server.ts` con NODE_ENV=test, HOST=127.0.0.1, PORT=4100 y DATABASE_URL = DATABASE_URL_TEST; espera http://127.0.0.1:4100/api/health. webServer de la web: `next dev --port 3100` en frontend con API_INTERNAL_URL=http://127.0.0.1:4100; espera http://localhost:3100. `reuseExistingServer: false` y timeout de 120 s. Antes de levantar nada, lee DATABASE_URL_TEST (del entorno o de backend/.env sin sobrescribir) y la verifica con assertTestDatabase; si falta o no es de pruebas, aborta con un mensaje en español. | `pnpm test:e2e` (con `pnpm dev` detenido) | Código 0 cuando la implementación está completa. |
 | R-11 | `pnpm dev` levanta en paralelo la API (`node --watch --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.ts`, en 127.0.0.1:4000) y la web (`next dev --hostname 0.0.0.0 --port 3000`) con `pnpm -r --parallel`, sin concurrently, nodemon ni tsx. | `pnpm dev` y abrir http://localhost:3000 | La página muestra 'Conectado' (verificación manual). |
 | R-12 | `pnpm db:migrate` y `pnpm db:seed` delegan en @polleria/api (`node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/cli.ts migrate` o `seed`) y usan DATABASE_URL (polleria_dev). @polleria/api tiene además el script db:migrate:undo. | `pnpm db:migrate` y `pnpm db:seed` | Código 0 con 'No hay migraciones pendientes.' y 'No hay seeds pendientes.' (en esta spec no hay ninguno). |
-| R-13 | apps/api/.env.example y apps/web/.env.example versionados; los .env reales ignorados por git. | `git check-ignore apps/api/.env apps/web/.env` y `git ls-files "*.env.example"` | El primero lista los dos .env; el segundo lista los dos .env.example. |
-| R-14 | La web no usa recursos de internet: fuentes del sistema (pila system-ui de Tailwind), sin next/font/google ni CDN. | `grep -rn -e "next/font/google" -e "fonts.googleapis" -e "fonts.gstatic" -e "unpkg" -e "jsdelivr" -e "cdnjs" apps/web/src apps/web/next.config.ts` | Sin resultados. |
+| R-13 | backend/.env.example y frontend/.env.example versionados; los .env reales ignorados por git. | `git check-ignore backend/.env frontend/.env` y `git ls-files "*.env.example"` | El primero lista los dos .env; el segundo lista los dos .env.example. |
+| R-14 | La web no usa recursos de internet: fuentes del sistema (pila system-ui de Tailwind), sin next/font/google ni CDN. | `grep -rn -e "next/font/google" -e "fonts.googleapis" -e "fonts.gstatic" -e "unpkg" -e "jsdelivr" -e "cdnjs" frontend/src frontend/next.config.ts` | Sin resultados. |
 | R-15 | Scripts compatibles con Windows: sin `VAR=valor` en línea, sin `rm -rf` y sin `&` para segundo plano (las variables para procesos hijos se pasan desde playwright.config.ts o desde las pruebas). | Ejecutar R-01, R-04 a R-12 en PowerShell sobre Windows 11 | Todos funcionan igual que en Git Bash. |
 | R-16 | docs/api/openapi.yaml es OpenAPI 3.1 válido. | `npx -y @redocly/cli@latest lint docs/api/openapi.yaml` (ejecución puntual, no es dependencia del proyecto) | "valid", sin errores (se aceptan advertencias). |
 
@@ -515,58 +515,58 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
   - `healthResponseSchema` (objeto Zod estricto) y `type HealthResponse`.
   - `errorResponseSchema` y `type ErrorResponse`.
   - `ERROR_CODES` (objeto `as const`) y `type ErrorCode`. Desde la enmienda 1 incluye también UNSUPPORTED_MEDIA_TYPE e INVALID_BODY.
-- **apps/api/src/config/env.ts**
+- **backend/src/config/env.ts**
   - `loadConfig(env: Record<string, string | undefined>): AppConfig`.
   - `type AppConfig = { nodeEnv: 'development' | 'test' | 'production'; host: string; port: number; databaseUrl: string; databaseUrlTest: string | undefined }`.
   - `class ConfigError extends Error` con `issues: { variable: string; message: string }[]`.
   - `CONFIG_VARIABLES`: lista `as const` con NODE_ENV, HOST, PORT, DATABASE_URL y DATABASE_URL_TEST.
   - Spec 002: CONFIG_VARIABLES suma PRINTER_DRIVER y PRINTER_FILE_DIR; AppConfig suma `printer`; nuevos exports PROJECT_ROOT_DIR, DEFAULT_PRINTER_FILE_DIR y PrinterConfig (sección 11 de la spec 002).
-- **apps/api/src/db/assert-test-database.ts**
+- **backend/src/db/assert-test-database.ts**
   - `assertTestDatabase(databaseUrl: string | undefined): string` (devuelve el nombre de la base).
   - `class UnsafeTestDatabaseError extends Error`.
-- **apps/api/src/db/sequelize.ts**
+- **backend/src/db/sequelize.ts**
   - `createSequelize(databaseUrl: string): Sequelize`.
   - Enmienda 1 (D-12): misma firma. Arma la conexión solo con las partes del URL e ignora la query. Si la URL no es de PostgreSQL con nombre de base, lanza `Error` con el mensaje 'La URL de la base de datos no es válida.' (AC-39 a AC-41).
-- **apps/api/src/db/migrator.ts**
+- **backend/src/db/migrator.ts**
   - `migrateUp(sequelize, options?)`, `migrateDown(sequelize, options?)` (revierte solo la última) y `seedUp(sequelize, options?)`, con `options = { glob?: string; tableName?: string }`.
   - Todas devuelven `Promise<string[]>` con los nombres de archivo procesados, en orden.
   - Por defecto: migraciones en src/db/migrations con la tabla SequelizeMeta; seeds en src/db/seeders con la tabla SequelizeData.
   - Enmienda 1 (D-13): `MIGRATION_LOCK_KEY` (number, `as const`) = 2026100701. Las tres funciones se serializan con un bloqueo consultivo de PostgreSQL con esa clave; las firmas no cambian (AC-42 a AC-44).
-- **apps/api/src/db/cli.ts**
+- **backend/src/db/cli.ts**
   - Punto de entrada con los comandos `migrate`, `migrate:undo` y `seed`. Solo lee process.env.
-- **apps/api/src/errors/app-error.ts**
+- **backend/src/errors/app-error.ts**
   - `class AppError extends Error` con `code: string`, `httpStatus: number` y `details: Record<string, unknown> | null`.
   - Constructor: `new AppError({ code, message, httpStatus, details? })`.
-- **apps/api/src/middlewares/error-handler.ts**
+- **backend/src/middlewares/error-handler.ts**
   - `errorHandler` (ErrorRequestHandler) y `notFoundHandler` (RequestHandler).
   - Enmienda 1 (D-11): mismos exports. Clasifica los errores del lector del cuerpo según la tabla de 9.2. Si backend-dev envuelve express.json para marcar sus errores, el envoltorio es interno (las pruebas no lo importan).
-- **apps/api/src/services/health.service.ts**
+- **backend/src/services/health.service.ts**
   - `createHealthService({ sequelize, timeoutMs?, now? })`, con `sequelize: Pick<Sequelize, 'authenticate'>` y `now: () => Date`; devuelve `{ check(): Promise<HealthResponse> }`.
   - `DEFAULT_HEALTH_TIMEOUT_MS` = 2000.
-- **apps/api/src/app.ts**
+- **backend/src/app.ts**
   - `createApp(deps: { sequelize: Sequelize; healthTimeoutMs?: number }): Express`. No llama a listen.
-- **apps/api/src/server.ts**
+- **backend/src/server.ts**
   - Punto de entrada: loadConfig(process.env), createSequelize, createApp y listen. Cierra el servidor y la conexión al recibir SIGINT o SIGTERM.
-- **apps/web/src/lib/api/health.ts**
+- **frontend/src/lib/api/health.ts**
   - `type ServerConnectionStatus = 'connected' | 'databaseDown' | 'unreachable'`.
   - `getServerStatus(options?: { timeoutMs?: number }): Promise<ServerConnectionStatus>`. Arma la URL con `window.location.origin` + '/api/health'.
   - `DEFAULT_HEALTH_TIMEOUT_MS` = 5000.
-- **apps/web/src/components/server-status.tsx**
+- **frontend/src/components/server-status.tsx**
   - `ServerStatus`: componente cliente, sin props.
-- **apps/web/src/app/providers.tsx**
+- **frontend/src/app/providers.tsx**
   - `Providers`: componente cliente con QueryClientProvider.
-- **apps/web/src/app/page.tsx**
+- **frontend/src/app/page.tsx**
   - default export: página de inicio. Componente síncrono, sin APIs exclusivas del servidor, para poder probarlo con React Testing Library.
-- **apps/web/src/app/layout.tsx**
+- **frontend/src/app/layout.tsx**
   - `metadata` con title 'Sistema Pollería'; `<html lang="es-PE">`; envuelve el contenido con Providers.
-- **apps/web/src/config/server-env.ts**
+- **frontend/src/config/server-env.ts**
   - `loadWebServerConfig(env: Record<string, string | undefined>): { apiInternalUrl: string; allowedDevOrigins: string[] }`. Lo usa next.config.ts.
   - `WEB_CONFIG_VARIABLES`: lista `as const` con API_INTERNAL_URL y WEB_ALLOWED_DEV_ORIGINS.
   - Enmienda 1 (D-14): misma firma. apiInternalUrl es siempre el origen de la URL (protocolo, host y puerto), sin ruta, query, fragmento ni barra final (AC-45 y AC-46).
-- **apps/web/next.config.ts** (enmienda 1, la importa la prueba de AC-45)
+- **frontend/next.config.ts** (enmienda 1, la importa la prueba de AC-45)
   - default export: objeto NextConfig cuya función `rewrites()` devuelve una lista con `{ source: '/api/:path*', destination: '<apiInternalUrl>/api/:path*' }`, donde apiInternalUrl sale de `loadWebServerConfig(process.env)` al cargar el módulo. Ya es así; la enmienda no lo cambia.
 
-Rutas sugeridas para pruebas: unitarias junto al código (`*.test.ts`, `*.test.tsx`); integración de la API en apps/api/tests/ (helpers en apps/api/tests/helpers/, fixtures en apps/api/tests/fixtures/); E2E en e2e/*.spec.ts.
+Rutas sugeridas para pruebas: unitarias junto al código (`*.test.ts`, `*.test.tsx`); integración de la API en backend/tests/ (helpers en backend/tests/helpers/, fixtures en backend/tests/fixtures/); E2E en e2e/*.spec.ts.
 
 ## 12. Dependencias de soporte que requieren aprobación
 
@@ -666,10 +666,10 @@ Las preguntas de la enmienda 1 están en la sección 17.11. Ninguna cambia lo qu
 
 ## 16. Verificación manual sugerida (para el usuario)
 
-1. Con PostgreSQL encendido y apps/api/.env creado a partir de .env.example: `pnpm install`, `pnpm db:migrate`, `pnpm dev`; abrir http://localhost:3000 en la PC: debe decir 'Conectado'.
+1. Con PostgreSQL encendido y backend/.env creado a partir de .env.example: `pnpm install`, `pnpm db:migrate`, `pnpm dev`; abrir http://localhost:3000 en la PC: debe decir 'Conectado'.
 2. Detener el servicio de PostgreSQL: en menos de 15 s la página debe decir 'Sin conexión con la base de datos'. Encenderlo: vuelve a 'Conectado'.
 3. Detener solo la API: la página debe decir 'Sin conexión con el servidor'.
-4. Desde un celular Android en el mismo wifi, con la IP de la PC en WEB_ALLOWED_DEV_ORIGINS (apps/web/.env) y el firewall permitiendo Node.js: abrir http://<IP-de-la-PC>:3000 y ver 'Conectado'. Repetir con el router sin internet.
+4. Desde un celular Android en el mismo wifi, con la IP de la PC en WEB_ALLOWED_DEV_ORIGINS (frontend/.env) y el firewall permitiendo Node.js: abrir http://<IP-de-la-PC>:3000 y ver 'Conectado'. Repetir con el router sin internet.
 
 ## 17. Enmienda 1 (2026-10-07): correcciones de hallazgos adversariales
 
@@ -686,12 +686,12 @@ El ataque a la 001 encontró seis fallas que no afectan la atención, pero convi
 
 | Hallazgo | Severidad | Corrección | AC | Prueba adversarial que debe pasar sin modificarse |
 | --- | --- | --- | --- | --- |
-| ADV-001-01 | Medio | Content-Encoding o charset no soportado: 415 UNSUPPORTED_MEDIA_TYPE, sin traza (D-11). | AC-33, AC-37 | apps/api/tests/adversarial/common-errors.adversarial.test.ts |
-| ADV-001-02 | Medio | Cuerpo comprimido ilegible o solicitud cortada: 400 INVALID_BODY, sin traza (D-11). | AC-34, AC-35, AC-36, AC-37 | apps/api/tests/adversarial/common-errors.adversarial.test.ts |
-| ADV-001-04 | Medio | createSequelize toma el host solo del URL e ignora `?host=` (D-12). | AC-39, AC-40 | apps/api/tests/adversarial/test-database-guard.adversarial.test.ts |
-| ADV-001-05 | Bajo | createSequelize ignora `?options=` y cualquier otro parámetro de la query (D-12). | AC-39, AC-40 | apps/api/tests/adversarial/test-database-guard.adversarial.test.ts |
-| ADV-001-06 | Bajo | Migraciones y seeds serializados con un bloqueo consultivo de PostgreSQL de clave fija (D-13). | AC-42, AC-43, AC-44 | apps/api/tests/adversarial/migrate-concurrency.adversarial.test.ts |
-| ADV-001-09 | Bajo | API_INTERNAL_URL se reduce a su origen (D-14). | AC-45, AC-46 | apps/web/tests/adversarial/server-env.adversarial.test.ts |
+| ADV-001-01 | Medio | Content-Encoding o charset no soportado: 415 UNSUPPORTED_MEDIA_TYPE, sin traza (D-11). | AC-33, AC-37 | backend/tests/adversarial/common-errors.adversarial.test.ts |
+| ADV-001-02 | Medio | Cuerpo comprimido ilegible o solicitud cortada: 400 INVALID_BODY, sin traza (D-11). | AC-34, AC-35, AC-36, AC-37 | backend/tests/adversarial/common-errors.adversarial.test.ts |
+| ADV-001-04 | Medio | createSequelize toma el host solo del URL e ignora `?host=` (D-12). | AC-39, AC-40 | backend/tests/adversarial/test-database-guard.adversarial.test.ts |
+| ADV-001-05 | Bajo | createSequelize ignora `?options=` y cualquier otro parámetro de la query (D-12). | AC-39, AC-40 | backend/tests/adversarial/test-database-guard.adversarial.test.ts |
+| ADV-001-06 | Bajo | Migraciones y seeds serializados con un bloqueo consultivo de PostgreSQL de clave fija (D-13). | AC-42, AC-43, AC-44 | backend/tests/adversarial/migrate-concurrency.adversarial.test.ts |
+| ADV-001-09 | Bajo | API_INTERNAL_URL se reduce a su origen (D-14). | AC-45, AC-46 | frontend/tests/adversarial/server-env.adversarial.test.ts |
 
 Acompañan a las correcciones AC-38 (ERROR_CODES) y AC-41 (URL inválida en createSequelize). La prueba ADV-001-03 (prototype pollution) ya está en verde y debe seguir así.
 
@@ -710,7 +710,7 @@ Acompañan a las correcciones AC-38 (ERROR_CODES) y AC-41 (URL inválida en crea
 - Comportamiento verificado el 2026-10-07 con la app actual: los casos de AC-33, AC-34 y AC-35 responden hoy 500 INTERNAL_ERROR con traza; los de AC-36 ya responden lo esperado.
 
 **D-12. Conexión a PostgreSQL solo con las partes del URL.**
-- createSequelize valida la URL con la misma regla que loadConfig: protocolo postgres: o postgresql: y nombre de base no vacío (regla compartida en apps/api/src/db/postgres-url.ts). Si no la cumple, lanza `Error` con el mensaje 'La URL de la base de datos no es válida.', sin la URL en ninguna propiedad del error (tampoco en cause).
+- createSequelize valida la URL con la misma regla que loadConfig: protocolo postgres: o postgresql: y nombre de base no vacío (regla compartida en backend/src/db/postgres-url.ts). Si no la cumple, lanza `Error` con el mensaje 'La URL de la base de datos no es válida.', sin la URL en ninguna propiedad del error (tampoco en cause).
 - Arma la conexión así:
 
   | Parte | Valor |
@@ -730,7 +730,7 @@ Acompañan a las correcciones AC-38 (ERROR_CODES) y AC-41 (URL inválida en crea
 
 **D-13. Bloqueo de migraciones y seeds.**
 - migrateUp, migrateDown y seedUp toman un bloqueo consultivo exclusivo de PostgreSQL antes de leer o crear su tabla de registro (SequelizeMeta, SequelizeData o la indicada en tableName) y lo sueltan al terminar, tanto si terminan bien como si fallan.
-- Clave fija: `MIGRATION_LOCK_KEY = 2026100701` (fecha de la enmienda más 01), exportada por apps/api/src/db/migrator.ts. Se usa la forma de un argumento (bigint) de pg_advisory_lock o de pg_advisory_xact_lock; backend-dev elige cuál.
+- Clave fija: `MIGRATION_LOCK_KEY = 2026100701` (fecha de la enmienda más 01), exportada por backend/src/db/migrator.ts. Se usa la forma de un argumento (bigint) de pg_advisory_lock o de pg_advisory_xact_lock; backend-dev elige cuál.
 - Las tres funciones comparten la clave, sin importar glob ni tableName: un seed nunca corre a la vez que una migración.
 - Mientras otra conexión tiene el bloqueo, la llamada espera sin error y sin límite de tiempo (SUPUESTO S-15). Al obtenerlo, lee la tabla de registro ya actualizada; por eso la segunda de dos llamadas simultáneas devuelve [] si no queda nada pendiente.
 - El bloqueo vive en una conexión dedicada durante toda la operación. Atención: un bloqueo de sesión (pg_advisory_lock) solo se suelta desde la misma conexión que lo tomó, y el pool de Sequelize puede entregar otra; hay que fijar esa conexión (por ejemplo, con una transacción que use pg_advisory_xact_lock). Las migraciones se siguen ejecutando como hoy, fuera de esa transacción.
@@ -746,7 +746,7 @@ Acompañan a las correcciones AC-38 (ERROR_CODES) y AC-41 (URL inválida en crea
 
 Cada AC tiene al menos una prueba cuyo nombre empieza con su ID. Las pruebas adversariales de 17.2 no se modifican; deben pasar a verde con la implementación, además de estos AC.
 
-**AC-33. Codificación o charset no soportados responden 415** (integración sin base, apps/api; corrige ADV-001-01)
+**AC-33. Codificación o charset no soportados responden 415** (integración sin base, backend; corrige ADV-001-01)
 - Dado la app creada con `createApp({ sequelize })` con un sequelize que nunca se conecta (helper createUnreachableSequelize) y console.error espiado,
 - cuando se hace `POST /api/health` con el cuerpo `{"a":1}` y estas cabeceras:
 
@@ -760,7 +760,7 @@ Cada AC tiene al menos una prueba cuyo nombre empieza con su ID. Las pruebas adv
 - entonces responde 415 con Content-Type application/json y exactamente `{ error: { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'La codificación del cuerpo de la solicitud no es compatible.', details: null } }`, que cumple errorResponseSchema;
 - y console.error no se llama durante la solicitud.
 
-**AC-34. Cuerpo comprimido ilegible responde 400 INVALID_BODY** (integración sin base, apps/api; corrige ADV-001-02)
+**AC-34. Cuerpo comprimido ilegible responde 400 INVALID_BODY** (integración sin base, backend; corrige ADV-001-02)
 - Dado la misma app y console.error espiado,
 - cuando se hace `POST /api/health` con `Content-Type: application/json` y:
 
@@ -774,13 +774,13 @@ Cada AC tiene al menos una prueba cuyo nombre empieza con su ID. Las pruebas adv
 - entonces responde 400 con Content-Type application/json y exactamente `{ error: { code: 'INVALID_BODY', message: 'No se pudo leer el cuerpo de la solicitud.', details: null } }`, que cumple errorResponseSchema;
 - y console.error no se llama durante la solicitud.
 
-**AC-35. Solicitud cortada a mitad del cuerpo: sin traza y la API sigue atendiendo** (integración con servidor real sin base, apps/api)
+**AC-35. Solicitud cortada a mitad del cuerpo: sin traza y la API sigue atendiendo** (integración con servidor real sin base, backend)
 - Dado `createApp({ sequelize, healthTimeoutMs: 100 })` con un sequelize que nunca se conecta, escuchando en 127.0.0.1 en un puerto libre, y console.error espiado,
 - cuando un cliente abre una conexión TCP (node:net), envía `POST /api/health HTTP/1.1` con las cabeceras `Host`, `Content-Type: application/json` y `Content-Length: 100`, envía solo `{"a":` y destruye la conexión,
 - entonces durante los 500 ms siguientes console.error no se llama;
 - y después `GET /api/health` a ese mismo servidor responde 503 (el proceso sigue vivo y atendiendo).
 
-**AC-36. Los cuerpos comprimidos válidos siguen funcionando** (integración sin base, apps/api; regresión)
+**AC-36. Los cuerpos comprimidos válidos siguen funcionando** (integración sin base, backend; regresión)
 - Dado la misma app de AC-33 y console.error espiado,
 - cuando se hace `POST /api/health` con `Content-Type: application/json` y el cuerpo `{"a":1}` comprimido de forma válida con gzip, deflate o br (con su Content-Encoding), con `Content-Encoding: GZIP` en mayúsculas, o sin comprimir con `Content-Encoding: identity`,
 - entonces responde 404 NOT_FOUND (el cuerpo se leyó bien y la ruta POST no existe);
@@ -788,7 +788,7 @@ Cada AC tiene al menos una prueba cuyo nombre empieza con su ID. Las pruebas adv
 - cuando el cuerpo es un JSON válido de 150 KB comprimido con gzip, responde 413 con el cuerpo PAYLOAD_TOO_LARGE de AC-17 (el límite se mide después de descomprimir);
 - y en ningún caso se llama console.error.
 
-**AC-37. La clasificación nueva aplica solo al lector del cuerpo** (unitaria con app de prueba, apps/api)
+**AC-37. La clasificación nueva aplica solo al lector del cuerpo** (unitaria con app de prueba, backend)
 - Dado una app Express de prueba que monta solo `errorHandler` (sin lector del cuerpo), con console.error espiado, y una ruta que lanza `Object.assign(new Error('fallo con estado'), { status: 400, statusCode: 400, expose: true })`,
 - cuando se llama a esa ruta,
 - entonces responde 500 con `{ error: { code: 'INTERNAL_ERROR', message: 'Ocurrió un error inesperado. Intenta nuevamente.', details: null } }`, el cuerpo no contiene 'fallo con estado' y console.error se llama (se registra como error inesperado, igual que AC-20).
@@ -798,7 +798,7 @@ Cada AC tiene al menos una prueba cuyo nombre empieza con su ID. Las pruebas adv
 - entonces ERROR_CODES contiene UNSUPPORTED_MEDIA_TYPE e INVALID_BODY, cada uno con un valor igual a su nombre, además de los cinco de AC-03;
 - y errorResponseSchema acepta `{ error: { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'La codificación del cuerpo de la solicitud no es compatible.', details: null } }` y `{ error: { code: 'INVALID_BODY', message: 'No se pudo leer el cuerpo de la solicitud.', details: null } }`.
 
-**AC-39. La conexión usa solo las partes del URL** (unitaria, apps/api, sin abrir conexiones; corrige ADV-001-04 y ADV-001-05)
+**AC-39. La conexión usa solo las partes del URL** (unitaria, backend, sin abrir conexiones; corrige ADV-001-04 y ADV-001-05)
 - Dado `createSequelize(url)` y la configuración resuelta en `sequelize.config` (crear la instancia no abre conexiones; la prueba la cierra al final),
 - cuando url es cada valor de esta tabla:
 
@@ -814,7 +814,7 @@ Cada AC tiene al menos una prueba cuyo nombre empieza con su ID. Las pruebas adv
 - y `sequelize.config.dialectOptions` es exactamente `{ connectionTimeoutMillis: 5000, ssl: false }` (en particular, sin options, application_name, statement_timeout, sslmode ni host);
 - y assertTestDatabase sigue aceptando las URL de las filas "Host en la query" y "Opciones de libpq" y devuelve 'polleria_test' (la regla de AC-10 y AC-11 no cambia).
 
-**AC-40. Una conexión real ignora los parámetros de la query** (integración, apps/api, polleria_test)
+**AC-40. Una conexión real ignora los parámetros de la query** (integración, backend, polleria_test)
 - Dado DATABASE_URL_TEST (verificada con assertTestDatabase) a la que la prueba agrega con URLSearchParams `host=host-ajeno.invalid`, `options=-c search_path=esquema_ajeno` y `application_name=polleria_ataque`, conservando los parámetros que ya tuviera,
 - cuando se crea `createSequelize(urlConParametros)` y se llama `authenticate()`,
 - entonces la conexión se abre sin error (contra el host del URL original y no contra host-ajeno.invalid);
@@ -822,13 +822,13 @@ Cada AC tiene al menos una prueba cuyo nombre empieza con su ID. Las pruebas adv
 - y `SELECT current_setting('application_name')` no es 'polleria_ataque';
 - y `SELECT current_database()` es el nombre que devolvió assertTestDatabase.
 
-**AC-41. createSequelize rechaza una URL inválida sin filtrar secretos** (unitaria, apps/api)
+**AC-41. createSequelize rechaza una URL inválida sin filtrar secretos** (unitaria, backend)
 - Dado createSequelize,
 - cuando recibe `mysql://polleria:Secreta_123@localhost/polleria_test`, `Secreta_123` o `postgres://polleria:Secreta_123@localhost:5432` (sin nombre de base),
 - entonces lanza un Error con el mensaje exacto 'La URL de la base de datos no es válida.';
 - y ni error.message, ni error.stack, ni error.cause (si existe, convertido a texto con sus propiedades) contienen 'Secreta_123'.
 
-**AC-42. Migraciones y seeds simultáneos se serializan** (integración, apps/api, polleria_test; corrige ADV-001-06)
+**AC-42. Migraciones y seeds simultáneos se serializan** (integración, backend, polleria_test; corrige ADV-001-06)
 - Dado polleria_test limpia (sin tablas de fixtures, FixtureMeta ni FixtureData) y los fixtures de AC-22 y AC-23,
 - cuando se ejecutan a la vez dos `migrateUp(sequelize, { glob, tableName: 'FixtureMeta' })` sobre la misma instancia,
 - entonces ninguna se rechaza; una devuelve `['20260101000000-create-fixture-a.ts', '20260101000001-create-fixture-b.ts']` y la otra `[]`; FixtureMeta tiene exactamente esos dos nombres; fixture_a y fixture_b existen;
@@ -838,22 +838,22 @@ Cada AC tiene al menos una prueba cuyo nombre empieza con su ID. Las pruebas adv
 - cuando se ejecutan a la vez dos `seedUp(sequelize, { glob, tableName: 'FixtureData' })`,
 - entonces ninguna se rechaza, una devuelve `['20260101000000-insert-fixture-row.ts']` y la otra `[]`, y la tabla fixture_seed_rows tiene una sola fila.
 
-**AC-43. El bloqueo usa la clave documentada y espera a quien lo tiene** (integración, apps/api, polleria_test)
-- Dado `MIGRATION_LOCK_KEY` exportado por apps/api/src/db/migrator.ts con valor 2026100701, y una segunda conexión a polleria_test que tomó el bloqueo con la clave 2026100701 (por ejemplo, `SELECT pg_advisory_xact_lock(2026100701)` dentro de una transacción abierta),
+**AC-43. El bloqueo usa la clave documentada y espera a quien lo tiene** (integración, backend, polleria_test)
+- Dado `MIGRATION_LOCK_KEY` exportado por backend/src/db/migrator.ts con valor 2026100701, y una segunda conexión a polleria_test que tomó el bloqueo con la clave 2026100701 (por ejemplo, `SELECT pg_advisory_xact_lock(2026100701)` dentro de una transacción abierta),
 - cuando se llama `migrateUp(sequelize, { glob, tableName: 'FixtureMeta' })` con otra instancia,
 - entonces 500 ms después la promesa sigue pendiente y no existen FixtureMeta ni fixture_a (el bloqueo se toma antes de tocar la tabla de registro);
 - cuando la segunda conexión suelta el bloqueo, migrateUp termina en menos de 5 s y devuelve los dos nombres;
 - y, ya terminado migrateUp, otra conexión obtiene el bloqueo al instante: `SELECT pg_try_advisory_xact_lock(2026100701)` dentro de una transacción devuelve true;
 - y, con el bloqueo tomado de nuevo por la segunda conexión, `seedUp(sequelize, { glob, tableName: 'FixtureData' })` y `migrateDown(sequelize, { glob, tableName: 'FixtureMeta' })` también siguen pendientes 500 ms después y terminan cuando se suelta.
 
-**AC-44. El bloqueo se suelta aunque la migración falle** (integración, apps/api, polleria_test)
-- Dado un fixture de migración que falla (`apps/api/tests/fixtures/migrations-failing/20260101000000-fails.ts`, cuyo up lanza `new Error('Falla de prueba.')`) y tableName 'FixtureMeta',
+**AC-44. El bloqueo se suelta aunque la migración falle** (integración, backend, polleria_test)
+- Dado un fixture de migración que falla (`backend/tests/fixtures/migrations-failing/20260101000000-fails.ts`, cuyo up lanza `new Error('Falla de prueba.')`) y tableName 'FixtureMeta',
 - cuando se ejecuta migrateUp con el glob de ese fixture,
 - entonces la promesa se rechaza con un error cuyo mensaje contiene 'Falla de prueba.';
 - y después `SELECT pg_try_advisory_xact_lock(2026100701)` dentro de una transacción de otra conexión devuelve true;
 - y un migrateUp con los fixtures de AC-22 termina en menos de 5 s y devuelve sus dos nombres.
 
-**AC-45. API_INTERNAL_URL se reduce a su origen** (unitaria, apps/web; corrige ADV-001-09)
+**AC-45. API_INTERNAL_URL se reduce a su origen** (unitaria, frontend; corrige ADV-001-09)
 - Dado `loadWebServerConfig(env)`,
 - cuando API_INTERNAL_URL es cada valor de la tabla, entonces no lanza error y apiInternalUrl es el indicado:
 
@@ -869,10 +869,10 @@ Cada AC tiene al menos una prueba cuyo nombre empieza con su ID. Las pruebas adv
   | `https://api.local:443/x?y=1#z` | `https://api.local` |
   | `http://[::1]:4000/x` | `http://[::1]:4000` |
 
-- y el default export de apps/web/next.config.ts, cargado con `API_INTERNAL_URL=http://127.0.0.1:4000/base` en process.env, tiene un `rewrites()` que devuelve `[{ source: '/api/:path*', destination: 'http://127.0.0.1:4000/api/:path*' }]`;
+- y el default export de frontend/next.config.ts, cargado con `API_INTERNAL_URL=http://127.0.0.1:4000/base` en process.env, tiene un `rewrites()` que devuelve `[{ source: '/api/:path*', destination: 'http://127.0.0.1:4000/api/:path*' }]`;
 - y los casos de error de AC-28 (`ftp://192.168.1.50`, `no-es-url`) siguen lanzando el mismo error.
 
-**AC-46. API_INTERNAL_URL con usuario o clave se rechaza** (unitaria, apps/web; SUPUESTO S-13)
+**AC-46. API_INTERNAL_URL con usuario o clave se rechaza** (unitaria, frontend; SUPUESTO S-13)
 - Dado `loadWebServerConfig(env)`,
 - cuando API_INTERNAL_URL es `http://admin:Secreta_123@127.0.0.1:4000` o `http://admin@127.0.0.1:4000`,
 - entonces lanza un Error cuyo mensaje empieza con 'Configuración inválida de la web.', contiene la línea '- API_INTERNAL_URL: no debe incluir usuario ni clave.' y no contiene 'Secreta_123' ni 'admin'.

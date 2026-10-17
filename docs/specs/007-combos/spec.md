@@ -29,7 +29,7 @@ Todas fueron confirmadas por el usuario el 2026-10-09 con la respuesta recomenda
 
 **D-007-01. Alcance: solo dominio + API, sin pantallas (SUPUESTO S-007-08).**
 - Igual que la 005 y la 006: esta spec deja listo el modelo, los esquemas compartidos, la función de consumo, el servicio y las rutas. Las pantallas de administración son la spec 008 y la venta del combo por el mozo la Fase 2. No hay tareas de frontend-dev ni pruebas E2E.
-- Consecuencia: ningún archivo de apps/web cambia.
+- Consecuencia: ningún archivo de frontend cambia.
 
 **D-007-02. Un combo es un producto de la categoría nueva 'combo' (resuelve S-005-10; SUPUESTO S-007-01 y S-007-11).**
 - `PRODUCT_CATEGORIES` pasa a `['chicken', 'combo', 'dish', 'drink', 'dessert', 'sauce', 'extra']`: 'combo' entra en segundo lugar, después del Pollo — en las cartas de pollería los combos y promociones van junto al pollo, y coincide con el orden de la tabla de presentaciones de docs/planificacion.md (pollo, combos, otros platos). Etiqueta que pondrá la web: Combos. Cambio aditivo del enum: las demás categorías conservan su orden relativo.
@@ -120,12 +120,12 @@ Todas fueron confirmadas por el usuario el 2026-10-09 con la respuesta recomenda
 - Consecuencia para las pruebas (sección 12): `resetMigrationTables` borra `combo_items` ANTES que `products` (hay FK), `clearMenuTables` trunca `combo_items` junto a `product_portions` y `products` en un solo TRUNCATE (cada una detrás de su `tableExists`), y las listas MIGRATIONS de `users-migrations.test.ts` (que además gana un paso en el down encadenado), `products-migration.test.ts` y `product-portions-migration.test.ts` reciben el nombre nuevo al final. La tabla `combo_items` queda autorizada para limpieza de pruebas igual que `products` y `product_portions` (solo polleria_test, con la doble verificación).
 
 **D-007-15. Sin variables de entorno, sin dependencias nuevas, sin ADR.**
-- Nada se configura por .env: CONFIG_VARIABLES y apps/api/.env.example no cambian. Sin paquetes nuevos.
+- Nada se configura por .env: CONFIG_VARIABLES y backend/.env.example no cambian. Sin paquetes nuevos.
 - No hay ADR: el modelado del combo es una decisión de dominio documentada en esta spec (producto + tabla de componentes + consumo derivado), no un cambio de arquitectura ni una dependencia — mismo criterio que D-006-12. Si el usuario lo prefiere, se redacta un ADR corto del modelado; no lo considero necesario.
 
 ## 4. Criterios de aceptación (AC)
 
-Todos ejecutables con `pnpm test` en esta rama (cubre los tests de packages/shared y de apps/api, cada uno contra su base aislada). Casos felices y errores con el formato común `{ error: { code, message, details } }`, cuerpos exactos.
+Todos ejecutables con `pnpm test` en esta rama (cubre los tests de packages/shared y de backend, cada uno contra su base aislada). Casos felices y errores con el formato común `{ error: { code, message, details } }`, cuerpos exactos.
 
 ### 4.1 Esquemas y tipos compartidos (Zod, packages/shared/src/combos.ts + ajuste en products.ts y errors.ts)
 
@@ -160,7 +160,7 @@ Cuando se valida `{ productId: 8, quantity: 1 }` entonces es válido con `portio
 - `[{ quantity: 1, portion: 'quarter', cut: 'leg' }]` devuelve `{ breastEighths: 0, legEighths: 2 }`; `[{ quantity: 2, portion: 'quarter', cut: 'leg' }, { quantity: 1, portion: 'eighth', cut: 'breast' }, { quantity: 1, portion: null, cut: null }]` devuelve `{ breastEighths: 1, legEighths: 4 }` (el mostrito ×2 de pierna + un octavo de pecho + el chaufa).
 - `[{ quantity: 1, portion: 'half', cut: null }]` devuelve `{ breastEighths: 2, legEighths: 2 }`; un ítem con `portion: 'quarter'` y `cut: null`, o `portion` nula con `cut` presente, lanza error (la combinación inválida la delega a `chickenConsumption`, que falla).
 
-### 4.2 Tabla y migración (apps/api contra la base de pruebas)
+### 4.2 Tabla y migración (backend contra la base de pruebas)
 
 **AC-06 (combo_items existe con sus restricciones).** Dada la base de pruebas con todas las migraciones al día, cuando se inspecciona e inserta, entonces:
 
@@ -177,7 +177,7 @@ Cuando se valida `{ productId: 8, quantity: 1 }` entonces es válido con `portio
 - `migrateUp` lo ejecuta, entonces crea la tabla con todas las restricciones del AC-06 y deja `products_category_allowed` aceptando `'combo'`.
 - `migrateDown` lo revierte, entonces la tabla deja de existir, `products_category_allowed` vuelve a rechazar `'combo'` (y sigue aceptando `'dish'`), y un `migrateUp` posterior la recrea sin errores — el down encadenado de `users-migrations` gana este paso nuevo antes de revertir product_portions.
 
-### 4.3 Servicios (apps/api contra la base de pruebas)
+### 4.3 Servicios (backend contra la base de pruebas)
 
 **AC-08 (listComboItems: consulta con datos actuales del componente).** Dado un combo 'Mostrito' (category 'combo', priceCents 2200) con `replaceComboItems` de `[{ productId: <chaufa>, quantity: 1 }, { productId: <pollo>, quantity: 1, portion: 'quarter', cut: 'leg' }, { productId: <gaseosa>, quantity: 2 }]`, cuando:
 
@@ -203,7 +203,7 @@ Cuando se valida `{ productId: 8, quantity: 1 }` entonces es válido con `portio
 - `updateProduct(chaufa.id, { category: 'extra' })` → PRODUCT_IS_COMPONENT y nada cambia; `updateProduct(chaufa.id, { category: 'dish' })` (misma categoría) y `{ name: 'Chaufa amazónico' }` sí pasan. Tras quitar al 'Chaufa' del combo con un PUT, el cambio de categoría ya pasa.
 - `updateProduct(pollo.id, { category: 'combo' })` con presentaciones cargadas → PRODUCT_HAS_PORTIONS (la guardia de la 006 sigue, ahora también hacia 'combo').
 
-### 4.4 API por HTTP (apps/api contra la base de pruebas, con sesiones reales)
+### 4.4 API por HTTP (backend contra la base de pruebas, con sesiones reales)
 
 **AC-11 (GET /api/products/{productId}/items).** Dado 'Mostrito' con sus 3 componentes, cuando:
 
@@ -243,9 +243,9 @@ Cuando se valida `{ productId: 8, quantity: 1 }` entonces es válido con `portio
 | --- | --- | --- |
 | R-007-01 | GET /api/products/{productId}/items responde a cualquier rol con sesión; PUT .../items exige admin | reviewer lee las dos líneas del router |
 | R-007-02 | openapi.yaml 0.7.0 sigue siendo OpenAPI 3.1 válido y coincide con lo implementado | `pnpm dlx @redocly/cli lint docs/api/openapi.yaml`; contraste de AC-11 a AC-15 |
-| R-007-03 | Ninguna variable de entorno nueva | `git diff` vacío en apps/api/.env.example y CONFIG_VARIABLES |
+| R-007-03 | Ninguna variable de entorno nueva | `git diff` vacío en backend/.env.example y CONFIG_VARIABLES |
 | R-007-04 | Una sola migración nueva, en el orden de MIGRATIONS | ls de la carpeta de migraciones; AC-07 |
-| R-007-05 | apps/web no cambia | `git diff` vacío en apps/web; `pnpm --filter @polleria/web exec grep -rE "fetch|axios" src` sin coincidencias |
+| R-007-05 | frontend no cambia | `git diff` vacío en frontend; `pnpm --filter @polleria/web exec grep -rE "fetch|axios" src` sin coincidencias |
 | R-007-06 | Cobertura ≥ 90 % en shared y en el servicio | `pnpm test:coverage` |
 | R-007-07 | Definición de terminado de CLAUDE.md | orquestador en el cierre |
 
@@ -348,7 +348,7 @@ Base `/api`; todas protegidas con la cookie `polleria_session` y `Cache-Control:
 - Sin eventos Socket.IO: la carta la consulta el mozo bajo demanda; el emisor llega con pedidos (Fase 2), igual que quedó en la 006.
 - El contrato OpenAPI cambia solo de forma aditiva: `info.version` a 0.7.0, el path nuevo, los esquemas nuevos, 'combo' en el enum de ProductCategory, los 3 códigos en ErrorCode y las 2 respuestas 409 referenciadas desde PATCH (más ComboItemsNotAllowed en el PUT). No se renombra ni se quita nada de la 0.6.0.
 
-## 10. Interfaz (apps/web)
+## 10. Interfaz (frontend)
 
 Sin pantallas en esta spec (D-007-01): la 008 administra la carta completa (crear el producto 'combo', armar y vaciar sus componentes, verlos); la venta del combo es de la Fase 2. Notas para la 008: el combo se crea con POST /api/products eligiendo categoría Combos; el armado usa GET /api/products/{id}/items + PUT con la lista completa; los issues de `items.N.*` se marcan por fila; los 409 de PATCH se presentan como "este producto es combo/es componente: vacía sus componentes primero". La comparación "suma de componentes vs precio del combo" se arma con los `priceCents` del GET (D-007-09).
 
@@ -360,19 +360,19 @@ Sin pantallas en esta spec (D-007-01): la 008 administra la carta completa (crea
 | packages/shared/src/products.ts | `PRODUCT_CATEGORIES` suma 'combo' en 2º lugar (el comentario "no es categoría todavía" queda actualizado) |
 | packages/shared/src/errors.ts | ERROR_CODES suma los 3 códigos |
 | packages/shared/src/index.ts | exporta lo de combos.ts |
-| apps/api/src/db/migrations/20261009180000-create-combo-items.ts (nueva) | tabla + CHECKs + única + índices + ALTER del CHECK de categoría (D-007-14) |
-| apps/api/src/db/models/index.ts | ComboItem + `initComboItemAssociations` |
-| apps/api/src/services/combo-items/combo-item.service.ts (nuevo) | `listComboItems(productId)`, `replaceComboItems(productId, input)` con la transacción y locks de D-007-06 |
-| apps/api/src/services/products/product.service.ts | las dos guardias nuevas dentro de updateProduct (D-007-07), con re-verificación post-UPDATE |
-| apps/api/src/routes/combo-items/ (nuevo) | combo-items.routes.ts + combo-items.controller.ts montado en app.ts antes del 404 (mismo orden que portions) |
-| apps/api/tests/helpers.ts | `clearMenuTables` trunca combo_items; `resetMigrationTables` la borra antes que products |
+| backend/src/db/migrations/20261009180000-create-combo-items.ts (nueva) | tabla + CHECKs + única + índices + ALTER del CHECK de categoría (D-007-14) |
+| backend/src/db/models/index.ts | ComboItem + `initComboItemAssociations` |
+| backend/src/services/combo-items/combo-item.service.ts (nuevo) | `listComboItems(productId)`, `replaceComboItems(productId, input)` con la transacción y locks de D-007-06 |
+| backend/src/services/products/product.service.ts | las dos guardias nuevas dentro de updateProduct (D-007-07), con re-verificación post-UPDATE |
+| backend/src/routes/combo-items/ (nuevo) | combo-items.routes.ts + combo-items.controller.ts montado en app.ts antes del 404 (mismo orden que portions) |
+| backend/tests/helpers.ts | `clearMenuTables` trunca combo_items; `resetMigrationTables` la borra antes que products |
 
 ## 12. Cambios a specs anteriores (esta spec los modifica)
 
-- **005-menu-products.** `PRODUCT_CATEGORIES` y `productCategorySchema` pasan a aceptar `'combo'` (S-005-10 se resuelve: es categoría, no entidad aparte; el CHECK de base se amplía en la migración nueva); `updateProduct` suma las guardias PRODUCT_HAS_ITEMS y PRODUCT_IS_COMPONENT con re-verificación post-UPDATE; los tests de la 005 que afirmaban "`combo` debe ser rechazado" (products.test.ts de shared y de apps/api, products-service.test.ts) se actualizan en esta funcionalidad — pasan a afirmar la aceptación; el comentario del archivo products.ts sobre 'combo' se actualiza. El PATCH de producto gana dos 409 documentados en el contrato.
+- **005-menu-products.** `PRODUCT_CATEGORIES` y `productCategorySchema` pasan a aceptar `'combo'` (S-005-10 se resuelve: es categoría, no entidad aparte; el CHECK de base se amplía en la migración nueva); `updateProduct` suma las guardias PRODUCT_HAS_ITEMS y PRODUCT_IS_COMPONENT con re-verificación post-UPDATE; los tests de la 005 que afirmaban "`combo` debe ser rechazado" (products.test.ts de shared y de backend, products-service.test.ts) se actualizan en esta funcionalidad — pasan a afirmar la aceptación; el comentario del archivo products.ts sobre 'combo' se actualiza. El PATCH de producto gana dos 409 documentados en el contrato.
 - **006-portions-eighths.** Nada cambia en su contrato: PUT portions sobre un producto 'combo' sigue rechazado con PORTIONS_NOT_ALLOWED (la categoría no es 'chicken'); PATCH chicken→combo con presentaciones sigue siendo PRODUCT_HAS_PORTIONS. La nota §19 ("la 007 decide el modelado") queda resuelta aquí con D-007-02 a D-007-05.
 - **users-migrations.test.ts (004).** La lista MIGRATIONS recibe la migración nueva al final y el down encadenado gana un paso (revertir combo_items antes que product_portions); lo actualiza el test-writer de esta funcionalidad.
-- **helpers de tests de apps/api.** `clearMenuTables` y `resetMigrationTables` incluyen `combo_items` (D-007-14); `products-migration.test.ts` y `product-portions-migration.test.ts` reciben el nombre nuevo en su lista esperada.
+- **helpers de tests de backend.** `clearMenuTables` y `resetMigrationTables` incluyen `combo_items` (D-007-14); `products-migration.test.ts` y `product-portions-migration.test.ts` reciben el nombre nuevo en su lista esperada.
 - **Nada más**: usuarios, sesiones, presentaciones, productos y la app web no cambian por fuera de lo listado.
 
 ## 13. Dependencias externas

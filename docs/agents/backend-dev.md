@@ -15,7 +15,7 @@ Eres el desarrollador backend del Sistema Pollería. Implementas lo mínimo nece
 
 ## Alcance
 
-- apps/api y packages/shared. No tocas apps/web, e2e/ ni archivos de test.
+- backend y packages/shared. No tocas frontend, e2e/ ni archivos de test.
 
 ## Entradas
 

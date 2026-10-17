@@ -26,7 +26,7 @@ Aclaración aprobada («Corregir ambos ahora», ADV-003-06 y ADV-003-14): reset 
 - Descripción:
   - `pnpm --filter @polleria/api add bcrypt@6.0.0` y `pnpm --filter @polleria/api add -D @types/bcrypt@6.0.0` (versiones exactas por save-exact).
   - pnpm-workspace.yaml: agregar `ignoredBuiltDependencies:` con `- bcrypt`. No usar onlyBuiltDependencies ni `pnpm approve-builds` (bcrypt trae binario precompilado para win32-x64; su script solo compilaría desde el código fuente).
-  - Verificar: `pnpm install --frozen-lockfile` sin el aviso "Ignored build scripts"; `pnpm --filter @polleria/api why @types/node` muestra solo 24.19.1; un script de una línea en el scratchpad (no en el repositorio) con `node` desde apps/api que haga hash y compare con bcrypt.
+  - Verificar: `pnpm install --frozen-lockfile` sin el aviso "Ignored build scripts"; `pnpm --filter @polleria/api why @types/node` muestra solo 24.19.1; un script de una línea en el scratchpad (no en el repositorio) con `node` desde backend que haga hash y compare con bcrypt.
   - No crear ningún módulo de la sección 11 ni archivos de prueba. Si aparece un conflicto de versiones o bcrypt no carga, detenerse y reportarlo.
   - Commit `feat(003): instala bcrypt para el PIN` (sin archivos de prueba).
 
@@ -41,7 +41,7 @@ Reglas comunes:
 - Roles (revisión 1): crear usuarios con `roles: [...]` (por ejemplo `roles: ['waiter', 'cashier']` para waiter+cashier) y cambiarlos con SQL como arreglo (`UPDATE users SET roles = '{cashier,waiter}' WHERE id = $1`). En la web, limpiar localStorage entre pruebas ('polleria:lastUsername' y 'polleria:lastArea').
 - Para las solicitudes simultáneas (AC-17), usar un solo servidor (`http.createServer(app)` escuchando en 127.0.0.1) y `Promise.all`, en vez de un servidor efímero por solicitud.
 - Textos con caracteres invisibles o especiales siempre con escapes (`'\u00A0'`, `'\u0661'`), nunca literales.
-- Web: simular `next/navigation` (`useRouter` con `replace` espiado) y `apps/web/src/lib/navigation.ts` (`hardNavigate` espiado) con `vi.mock`; fijar la ruta actual con `window.history.pushState({}, '', '/mozo')`. `fireEvent.click` dispara onPress de los botones de HeroUI (verificado en react-aria 3.52.1); no hace falta user-event.
+- Web: simular `next/navigation` (`useRouter` con `replace` espiado) y `frontend/src/lib/navigation.ts` (`hardNavigate` espiado) con `vi.mock`; fijar la ruta actual con `window.history.pushState({}, '', '/mozo')`. `fireEvent.click` dispara onPress de los botones de HeroUI (verificado en react-aria 3.52.1); no hace falta user-event.
 - Commits con prefijo test, por ejemplo `test(003): pruebas del límite de intentos`.
 
 ### T-02. Esquemas de usuarios y sesión en shared
@@ -55,29 +55,29 @@ Reglas comunes:
 - Dependencias: T-01
 - AC: AC-05, AC-06, AC-07 (y el ajuste de la sección 12 para AC-21 y AC-24 de la 001 y ADV-001-06)
 - Descripción:
-  - apps/api/tests/helpers/test-database.ts: resetMigrationTables borra también sessions y users (antes que SequelizeMeta y SequelizeData, o con CASCADE), siempre después de la doble verificación. Agregar helpers para migrar y vaciar las tablas de usuarios (`migrateAndClearAuthTables`, `clearAuthTables` o nombres equivalentes). No cambiar ninguna aserción existente.
-  - Archivo nuevo apps/api/tests/users-migrations.test.ts con AC-05 a AC-07: columnas desde information_schema.columns, índices desde pg_indexes, restricciones probadas con INSERT/DELETE en SQL. Revisión 1: la columna roles se revisa con `format_type(a.atttypid, a.atttypmod)` de pg_attribute ('character varying(16)[]') y con data_type 'ARRAY' y udt_name '_varchar' de information_schema.columns; los INSERT con roles inválidos de AC-05 deben fallar (basta con que la base rechace; el arreglo de dos dimensiones falla con un error que no es de CHECK).
+  - backend/tests/helpers/test-database.ts: resetMigrationTables borra también sessions y users (antes que SequelizeMeta y SequelizeData, o con CASCADE), siempre después de la doble verificación. Agregar helpers para migrar y vaciar las tablas de usuarios (`migrateAndClearAuthTables`, `clearAuthTables` o nombres equivalentes). No cambiar ninguna aserción existente.
+  - Archivo nuevo backend/tests/users-migrations.test.ts con AC-05 a AC-07: columnas desde information_schema.columns, índices desde pg_indexes, restricciones probadas con INSERT/DELETE en SQL. Revisión 1: la columna roles se revisa con `format_type(a.atttypid, a.atttypmod)` de pg_attribute ('character varying(16)[]') y con data_type 'ARRAY' y udt_name '_varchar' de information_schema.columns; los INSERT con roles inválidos de AC-05 deben fallar (basta con que la base rechace; el arreglo de dos dimensiones falla con un error que no es de CHECK).
   - Confirmar que migrator.test.ts, db-cli.test.ts y migrate-concurrency.adversarial.test.ts siguen en verde (no dependen de T-16 mientras no haya migraciones reales; con ellas, dependen del nuevo helper).
 
 ### T-04. Cifrado del PIN, token y cookie
 - Responsable: test-writer
 - Dependencias: T-01
 - AC: AC-08, AC-10, AC-11
-- Descripción: apps/api/src/services/auth/pin-hasher.test.ts, session-token.test.ts y apps/api/src/http/session-cookie.test.ts. AC-10 compara con `createHash` de node:crypto. AC-11 con la tabla exacta (`it.each`).
+- Descripción: backend/src/services/auth/pin-hasher.test.ts, session-token.test.ts y backend/src/http/session-cookie.test.ts. AC-10 compara con `createHash` de node:crypto. AC-11 con la tabla exacta (`it.each`).
 
 ### T-05. Límite de intentos
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-09
-- Descripción: apps/api/src/services/auth/login-limiter.test.ts con un reloj manual (sin temporizadores falsos de Vitest: el limitador solo lee `now()`). Recorrer la secuencia de AC-09 paso a paso.
+- Descripción: backend/src/services/auth/login-limiter.test.ts con un reloj manual (sin temporizadores falsos de Vitest: el limitador solo lee `now()`). Recorrer la secuencia de AC-09 paso a paso.
 
 ### T-06. Helpers de autenticación, lista de usuarios, login correcto y fugas
 - Responsable: test-writer
 - Dependencias: T-03
 - AC: AC-12, AC-13, AC-24
 - Descripción:
-  - apps/api/tests/helpers/auth.ts: crear usuarios con createUserService (y desactivarlos con SQL), espía de verify, reloj controlado, y una función que haga login con Supertest y devuelva el valor de la cookie leído de Set-Cookie.
-  - apps/api/tests/auth-login.test.ts: AC-12 (orden exacto de la lista, la usuaria con dos roles una sola vez y /api/health sin cookie), AC-13 (cuerpo con roles, atributos de la cookie, fila de sessions y roles ordenados de moza.caja) y AC-24 (cuerpos y cabeceras sin PIN ni hash; Cache-Control en 200, 400, 401 y 429).
+  - backend/tests/helpers/auth.ts: crear usuarios con createUserService (y desactivarlos con SQL), espía de verify, reloj controlado, y una función que haga login con Supertest y devuelva el valor de la cookie leído de Set-Cookie.
+  - backend/tests/auth-login.test.ts: AC-12 (orden exacto de la lista, la usuaria con dos roles una sola vez y /api/health sin cookie), AC-13 (cuerpo con roles, atributos de la cookie, fila de sessions y roles ordenados de moza.caja) y AC-24 (cuerpos y cabeceras sin PIN ni hash; Cache-Control en 200, 400, 401 y 429).
 
 ### T-07. Login fallido y validación
 - Responsable: test-writer
@@ -89,50 +89,50 @@ Reglas comunes:
 - Responsable: test-writer
 - Dependencias: T-06
 - AC: AC-16, AC-17
-- Descripción: apps/api/tests/auth-lockout.test.ts. Cabecera Retry-After, details.retryAfterSeconds con el reloj adelantado, independencia entre usuarios, usuario inexistente nunca 429, 20 solicitudes simultáneas (exactamente 5 respuestas 401 y 15 respuestas 429; verify 5 veces) y bloqueo repetido. AC-16 se interpreta con D-003-05: un PIN correcto sin sesión guardada no reinicia el conteo (4 PIN incorrectos, 5.º correcto con `createSession` fallando: 500 sin cookie ni fila, siguiente intento 429). La regresión adversarial ADV-003-06 ya fue autorada independientemente y está en rojo; conservarla sin cambios para la corrección de T-19.
+- Descripción: backend/tests/auth-lockout.test.ts. Cabecera Retry-After, details.retryAfterSeconds con el reloj adelantado, independencia entre usuarios, usuario inexistente nunca 429, 20 solicitudes simultáneas (exactamente 5 respuestas 401 y 15 respuestas 429; verify 5 veces) y bloqueo repetido. AC-16 se interpreta con D-003-05: un PIN correcto sin sesión guardada no reinicia el conteo (4 PIN incorrectos, 5.º correcto con `createSession` fallando: 500 sin cookie ni fila, siguiente intento 429). La regresión adversarial ADV-003-06 ya fue autorada independientemente y está en rojo; conservarla sin cambios para la corrección de T-19.
 
 ### T-09. Sesión actual, vencimiento, cambios del usuario, cierre y limpieza
 - Responsable: test-writer
 - Dependencias: T-06
 - AC: AC-18, AC-19, AC-20, AC-21, AC-22
-- Descripción: apps/api/tests/auth-session.test.ts. Cookies manipuladas de AC-18 (token nuevo, un carácter cambiado, 42 y 44 caracteres, comillas, token_hash de la base). AC-20 con los UPDATE de roles como arreglo (revisión 1). Set-Cookie de borrado en AC-21 (aceptar Expires en el pasado o Max-Age=0). Conteo de filas de sessions en AC-22.
+- Descripción: backend/tests/auth-session.test.ts. Cookies manipuladas de AC-18 (token nuevo, un carácter cambiado, 42 y 44 caracteres, comillas, token_hash de la base). AC-20 con los UPDATE de roles como arreglo (revisión 1). Set-Cookie de borrado en AC-21 (aceptar Expires en el pasado o Max-Age=0). Conteo de filas de sessions en AC-22.
 
 ### T-10. requireAuth, requireRole y servicio de usuarios
 - Responsable: test-writer
 - Dependencias: T-06
 - AC: AC-23, AC-25
 - Descripción:
-  - apps/api/tests/auth-middleware.test.ts: app Express de prueba con las tres rutas de AC-23 y `errorHandler`; sesiones creadas con `sessionService.createSession` para los seis usuarios (cuatro de un rol, waiter+cashier y admin+waiter); cambio de roles por SQL con la misma cookie; `requireRole()` sin roles.
-  - apps/api/tests/user-service.test.ts: AC-25 con el hasher por defecto (costo 10), roles guardados en orden, conjuntos de roles inválidos, duplicado con mayúsculas y dos createUser simultáneos.
+  - backend/tests/auth-middleware.test.ts: app Express de prueba con las tres rutas de AC-23 y `errorHandler`; sesiones creadas con `sessionService.createSession` para los seis usuarios (cuatro de un rol, waiter+cashier y admin+waiter); cambio de roles por SQL con la misma cookie; `requireRole()` sin roles.
+  - backend/tests/user-service.test.ts: AC-25 con el hasher por defecto (costo 10), roles guardados en orden, conjuntos de roles inválidos, duplicado con mayúsculas y dos createUser simultáneos.
 
 ### T-11. Comando del primer administrador
 - Responsable: test-writer
 - Dependencias: T-03
 - AC: AC-26, AC-27
 - Descripción:
-  - apps/api/tests/helpers/child-process.ts: agregar la ruta de apps/api/src/create-admin.ts y una función que lo ejecute con la entrada estándar como tubería (escribir las líneas y cerrar), con tiempo límite de 15 s. ManagedProcess hoy usa stdin 'ignore': agregar una opción sin cambiar el comportamiento de los usos actuales.
-  - Archivo nuevo apps/api/tests/create-admin-process.test.ts con AC-26 (CRLF, aviso en stderr, fila creada con roles '{admin}', login con createApp y `roles: ['admin']`) y la tabla de AC-27 (`it.each`), incluida la comprobación de que ninguna línea de stderr cumple `/^\s+at /m`.
+  - backend/tests/helpers/child-process.ts: agregar la ruta de backend/src/create-admin.ts y una función que lo ejecute con la entrada estándar como tubería (escribir las líneas y cerrar), con tiempo límite de 15 s. ManagedProcess hoy usa stdin 'ignore': agregar una opción sin cambiar el comportamiento de los usos actuales.
+  - Archivo nuevo backend/tests/create-admin-process.test.ts con AC-26 (CRLF, aviso en stderr, fila creada con roles '{admin}', login con createApp y `roles: ['admin']`) y la tabla de AC-27 (`it.each`), incluida la comprobación de que ninguna línea de stderr cumple `/^\s+at /m`.
 
 ### T-12. Cliente HTTP y pantalla de inicio de sesión
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-28, AC-29, AC-30, AC-31, AC-32
 - Descripción:
-  - apps/web/src/lib/api/client.test.ts: AC-28 con MSW (incluido el tiempo límite con una respuesta que nunca llega y `timeoutMs: 50`) y el manejador por defecto de `apiClient` con hardNavigate simulado.
-  - apps/web/src/components/auth/login-screen.test.tsx: AC-29 a AC-32 dentro de Providers. Comprobar que los dígitos nunca aparecen como texto (`document.body.textContent`) ni en un input. Para AC-32, `vi.spyOn(Storage.prototype, 'getItem' | 'setItem')` para simular que localStorage lanza; limpiar localStorage entre pruebas. Revisión 1: AC-31 con los destinos por roles (`it.each`), con y sin 'polleria:lastArea' en localStorage.
+  - frontend/src/lib/api/client.test.ts: AC-28 con MSW (incluido el tiempo límite con una respuesta que nunca llega y `timeoutMs: 50`) y el manejador por defecto de `apiClient` con hardNavigate simulado.
+  - frontend/src/components/auth/login-screen.test.tsx: AC-29 a AC-32 dentro de Providers. Comprobar que los dígitos nunca aparecen como texto (`document.body.textContent`) ni en un input. Para AC-32, `vi.spyOn(Storage.prototype, 'getItem' | 'setItem')` para simular que localStorage lanza; limpiar localStorage entre pruebas. Revisión 1: AC-31 con los destinos por roles (`it.each`), con y sin 'polleria:lastArea' en localStorage.
 
 ### T-13. Guardia, áreas por rol, cerrar sesión e Inicio
 - Responsable: test-writer
 - Dependencias: ninguna
 - AC: AC-33, AC-34, AC-35, AC-36
-- Descripción: pruebas de componentes que renderizan el default export de apps/web/src/app/{mozo,caja,cocina,admin}/page.tsx dentro de Providers, con /api/auth/me y /api/auth/logout simulados y localStorage vacío. AC-33 con los casos de dos roles de la revisión 1. AC-34 con la tabla de la spec (`it.each`) y la constante ROLE_LABELS (ROLE_HOME_PATHS ya no existe). AC-35 solo recarga tras 204: cualquier otro estado, incluidos 200/202 con JSON válido o de error, JSON mal formado o sin JSON, muestra el error y permite reintentar sin hardNavigate. Las regresiones adversariales ADV-003-14 ya fueron autoradas independientemente y están en rojo; conservarlas sin cambios para T-22 y T-24. AC-36 en un archivo nuevo junto a apps/web/src/app/page.tsx (no modificar page.test.tsx de la 001).
+- Descripción: pruebas de componentes que renderizan el default export de frontend/src/app/{mozo,caja,cocina,admin}/page.tsx dentro de Providers, con /api/auth/me y /api/auth/logout simulados y localStorage vacío. AC-33 con los casos de dos roles de la revisión 1. AC-34 con la tabla de la spec (`it.each`) y la constante ROLE_LABELS (ROLE_HOME_PATHS ya no existe). AC-35 solo recarga tras 204: cualquier otro estado, incluidos 200/202 con JSON válido o de error, JSON mal formado o sin JSON, muestra el error y permite reintentar sin hardNavigate. Las regresiones adversariales ADV-003-14 ya fueron autoradas independientemente y están en rojo; conservarlas sin cambios para T-22 y T-24. AC-36 en un archivo nuevo junto a frontend/src/app/page.tsx (no modificar page.test.tsx de la 001).
 
 ### T-14. Extremo a extremo
 - Responsable: test-writer
 - Dependencias: T-03
 - AC: AC-37, AC-38, AC-39, AC-44
 - Descripción:
-  - e2e/global-setup.ts: lee DATABASE_URL_TEST como playwright.config.ts (y la verifica con assertTestDatabase), migra polleria_test con migrateUp, vacía users y sessions (con la doble verificación) y crea e2e.mozo, e2e.caja, e2e.admin y (revisión 1) e2e.mozocaja (waiter+cashier, PIN '8642') con createUserService y el hasher por defecto (importando apps/api/src por ruta relativa, como e2e/home.spec.ts importa shared).
+  - e2e/global-setup.ts: lee DATABASE_URL_TEST como playwright.config.ts (y la verifica con assertTestDatabase), migra polleria_test con migrateUp, vacía users y sessions (con la doble verificación) y crea e2e.mozo, e2e.caja, e2e.admin y (revisión 1) e2e.mozocaja (waiter+cashier, PIN '8642') con createUserService y el hasher por defecto (importando backend/src por ruta relativa, como e2e/home.spec.ts importa shared).
   - playwright.config.ts: agregar solo `globalSetup: './e2e/global-setup.ts'` (es la única configuración de ese archivo que le corresponde modificar).
   - e2e/auth.spec.ts con AC-37 a AC-39 y AC-44. AC-38 pasa por /areas (revisión 1). Cada usuario recibe como máximo 2 intentos fallidos por corrida completa (los dos proyectos), lejos del límite de 5. Medir alturas con `boundingBox()`; cookies con `context.cookies()`. En AC-44, el segundo inicio de sesión se hace en la misma página (mismo contexto), para que el dispositivo recuerde el usuario y el área.
 
@@ -141,8 +141,8 @@ Reglas comunes:
 - Dependencias: ninguna
 - AC: AC-41, AC-42, AC-43
 - Descripción:
-  - apps/web/src/lib/auth/roles.test.ts y last-area.test.ts: AC-41 con las tablas de la spec (`it.each`); localStorage que lanza con `vi.spyOn(Storage.prototype, ...)`.
-  - Prueba de componente de apps/web/src/app/areas/page.tsx (AC-42): enlaces dentro de `getByRole('navigation', { name: 'Áreas' })`, en orden y con su href; `replace` espiado; hardNavigate simulado para el 401.
+  - frontend/src/lib/auth/roles.test.ts y last-area.test.ts: AC-41 con las tablas de la spec (`it.each`); localStorage que lanza con `vi.spyOn(Storage.prototype, ...)`.
+  - Prueba de componente de frontend/src/app/areas/page.tsx (AC-42): enlaces dentro de `getByRole('navigation', { name: 'Áreas' })`, en orden y con su href; `replace` espiado; hardNavigate simulado para el 401.
   - Prueba de componente de las páginas de área (AC-43): presencia o ausencia del enlace 'Cambiar de área' (href '/areas') y el valor de 'polleria:lastArea' en localStorage después de mostrar el área.
 
 ### Verificación del rojo (al terminar T-02 a T-14 y T-27)
@@ -153,7 +153,7 @@ Reglas comunes:
 ## Implementación del backend (backend-dev)
 
 Reglas comunes:
-- No crear, modificar ni borrar archivos de prueba (`*.test.ts`, `*.test.tsx`, apps/api/tests/, e2e/). Si una prueba parece contradecir la spec, detenerse y reportarlo.
+- No crear, modificar ni borrar archivos de prueba (`*.test.ts`, `*.test.tsx`, backend/tests/, e2e/). Si una prueba parece contradecir la spec, detenerse y reportarlo.
 - Sintaxis borrable (D-02 de la 001), imports relativos con .ts, mensajes exactos de la spec. Sin SQL con interpolación de valores (las migraciones pueden ejecutar DDL fijo).
 - Sin dependencias nuevas fuera de T-01.
 - Commits con prefijo feat, por ejemplo `feat(003): sesiones en la base y requireAuth`, sin archivos de prueba. Antes de cada commit: `pnpm --filter @polleria/api run typecheck` y `pnpm lint`.
@@ -168,7 +168,7 @@ Reglas comunes:
 - Responsable: backend-dev
 - Dependencias: T-03
 - AC: AC-05, AC-06, AC-07
-- Descripción: las dos migraciones de D-003-14 con las columnas, CHECK, UNIQUE, FOREIGN KEY ON DELETE CASCADE e índice `sessions_user_id_idx` de la sección 8 (nombres de restricciones e índices como en la spec); `down` borra la tabla. Revisión 1: users lleva `roles` VARCHAR(16)[] NOT NULL (en la migración, `DataTypes.ARRAY(DataTypes.STRING(16))` o DDL fijo) con los tres CHECK de 8.1 (users_roles_not_empty, users_roles_allowed, users_roles_no_duplicates), en lugar de role. apps/api/src/models/index.ts con `defineModels` usando `sequelize.define` (D-003-11), tableName users y sessions, `underscored`, roles con `DataTypes.ARRAY(DataTypes.STRING(16))` y `updatedAt: false` en Session. Probar `pnpm db:migrate` y `pnpm db:migrate:undo` dos veces sobre polleria_dev solo si el usuario lo autoriza; si no, basta con las pruebas sobre polleria_test.
+- Descripción: las dos migraciones de D-003-14 con las columnas, CHECK, UNIQUE, FOREIGN KEY ON DELETE CASCADE e índice `sessions_user_id_idx` de la sección 8 (nombres de restricciones e índices como en la spec); `down` borra la tabla. Revisión 1: users lleva `roles` VARCHAR(16)[] NOT NULL (en la migración, `DataTypes.ARRAY(DataTypes.STRING(16))` o DDL fijo) con los tres CHECK de 8.1 (users_roles_not_empty, users_roles_allowed, users_roles_no_duplicates), en lugar de role. backend/src/models/index.ts con `defineModels` usando `sequelize.define` (D-003-11), tableName users y sessions, `underscored`, roles con `DataTypes.ARRAY(DataTypes.STRING(16))` y `updatedAt: false` en Session. Probar `pnpm db:migrate` y `pnpm db:migrate:undo` dos veces sobre polleria_dev solo si el usuario lo autoriza; si no, basta con las pruebas sobre polleria_test.
 
 ### T-17. Cifrado del PIN, token de sesión y límite de intentos
 - Responsable: backend-dev
@@ -181,9 +181,9 @@ Reglas comunes:
 - Dependencias: T-04, T-09, T-10, T-16, T-17
 - AC: AC-11, AC-18, AC-19, AC-20, AC-21, AC-22, AC-23
 - Descripción:
-  - apps/api/src/http/session-cookie.ts: readSessionCookie (primera cookie con el nombre exacto, valor recortado, undefined si vacío), setSessionCookie y clearSessionCookie con los atributos de D-003-02 (`res.cookie` con httpOnly, sameSite 'strict', path '/', maxAge SESSION_DURATION_MS; sin secure).
+  - backend/src/http/session-cookie.ts: readSessionCookie (primera cookie con el nombre exacto, valor recortado, undefined si vacío), setSessionCookie y clearSessionCookie con los atributos de D-003-02 (`res.cookie` con httpOnly, sameSite 'strict', path '/', maxAge SESSION_DURATION_MS; sin secure).
   - session.service.ts: createSession, resolveSession (sin consulta si el token no cumple el patrón; una consulta que une sessions y users con token_hash, `expires_at > now` del reloj inyectado e is_active; roles ordenados con sortUserRoles), deleteSession y deleteExpiredSessions (`expires_at <= now`).
-  - apps/api/src/middlewares/auth.ts: createRequireAuth (guarda el contexto en `res.locals.auth`; tipar Locals con una declaración ambiental si hace falta), requireRole (lanza con la lista vacía; 401 sin contexto; 200 si `hasAnyRole(user.roles, roles)`; si no, 403) y getAuthContext.
+  - backend/src/middlewares/auth.ts: createRequireAuth (guarda el contexto en `res.locals.auth`; tipar Locals con una declaración ambiental si hace falta), requireRole (lanza con la lista vacía; 401 sin contexto; 200 si `hasAnyRole(user.roles, roles)`; si no, 403) y getAuthContext.
 
 ### T-19. Servicio de autenticación, controller, rutas y createApp
 - Responsable: backend-dev
@@ -206,16 +206,16 @@ Reglas comunes:
 - Dependencias: T-11, T-16, T-20
 - AC: AC-26, AC-27 (requisitos R-003-02, R-003-03 y R-003-06)
 - Descripción:
-  - apps/api/src/create-admin.ts según D-003-10 y los mensajes de AC-26 y AC-27: título 'Crear un administrador del Sistema Pollería.', loadConfig(process.env), conexión ('No se pudo conectar con la base de datos.'), revisión de la tabla users (por ejemplo `SELECT to_regclass('users')`), preguntas en orden ('Nombre de usuario (por ejemplo, dueno): ', 'Nombre para mostrar (por ejemplo, Don Carlos): ', 'PIN (4 a 6 dígitos): ', 'Repite el PIN: '), validación de cada respuesta apenas llega, usuario existente antes de pedir el PIN, createUser con `roles: ['admin']` (solo ese rol, S-003-16) y 'Administrador creado: <username> (<displayName>).'.
+  - backend/src/create-admin.ts según D-003-10 y los mensajes de AC-26 y AC-27: título 'Crear un administrador del Sistema Pollería.', loadConfig(process.env), conexión ('No se pudo conectar con la base de datos.'), revisión de la tabla users (por ejemplo `SELECT to_regclass('users')`), preguntas en orden ('Nombre de usuario (por ejemplo, dueno): ', 'Nombre para mostrar (por ejemplo, Don Carlos): ', 'PIN (4 a 6 dígitos): ', 'Repite el PIN: '), validación de cada respuesta apenas llega, usuario existente antes de pedir el PIN, createUser con `roles: ['admin']` (solo ese rol, S-003-16) y 'Administrador creado: <username> (<displayName>).'.
   - Entrada: con readline; acepta LF y CRLF. Si `process.stdin.isTTY`, el PIN se lee en modo crudo sin mostrar los dígitos (se puede mostrar * por dígito) y Ctrl+C cancela con 'Se canceló la creación del administrador.'. Si no es TTY, escribe en stderr el aviso de AC-26 y lee líneas. Fin de la entrada antes de terminar: 'Se canceló la creación del administrador.'. Errores inesperados: 'No se pudo crear el administrador.' sin traza. Nunca escribir el PIN. Cerrar siempre la conexión. Usar `process.exitCode`.
-  - Scripts: en apps/api/package.json `"users:create-admin": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/create-admin.ts"`; en el package.json raíz `"users:create-admin": "pnpm --filter @polleria/api run users:create-admin"`.
-  - vitest.config.ts: agregar 'apps/api/src/create-admin.ts' a coverage.exclude.
+  - Scripts: en backend/package.json `"users:create-admin": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/create-admin.ts"`; en el package.json raíz `"users:create-admin": "pnpm --filter @polleria/api run users:create-admin"`.
+  - vitest.config.ts: agregar 'backend/src/create-admin.ts' a coverage.exclude.
   - Verificación manual (R-003-06) en PowerShell si hay una terminal disponible; si no, anotarlo como pendiente manual para el usuario.
 
 ## Implementación de la web (frontend-dev)
 
 Reglas comunes:
-- No crear, modificar ni borrar archivos de prueba (`*.test.tsx`, apps/web/tests/, e2e/). No modificar packages/shared: si falta algo, pedirlo en el reporte.
+- No crear, modificar ni borrar archivos de prueba (`*.test.tsx`, frontend/tests/, e2e/). No modificar packages/shared: si falta algo, pedirlo en el reporte.
 - HeroUI para los controles (Button con `isDisabled`, etc.), Tailwind para el diseño, botones de al menos 48 px de alto (se sugiere 56 px en el teclado), sin recursos de internet.
 - TanStack Query con `retry: false` en las consultas de auth. Textos exactos de la spec.
 - Commits con prefijo feat, sin archivos de prueba. Antes de cada commit: `pnpm --filter @polleria/web run typecheck` y `pnpm lint`.
@@ -224,13 +224,13 @@ Reglas comunes:
 - Responsable: frontend-dev
 - Dependencias: T-12, T-15, T-27
 - AC: AC-28, AC-35 (validación del contrato de logout), AC-41
-- Descripción: apps/web/src/lib/navigation.ts (hardNavigate), apps/web/src/lib/api/client.ts (createApiClient, apiClient, ApiError, DEFAULT_API_TIMEOUT_MS; AbortController para el tiempo límite; `credentials: 'same-origin'`; 401 UNAUTHENTICATED llama al manejador salvo skipAuthRedirect), apps/web/src/lib/api/auth.ts (las respuestas JSON validan con los esquemas de shared), apps/web/src/lib/auth/roles.ts, last-user.ts y (revisión 1) last-area.ts (try/catch alrededor de localStorage). Según la sección 11, añadir `expectedStatus?: number` interno y opcional: antes de resolver un 2xx, exigir el status esperado y rechazar los distintos con ApiError UNEXPECTED_RESPONSE y status HTTP real, sin alterar los errores no 2xx ni la aceptación genérica de 200 JSON válidos de AC-28. `logout` usa `{ method: 'POST', expectedStatus: 204, skipAuthRedirect: true }` y solo se resuelve tras 204; cualquier otra respuesta o error se propaga sin recarga automática y conservando su status (AC-35, ADV-003-14). No es un cambio HTTP ni una dependencia nueva. roles.ts según la sección 11 de la spec (sin ROLE_HOME_PATHS; getAllowedAreas con hasAnyRole de shared y resolveLandingPath de D-003-16).
+- Descripción: frontend/src/lib/navigation.ts (hardNavigate), frontend/src/lib/api/client.ts (createApiClient, apiClient, ApiError, DEFAULT_API_TIMEOUT_MS; AbortController para el tiempo límite; `credentials: 'same-origin'`; 401 UNAUTHENTICATED llama al manejador salvo skipAuthRedirect), frontend/src/lib/api/auth.ts (las respuestas JSON validan con los esquemas de shared), frontend/src/lib/auth/roles.ts, last-user.ts y (revisión 1) last-area.ts (try/catch alrededor de localStorage). Según la sección 11, añadir `expectedStatus?: number` interno y opcional: antes de resolver un 2xx, exigir el status esperado y rechazar los distintos con ApiError UNEXPECTED_RESPONSE y status HTTP real, sin alterar los errores no 2xx ni la aceptación genérica de 200 JSON válidos de AC-28. `logout` usa `{ method: 'POST', expectedStatus: 204, skipAuthRedirect: true }` y solo se resuelve tras 204; cualquier otra respuesta o error se propaga sin recarga automática y conservando su status (AC-35, ADV-003-14). No es un cambio HTTP ni una dependencia nueva. roles.ts según la sección 11 de la spec (sin ROLE_HOME_PATHS; getAllowedAreas con hasAnyRole de shared y resolveLandingPath de D-003-16).
 
 ### T-23. Pantalla de inicio de sesión
 - Responsable: frontend-dev
 - Dependencias: T-12, T-22
 - AC: AC-29, AC-30, AC-31, AC-32
-- Descripción: apps/web/src/components/auth/login-screen.tsx y apps/web/src/app/login/page.tsx según 10.1 de la spec. El PIN vive solo en el estado del componente (nunca en un input ni en el texto). Teclado físico con un listener de keydown activo solo en la vista del teclado. Tras el éxito: guardar el último usuario, poner la sesión en la caché de `['auth', 'me']` y `router.replace(resolveLandingPath(user.roles, readLastArea()))` (revisión 1). Lo mismo cuando /login encuentra una sesión abierta. Un solo envío a la vez (mutación deshabilitada mientras está pendiente).
+- Descripción: frontend/src/components/auth/login-screen.tsx y frontend/src/app/login/page.tsx según 10.1 de la spec. El PIN vive solo en el estado del componente (nunca en un input ni en el texto). Teclado físico con un listener de keydown activo solo en la vista del teclado. Tras el éxito: guardar el último usuario, poner la sesión en la caché de `['auth', 'me']` y `router.replace(resolveLandingPath(user.roles, readLastArea()))` (revisión 1). Lo mismo cuando /login encuentra una sesión abierta. Un solo envío a la vez (mutación deshabilitada mientras está pendiente).
 
 ### T-24. Guardia, áreas por rol, cerrar sesión e Inicio
 - Responsable: frontend-dev
@@ -243,7 +243,7 @@ Reglas comunes:
 - Dependencias: T-22, T-24, T-27
 - AC: AC-42, AC-43
 - Descripción:
-  - apps/web/src/components/auth/area-selector.tsx y apps/web/src/app/areas/page.tsx según 10.4 de la spec: barra superior con la línea y 'Cerrar sesión', encabezado '¿Dónde vas a trabajar?', `<nav aria-label="Áreas">` con un enlace grande por área permitida (getAllowedAreas, AREA_LABELS), `router.replace` a la única área si tiene una sola, y los estados de la tabla. Nunca salta a la última área recordada.
+  - frontend/src/components/auth/area-selector.tsx y frontend/src/app/areas/page.tsx según 10.4 de la spec: barra superior con la línea y 'Cerrar sesión', encabezado '¿Dónde vas a trabajar?', `<nav aria-label="Áreas">` con un enlace grande por área permitida (getAllowedAreas, AREA_LABELS), `router.replace` a la única área si tiene una sola, y los estados de la tabla. Nunca salta a la última área recordada.
   - En la barra superior de las áreas (RoleGuard o un componente de barra), el enlace 'Cambiar de área' (href '/areas') solo si getAllowedAreas da más de un área, y `saveLastArea(area)` cuando el área se muestra (estado Listo), nunca cuando redirige.
   - Enlaces y botones de al menos 48 px de alto; a 360 px la barra pasa a dos líneas antes que desplazarse a lo ancho.
 
@@ -261,7 +261,7 @@ Reglas comunes:
 - AC: todos (requisitos R-003-01 a R-003-09)
 - Descripción:
   - `pnpm test`, `pnpm lint`, `pnpm typecheck` y `pnpm test:coverage` con código 0 (services de la API, incluidos services/auth y services/users, con 90 % o más; shared con 90 % o más).
-  - R-003-01 (`pnpm install --frozen-lockfile` sin aviso y `why @types/node`), R-003-02 (`pnpm run`), R-003-04 (`git diff main -- apps/api/.env.example apps/api/src/config/env.ts` vacío) y R-003-07 (grep de R-14 de la 001).
+  - R-003-01 (`pnpm install --frozen-lockfile` sin aviso y `why @types/node`), R-003-02 (`pnpm run`), R-003-04 (`git diff main -- backend/.env.example backend/src/config/env.ts` vacío) y R-003-07 (grep de R-14 de la 001).
   - `pnpm test:e2e` con `pnpm dev` detenido.
   - Anotar en el reporte los pendientes manuales para el usuario: R-003-06 y la sección 17 de la spec.
 

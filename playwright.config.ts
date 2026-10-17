@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseEnv } from 'node:util';
 import { defineConfig, devices } from '@playwright/test';
-import { assertTestDatabase } from './apps/api/src/db/assert-test-database.ts';
+import { assertTestDatabase } from './backend/src/db/assert-test-database.ts';
 
 // Los E2E usan su propia API (127.0.0.1:4100) y su propia web (puerto 3100), ambas conectadas a
 // polleria_test. Nunca reutilizan servidores ya levantados (RN-001-03): si lo hicieran, podrían
@@ -13,14 +13,14 @@ const API_URL = `http://127.0.0.1:${API_PORT}`;
 const WEB_URL = `http://localhost:${WEB_PORT}`;
 const SERVER_TIMEOUT_MS = 120_000;
 
-// Lee DATABASE_URL_TEST del entorno o, si no está, de apps/api/.env. Solo toma esa variable y no
+// Lee DATABASE_URL_TEST del entorno o, si no está, de backend/.env. Solo toma esa variable y no
 // modifica process.env: las demás variables del archivo (como DATABASE_URL de desarrollo) no pasan
 // a los procesos hijos. El valor nunca se muestra en los mensajes.
 function readDatabaseUrlTest(): string {
   let value = process.env.DATABASE_URL_TEST;
 
   if (value === undefined) {
-    const envFile = resolve(import.meta.dirname, 'apps/api/.env');
+    const envFile = resolve(import.meta.dirname, 'backend/.env');
     if (existsSync(envFile)) {
       value = parseEnv(readFileSync(envFile, 'utf8')).DATABASE_URL_TEST;
     }
@@ -29,7 +29,7 @@ function readDatabaseUrlTest(): string {
   if (value === undefined || value.trim() === '') {
     throw new Error(
       'Falta DATABASE_URL_TEST. Las pruebas E2E usan la base polleria_test: ' +
-        'defínela en apps/api/.env (copia apps/api/.env.example) o como variable de entorno.',
+        'defínela en backend/.env (copia backend/.env.example) o como variable de entorno.',
     );
   }
 
@@ -79,7 +79,7 @@ export default defineConfig({
   webServer: [
     {
       name: 'API',
-      command: 'node --disable-warning=ExperimentalWarning apps/api/src/server.ts',
+      command: 'node --disable-warning=ExperimentalWarning backend/src/server.ts',
       cwd: import.meta.dirname,
       url: `${API_URL}/api/health`,
       reuseExistingServer: false,
@@ -94,7 +94,7 @@ export default defineConfig({
     {
       name: 'Web',
       command: `pnpm exec next dev --port ${WEB_PORT}`,
-      cwd: resolve(import.meta.dirname, 'apps/web'),
+      cwd: resolve(import.meta.dirname, 'frontend'),
       url: WEB_URL,
       reuseExistingServer: false,
       timeout: SERVER_TIMEOUT_MS,

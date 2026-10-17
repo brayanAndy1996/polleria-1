@@ -28,7 +28,7 @@ Todas fueron confirmadas por el usuario el 2026-10-09 con la respuesta recomenda
 
 **D-006-01. Alcance: solo dominio + API, sin pantallas (SUPUESTO S-006-07).**
 - Igual que la 005: esta spec deja listo el modelo, los esquemas compartidos, la función de consumo, el servicio y las rutas. Las pantallas de administración son la spec 008 y la carta del mozo la Fase 2. No hay tareas de frontend-dev ni pruebas E2E.
-- Consecuencia: ningún archivo de apps/web cambia.
+- Consecuencia: ningún archivo de frontend cambia.
 
 **D-006-02. Presentaciones y partes son listas fijas en shared (SUPUESTOS S-006-01 y S-006-02).**
 - `PORTIONS` = `['eighth', 'quarter', 'half', 'whole']`, en ese orden (es también el orden en que se muestran: octavo, cuarto, medio, entero). `CUTS` = `['breast', 'leg']` (pecho, pierna), en ese orden.
@@ -93,7 +93,7 @@ Todas fueron confirmadas por el usuario el 2026-10-09 con la respuesta recomenda
 - El servicio ordena en memoria (la lista es de máximo 6 filas por producto), igual que listProducts de la 005.
 
 **D-006-12. Sin variables de entorno, sin dependencias nuevas, sin ADR.**
-- Nada se configura por .env: CONFIG_VARIABLES y apps/api/.env.example no cambian. Sin paquetes nuevos.
+- Nada se configura por .env: CONFIG_VARIABLES y backend/.env.example no cambian. Sin paquetes nuevos.
 - No hay ADR: el modelado en octavos ya es regla de dominio 1 (no negociable) y las decisiones de esta spec (tabla por producto, consumo derivado, PUT de reemplazo) son decisiones de dominio documentadas aquí, no cambios de arquitectura ni dependencias. Si el usuario lo prefiere, se puede redactar un ADR corto del modelado; no lo considero necesario.
 
 ## 4. Criterios de aceptación
@@ -140,7 +140,7 @@ Datos comunes de las pruebas:
 
 ### 4.2 Base de datos (migraciones reales sobre polleria_test)
 
-**AC-05. Tabla product_portions** (integración, apps/api)
+**AC-05. Tabla product_portions** (integración, backend)
 - Dado polleria_test con `migrateUp(sequelize)` aplicado y un producto id 5 (INSERT directo),
 - entonces information_schema muestra la tabla product_portions con: id integer (clave primaria y autoincremental), product_id integer, portion character varying(8), cut character varying(8) —la única que permite NULL—, price_cents integer, created_at y updated_at timestamp with time zone; todas NOT NULL salvo cut, y created_at/updated_at con valor por defecto;
 - y `product_id` es clave foránea a products(id): un INSERT con product_id 999999 falla con error de la base;
@@ -152,15 +152,15 @@ Datos comunes de las pruebas:
 - y con ellos cargados falla tanto repetir (5,'quarter','breast') como repetir (5,'half',NULL) — la unicidad `product_portions_unique` trata los NULL como iguales (UNIQUE NULLS NOT DISTINCT sobre product_id, portion, cut);
 - y el mismo (portion, cut) sí puede existir en otro producto (por ejemplo (6,'quarter','breast')).
 
-**AC-06. Las migraciones se aplican y se revierten** (integración, apps/api)
+**AC-06. Las migraciones se aplican y se revierten** (integración, backend)
 - Dado polleria_test sin tablas de dominio ni de registro (helper de la sección 12),
 - cuando se ejecuta `migrateUp(sequelize)`, entonces devuelve `['20261008120000-create-users.ts', '20261008120100-create-sessions.ts', '20261008180000-create-products.ts', '20261009120000-create-product-portions.ts']` en ese orden y existe product_portions;
 - cuando luego se ejecuta `migrateDown(sequelize)`, devuelve `['20261009120000-create-product-portions.ts']` y product_portions ya no existe pero products sí;
 - y al ejecutar `migrateUp(sequelize)` otra vez, product_portions vuelve a existir (reaplicable tras revertir).
 
-### 4.3 Servicios (apps/api, con polleria_test)
+### 4.3 Servicios (backend, con polleria_test)
 
-**AC-07. Listar las presentaciones de un producto** (integración, apps/api/tests)
+**AC-07. Listar las presentaciones de un producto** (integración, backend/tests)
 - Dado `createProductPortionService({ models })` sobre polleria_test, con el producto 5 (chicken) cargado por SQL con las filas en desorden: (half,NULL,3200), (quarter,leg,1700), (eighth,leg,650), (quarter,breast,1850), (whole,NULL,6000), (eighth,breast,700),
 - cuando se llama `listProductPortions(5)`, entonces devuelve las seis en el orden de D-006-11: (eighth,breast), (eighth,leg), (quarter,breast), (quarter,leg), (half,null), (whole,null);
 - y cada elemento tiene exactamente las claves `id`, `productId`, `portion`, `cut` y `priceCents` (null en las mixtas); ninguna lleva `createdAt` ni `product_id`;
@@ -243,9 +243,9 @@ No son comportamiento, por eso no llevan AC. Los comandos se ejecutan en Git Bas
 | --- | --- | --- | --- |
 | R-006-01 | Las rutas nuevas pasan por requireAuth, y PUT además por requireRole('admin'). | Revisión del reviewer | Se cumple. |
 | R-006-02 | docs/api/openapi.yaml es OpenAPI 3.1 válido, versión 0.6.0, y coincide con lo implementado. | `npx -y @redocly/cli@latest lint docs/api/openapi.yaml` (desde una carpeta temporal) | "valid", sin errores. |
-| R-006-03 | Sin variables de entorno nuevas ni cambios de configuración (D-006-12). | `git diff main -- apps/api/.env.example apps/api/src/config/env.ts` | Sin resultados. |
-| R-006-04 | Una sola migración nueva, .ts con up/down (D-006-10). | `git status --porcelain apps/api/src/db/migrations` | Solo `?? .../20261009120000-create-product-portions.ts`. |
-| R-006-05 | apps/web no cambia (D-006-01) y la web sigue sin recursos de internet (R-14 de la 001). | `git status --porcelain apps/web` y el grep de R-14 de la 001 | Sin resultados. |
+| R-006-03 | Sin variables de entorno nuevas ni cambios de configuración (D-006-12). | `git diff main -- backend/.env.example backend/src/config/env.ts` | Sin resultados. |
+| R-006-04 | Una sola migración nueva, .ts con up/down (D-006-10). | `git status --porcelain backend/src/db/migrations` | Solo `?? .../20261009120000-create-product-portions.ts`. |
+| R-006-05 | frontend no cambia (D-006-01) y la web sigue sin recursos de internet (R-14 de la 001). | `git status --porcelain frontend` y el grep de R-14 de la 001 | Sin resultados. |
 | R-006-06 | Cobertura: services de la API (incluido el servicio de presentaciones) y shared con 90 % o más de líneas. | `pnpm test:coverage` | Código 0. |
 | R-006-07 | Definición de terminado de CLAUDE.md. | `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm test:coverage` | Código 0 en los cuatro. |
 
@@ -396,21 +396,21 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
   - `productPortionSchema` (estricto: id y productId enteros positivos, portion, cut nullable, priceCents) y `type ProductPortion`.
   - `productPortionsResponseSchema` (estricto: `portions` con arreglo de productPortionSchema) y `type ProductPortionsResponse`.
 - **packages/shared/src/errors.ts** (modificado): ERROR_CODES suma PORTIONS_NOT_ALLOWED y PRODUCT_HAS_PORTIONS.
-- **apps/api/src/db/migrations/20261009120000-create-product-portions.ts** (nuevo): `up`/`down` según la sección 8.1 (tabla con sus CHECK, `UNIQUE NULLS NOT DISTINCT` y el índice `product_portions_product_id`); `down` borra la tabla.
-- **apps/api/src/models/index.ts** (modificado): `interface ProductPortionAttributes { id: number; productId: number; portion: Portion; cut: Cut | null; priceCents: number; createdAt: Date; updatedAt: Date }`, `type ProductPortionModel`, `Models` suma `ProductPortion: ModelStatic<ProductPortionModel>`; `defineModels` lo define (`tableName: 'product_portions'`, `underscored`), la guardia `isDefined` contempla también 'ProductPortion' y se registran las asociaciones Product ↔ ProductPortion por `productId`.
-- **apps/api/src/services/products/product-portion.service.ts** (nuevo):
+- **backend/src/db/migrations/20261009120000-create-product-portions.ts** (nuevo): `up`/`down` según la sección 8.1 (tabla con sus CHECK, `UNIQUE NULLS NOT DISTINCT` y el índice `product_portions_product_id`); `down` borra la tabla.
+- **backend/src/models/index.ts** (modificado): `interface ProductPortionAttributes { id: number; productId: number; portion: Portion; cut: Cut | null; priceCents: number; createdAt: Date; updatedAt: Date }`, `type ProductPortionModel`, `Models` suma `ProductPortion: ModelStatic<ProductPortionModel>`; `defineModels` lo define (`tableName: 'product_portions'`, `underscored`), la guardia `isDefined` contempla también 'ProductPortion' y se registran las asociaciones Product ↔ ProductPortion por `productId`.
+- **backend/src/services/products/product-portion.service.ts** (nuevo):
   - `interface ProductPortionService { listProductPortions(productId: number): Promise<ProductPortion[]>; replaceProductPortions(productId: number, input: unknown): Promise<ProductPortion[]> }` — ambas verifican que el producto exista (PRODUCT_NOT_FOUND); `replaceProductPortions` parsea su entrada (ZodError), exige categoría 'chicken' (PORTIONS_NOT_ALLOWED) y ejecuta borrado + inserción dentro de una transacción (`models.ProductPortion.sequelize.transaction`, como hace user-admin.service con `models.User.sequelize`).
   - `createProductPortionService(deps: { models: Models }): ProductPortionService`.
   - `listProductPortions` devuelve las filas en el orden de D-006-11 con exactamente las cinco claves de ProductPortion.
   - Funciones de error exportadas: `createPortionsNotAllowedError()` y `createProductHasPortionsError()` (esta última la usa también product.service).
-- **apps/api/src/services/products/product.service.ts** (modificado): `updateProduct` suma la guardia RN-006-03 — si `changes.category !== undefined`, `changes.category !== 'chicken'` y el producto tiene al menos una fila en product_portions, lanza `createProductHasPortionsError()` (409) sin tocar la fila. Nada más cambia (los demás campos se editan igual, con o sin presentaciones).
-- **apps/api/src/controllers/product-portions.controller.ts** (nuevo): `createProductPortionsController({ productPortionService })` con handlers `list` y `replace`; parsea `productId` reutilizando la misma regla que products.controller (`^[0-9]+$`, 1..2147483647 → VALIDATION_ERROR con issue 'El identificador del producto no es válido.'; exportar el helper existente `parseProductIdParam` de products.controller.ts para no duplicarlo), parsea el cuerpo con `replaceProductPortionsRequestSchema` (ZodError al errorHandler) y responde 200.
-- **apps/api/src/routes/products.routes.ts** (modificado): recibe también el controller de presentaciones; `router.get('/:productId/portions', requireAuth, portionsController.list)` y `router.put('/:productId/portions', requireAuth, requireRole('admin'), portionsController.replace)`. El middleware de `Cache-Control: no-store` ya cubre las nuevas rutas.
-- **apps/api/src/routes/index.ts** y **apps/api/src/app.ts** (modificados): ApiRouterDependencies suma productPortionsController; app.ts crea `createProductPortionService({ models })` y su controller. NO_STORE_PATH_PREFIXES no cambia ('/api/products' ya cubre '/api/products/N/portions').
-- **apps/api/tests/helpers/test-database.ts** (modificado por el test-writer): `resetMigrationTables` borra 'product_portions' antes que 'products'; `clearMenuTables` trunca 'product_portions' antes que 'products', cada una detrás de su `tableExists` (la fase roja no debe fallar en la limpieza).
-- **apps/web**: sin cambios (D-006-01).
+- **backend/src/services/products/product.service.ts** (modificado): `updateProduct` suma la guardia RN-006-03 — si `changes.category !== undefined`, `changes.category !== 'chicken'` y el producto tiene al menos una fila en product_portions, lanza `createProductHasPortionsError()` (409) sin tocar la fila. Nada más cambia (los demás campos se editan igual, con o sin presentaciones).
+- **backend/src/controllers/product-portions.controller.ts** (nuevo): `createProductPortionsController({ productPortionService })` con handlers `list` y `replace`; parsea `productId` reutilizando la misma regla que products.controller (`^[0-9]+$`, 1..2147483647 → VALIDATION_ERROR con issue 'El identificador del producto no es válido.'; exportar el helper existente `parseProductIdParam` de products.controller.ts para no duplicarlo), parsea el cuerpo con `replaceProductPortionsRequestSchema` (ZodError al errorHandler) y responde 200.
+- **backend/src/routes/products.routes.ts** (modificado): recibe también el controller de presentaciones; `router.get('/:productId/portions', requireAuth, portionsController.list)` y `router.put('/:productId/portions', requireAuth, requireRole('admin'), portionsController.replace)`. El middleware de `Cache-Control: no-store` ya cubre las nuevas rutas.
+- **backend/src/routes/index.ts** y **backend/src/app.ts** (modificados): ApiRouterDependencies suma productPortionsController; app.ts crea `createProductPortionService({ models })` y su controller. NO_STORE_PATH_PREFIXES no cambia ('/api/products' ya cubre '/api/products/N/portions').
+- **backend/tests/helpers/test-database.ts** (modificado por el test-writer): `resetMigrationTables` borra 'product_portions' antes que 'products'; `clearMenuTables` trunca 'product_portions' antes que 'products', cada una detrás de su `tableExists` (la fase roja no debe fallar en la limpieza).
+- **frontend**: sin cambios (D-006-01).
 
-Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/portions.test.ts`); integración en apps/api/tests/ (`product-portions-migration.test.ts`, `product-portions-service.test.ts`, `product-portions.test.ts`).
+Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/portions.test.ts`); integración en backend/tests/ (`product-portions-migration.test.ts`, `product-portions-service.test.ts`, `product-portions.test.ts`).
 
 ## 12. Cambios a specs y documentos anteriores (señalados)
 
@@ -421,7 +421,7 @@ Ningún cambio altera lo que ya ve el usuario ni toca código existente fuera de
 | 005, product.service.ts updateProduct | Nueva guardia: cambiar category a algo distinto de 'chicken' con presentaciones cargadas responde 409 PRODUCT_HAS_PORTIONS (RN-006-03). | backend-dev (T-07) |
 | 005, products.controller.ts | Exportar `parseProductIdParam` para reusarlo en el controller de presentaciones. | backend-dev (T-08) |
 | 005, products.routes.ts | Recibe el controller de presentaciones y monta las dos rutas nuevas. | backend-dev (T-08) |
-| 003/004/005, helper resetMigrationTables (apps/api/tests/helpers/test-database.ts) | Borra también `product_portions`, antes que `products` (FK); `clearMenuTables` trunca ambas en ese orden. | test-writer (T-02) |
+| 003/004/005, helper resetMigrationTables (backend/tests/helpers/test-database.ts) | Borra también `product_portions`, antes que `products` (FK); `clearMenuTables` trunca ambas en ese orden. | test-writer (T-02) |
 | 003, users-migrations.test.ts y 005, products-migration.test.ts | Las listas MIGRATIONS ganan '20261009120000-create-product-portions.ts' al final (mismo ajuste que hizo la 005 sobre la 003). | test-writer (T-02) |
 | 005, D-005-12 / S-005-11 | Resueltos aquí: price_cents queda obligatorio y sin efecto de venta cuando el producto tiene presentaciones (D-006-05). | — (nota) |
 | docs/api/openapi.yaml | Versión 0.5.0 → 0.6.0 con lo de 9.3. | spec-writer (esta spec) |
@@ -482,7 +482,7 @@ Respondidas el 2026-10-09, todas con la respuesta recomendada: 1 (el 1/8 queda d
 
 ## 18. Acción del usuario y verificación manual
 
-Acción en apps/api/.env: ninguna. Una migración nueva (product_portions); aplicarla con `pnpm db:migrate` sobre polleria_dev cuando la funcionalidad esté implementada.
+Acción en backend/.env: ninguna. Una migración nueva (product_portions); aplicarla con `pnpm db:migrate` sobre polleria_dev cuando la funcionalidad esté implementada.
 
 Después de implementada (sin pantallas; verificación por API, desde PowerShell o una consola, con `pnpm dev` y la cookie `polleria_session` de un administrador):
 1. `pnpm db:migrate`: debe decir 'Migración aplicada: 20261009120000-create-product-portions.ts'.

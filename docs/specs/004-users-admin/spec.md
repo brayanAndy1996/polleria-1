@@ -78,11 +78,11 @@ Aclaración 1 (2026-10-08): '/admin' no es un puesto de trabajo. El dispositivo 
 
 **D-004-07. Sin migraciones ni variables de entorno nuevas.**
 - La tabla users de la 003 ya tiene todo: username, display_name, pin_hash, roles (arreglo), is_active y sus CHECK. La tabla sessions sirve para el borrado de sesiones. No hay migración nueva; el helper resetMigrationTables (que ya borra sessions y users) no cambia.
-- Nada se configura por .env: CONFIG_VARIABLES sigue con las 7 variables y apps/api/.env.example no cambia.
+- Nada se configura por .env: CONFIG_VARIABLES sigue con las 7 variables y backend/.env.example no cambia.
 - Sin dependencias nuevas: se reutilizan bcrypt (PinHasher), Sequelize (Op.contains para buscar administradores, transacciones) y Zod de shared.
 
 **D-004-08. Servicio de administración de usuarios.**
-- En el mismo módulo `apps/api/src/services/users/user.service.ts` (o un módulo nuevo junto a él): `createUserAdminService({ models, pinHasher, sessionService, loginLimiter })` con `listUsers()`, `updateUser(userId, input)` y `resetUserPin(userId, pin)`.
+- En el mismo módulo `backend/src/services/users/user.service.ts` (o un módulo nuevo junto a él): `createUserAdminService({ models, pinHasher, sessionService, loginLimiter })` con `listUsers()`, `updateUser(userId, input)` y `resetUserPin(userId, pin)`.
 - `listUsers` devuelve todos los usuarios, activos e inactivos, ordenados por displayName con `Intl.Collator('es', { sensitivity: 'base' })` y los empates por username (la misma regla que la lista pública de /auth/users).
 - `updateUser` y `resetUserPin` validan su entrada con los esquemas de shared (ZodError, igual que createUser), verifican que el usuario exista (USER_NOT_FOUND), aplican la guardia del último administrador en una transacción con bloqueo (D-004-04) y ejecutan los efectos de D-004-05 (las sesiones se borran dentro de la transacción; el conteo se limpia después de confirmar, con `loginLimiter.clearAttempts`).
 - `createUserService` (003) no cambia de firma: lo siguen usando el comando y las pruebas. La validación del PIN fuerte en el alta web la hace `createUserRequestSchema` en la capa HTTP (createUser acepta el PIN ya validado; volver a validarlo con pinSchema es inocuo).
@@ -91,7 +91,7 @@ Aclaración 1 (2026-10-08): '/admin' no es un puesto de trabajo. El dispositivo 
 
 **D-004-09. Cliente web.**
 - `ApiRequestOptions.method` suma 'PATCH' (para PATCH /users/{userId}); nada más cambia en el cliente central.
-- Funciones nuevas en `apps/web/src/lib/api/users.ts`: `getUsers()`, `createUser(input)`, `updateUser(userId, input)` y `resetUserPin(userId, pin)`; las respuestas JSON se validan con los esquemas de shared y las mutaciones declaran `expectedStatus` (201, 200 y 204), igual que `logout` en la 003.
+- Funciones nuevas en `frontend/src/lib/api/users.ts`: `getUsers()`, `createUser(input)`, `updateUser(userId, input)` y `resetUserPin(userId, pin)`; las respuestas JSON se validan con los esquemas de shared y las mutaciones declaran `expectedStatus` (201, 200 y 204), igual que `logout` en la 003.
 - Rutas nuevas de la web dentro del área /admin: `/admin/usuarios` (lista), `/admin/usuarios/nuevo` (alta) y `/admin/usuarios/[id]` (edición, PIN y estado). Todas envuelven su contenido en el `RoleGuard` con `area="/admin"` de la 003.
 - La página /admin de la 003 gana un enlace 'Usuarios' a /admin/usuarios.
 
@@ -142,9 +142,9 @@ Datos comunes de las pruebas:
 - entonces ERROR_CODES contiene USER_NOT_FOUND y LAST_ADMIN_REQUIRED con valores iguales a sus nombres, además de todos los anteriores;
 - y errorResponseSchema acepta `{ error: { code: 'USER_NOT_FOUND', message: 'Ese usuario no existe.', details: null } }` y `{ error: { code: 'LAST_ADMIN_REQUIRED', message: 'Debe quedar al menos un administrador activo.', details: null } }`.
 
-### 4.2 Servicios (apps/api, con polleria_test)
+### 4.2 Servicios (backend, con polleria_test)
 
-**AC-07. Limpiar el conteo de intentos** (unitaria, apps/api/src/services/auth/login-limiter.ts)
+**AC-07. Limpiar el conteo de intentos** (unitaria, backend/src/services/auth/login-limiter.ts)
 - Dado `createLoginLimiter({ now })` con el reloj en T0,
 - cuando el usuario 7 llega a 5 `registerAttempt` (bloqueado: `getRetryAfterSeconds(7)` es 900) y se llama `clearAttempts(7)`, entonces `getRetryAfterSeconds(7)` es null de inmediato; y 4 `registerAttempt(7)` después lo dejan en null y el 5.º en 900 (el conteo empezó de cero);
 - y `clearAttempts(9)` sobre un usuario sin intentos no lanza;
@@ -236,16 +236,16 @@ En todos: `Cache-Control: no-store` en cada respuesta (también en las de error)
 
 ### 4.4 Web (unitarias y de componentes, con MSW)
 
-En estas pruebas `next/navigation` se simula (`useRouter` devuelve `replace` espiado y `useParams` devuelve el id), `apps/web/src/lib/navigation.ts` se simula para espiar `hardNavigate`, la API se simula con MSW según el contrato y los componentes se renderizan dentro de Providers. La sesión de /api/auth/me por defecto es la de un administrador ('Carlos', id 1); "la lista de la API" es un GET /api/users simulado.
+En estas pruebas `next/navigation` se simula (`useRouter` devuelve `replace` espiado y `useParams` devuelve el id), `frontend/src/lib/navigation.ts` se simula para espiar `hardNavigate`, la API se simula con MSW según el contrato y los componentes se renderizan dentro de Providers. La sesión de /api/auth/me por defecto es la de un administrador ('Carlos', id 1); "la lista de la API" es un GET /api/users simulado.
 
-**AC-19. Cliente PATCH y funciones de usuarios** (unitaria, apps/web/src/lib/api)
+**AC-19. Cliente PATCH y funciones de usuarios** (unitaria, frontend/src/lib/api)
 - Dado `apiClient` con 'PATCH' permitido en `ApiRequestOptions.method`,
 - entonces `request('/users/3', { method: 'PATCH', body: { isActive: false } })` envía un PATCH con el JSON a `<origin>/api/users/3` y se comporta como los demás métodos (401 UNAUTHENTICATED llama al manejador, 404/409 se rechazan con ApiError con su code y details);
-- y en apps/web/src/lib/api/users.ts: `getUsers()` hace GET /users y valida la respuesta con usersResponseSchema (una respuesta mal formada se rechaza con ApiError UNEXPECTED_RESPONSE); `createUser(input)` hace POST /users con el cuerpo y valida el AdminUser con `expectedStatus: 201`; `updateUser(id, input)` hace PATCH /users/<id> con `expectedStatus: 200` y valida el AdminUser; `resetUserPin(id, pin)` hace POST /users/<id>/pin con `{ pin }` y `expectedStatus: 204` (otro 2xx, por ejemplo 200 con JSON, se rechaza con UNEXPECTED_RESPONSE, igual que logout en la 003);
+- y en frontend/src/lib/api/users.ts: `getUsers()` hace GET /users y valida la respuesta con usersResponseSchema (una respuesta mal formada se rechaza con ApiError UNEXPECTED_RESPONSE); `createUser(input)` hace POST /users con el cuerpo y valida el AdminUser con `expectedStatus: 201`; `updateUser(id, input)` hace PATCH /users/<id> con `expectedStatus: 200` y valida el AdminUser; `resetUserPin(id, pin)` hace POST /users/<id>/pin con `{ pin }` y `expectedStatus: 204` (otro 2xx, por ejemplo 200 con JSON, se rechaza con UNEXPECTED_RESPONSE, igual que logout en la 003);
 - y los cuerpos de error (409 USERNAME_TAKEN, 409 LAST_ADMIN_REQUIRED, 404 USER_NOT_FOUND, 400 VALIDATION_ERROR con issues) se rechazan con ApiError que conserva code, message y details.
 
 **AC-20. Enlace a Usuarios en Administración y guardia** (componente)
-- Dado el default export de apps/web/src/app/admin/page.tsx con la sesión de un administrador,
+- Dado el default export de frontend/src/app/admin/page.tsx con la sesión de un administrador,
 - entonces muestra, además del encabezado 'Administración', un enlace 'Usuarios' con href '/admin/usuarios';
 - y las páginas /admin/usuarios, /admin/usuarios/nuevo y /admin/usuarios/<id> usan el RoleGuard con area '/admin': con una sesión de cajero llaman a `replace('/caja')` sin mostrar el contenido, y con 401 UNAUTHENTICATED llaman a `hardNavigate('/login')`.
 
@@ -314,10 +314,10 @@ No son comportamiento, por eso no llevan AC. Los comandos se ejecutan en Git Bas
 
 | ID | Requisito | Comando | Resultado esperado |
 | --- | --- | --- | --- |
-| R-004-01 | Toda ruta de apps/api/src/routes/users.routes.ts pasa por requireAuth y requireRole('admin'). | Revisión del reviewer | Se cumple. |
+| R-004-01 | Toda ruta de backend/src/routes/users.routes.ts pasa por requireAuth y requireRole('admin'). | Revisión del reviewer | Se cumple. |
 | R-004-02 | docs/api/openapi.yaml es OpenAPI 3.1 válido, versión 0.4.0, y coincide con lo implementado. | `npx -y @redocly/cli@latest lint docs/api/openapi.yaml` (desde una carpeta temporal) | "valid", sin errores. |
-| R-004-03 | Sin variables de entorno nuevas ni cambios de configuración (D-004-07). | `git diff main -- apps/api/.env.example apps/api/src/config/env.ts` | Sin resultados. |
-| R-004-04 | Sin migraciones nuevas (la tabla users ya basta). | `git status --porcelain apps/api/src/db/migrations` | Sin resultados. |
+| R-004-03 | Sin variables de entorno nuevas ni cambios de configuración (D-004-07). | `git diff main -- backend/.env.example backend/src/config/env.ts` | Sin resultados. |
+| R-004-04 | Sin migraciones nuevas (la tabla users ya basta). | `git status --porcelain backend/src/db/migrations` | Sin resultados. |
 | R-004-05 | Cobertura: services de la API (incluido services/users) y shared con 90 % o más de líneas. | `pnpm test:coverage` | Código 0. |
 | R-004-06 | La web sigue sin recursos de internet (R-14 de la 001). | El grep de R-14 de la 001 | Sin resultados. |
 | R-004-07 | Definición de terminado de CLAUDE.md. | `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm test:coverage` | Código 0 en los cuatro. |
@@ -491,22 +491,22 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
   - `adminUserSchema` (estricto: id entero positivo, username, displayName, roles con userRolesSchema, isActive boolean) y `type AdminUser`.
   - `usersResponseSchema` (estricto: `users` con arreglo de adminUserSchema) y `type UsersResponse`.
 - **packages/shared/src/errors.ts** (modificado): ERROR_CODES suma USER_NOT_FOUND y LAST_ADMIN_REQUIRED.
-- **apps/api/src/services/auth/login-limiter.ts** (modificado): `LoginLimiter` suma `clearAttempts(userId: number): void` (borra el conteo y el bloqueo de ese usuario; no lanza si no existe).
-- **apps/api/src/services/users/user.service.ts** (o un módulo hermano user-admin.service.ts): además de lo de la 003,
+- **backend/src/services/auth/login-limiter.ts** (modificado): `LoginLimiter` suma `clearAttempts(userId: number): void` (borra el conteo y el bloqueo de ese usuario; no lanza si no existe).
+- **backend/src/services/users/user.service.ts** (o un módulo hermano user-admin.service.ts): además de lo de la 003,
   - `interface UserAdminService { listUsers(): Promise<AdminUser[]>; updateUser(userId: number, input: unknown): Promise<AdminUser>; resetUserPin(userId: number, pin: unknown): Promise<void> }` — updateUser y resetUserPin parsean su entrada con los esquemas (ZodError) para que el servicio sea seguro aunque se llame sin HTTP.
   - `createUserAdminService(deps: { models: Models; pinHasher: PinHasher; sessionService: SessionService; loginLimiter: LoginLimiter }): UserAdminService`.
   - `updateUser`: busca al usuario (USER_NOT_FOUND 404 'Ese usuario no existe.'), aplica la guardia del último administrador dentro de una transacción que bloquea las filas de administradores activos (FOR UPDATE), actualiza la fila y —si `isActive` quedó false— borra sus sesiones en la misma transacción y, tras confirmar, `loginLimiter.clearAttempts(userId)`. Devuelve el AdminUser con roles ordenados.
   - `resetUserPin`: busca al usuario (404), valida el PIN con strongPinSchema, guarda el nuevo hash y borra sus sesiones en una transacción; tras confirmar, `clearAttempts`.
   - `createUserService` no cambia de firma ni de comportamiento (el alta web le pasa un PIN ya validado por strongPinSchema desde el esquema de la solicitud).
-- **apps/api/src/controllers/users.controller.ts** y **apps/api/src/routes/users.routes.ts** (nuevos): el router fija `Cache-Control: no-store` y exige `requireAuth` + `requireRole('admin')` en todas sus rutas; el controller valida `userId` (entero positivo, máximo 2147483647), parsea el cuerpo con los esquemas y devuelve 201/200/204.
-- **apps/api/src/app.ts** (modificado): un solo LoginLimiter compartido entre authService y userAdminService; monta `/users` en el router de la API.
-- **apps/api/src/create-admin.ts** (modificado): valida el PIN con strongPinSchema (aprobado, S-004-06); el resto no cambia.
-- **apps/web/src/lib/api/client.ts** (modificado): `ApiRequestOptions.method` admite 'PATCH'.
-- **apps/web/src/lib/api/users.ts** (nuevo): `getUsers()`, `createUser(input: CreateUserRequest)`, `updateUser(userId: number, input: UpdateUserRequest)`, `resetUserPin(userId: number, pin: string)`. Respuestas JSON validadas con los esquemas de shared; `expectedStatus` 201/200/204 según la operación.
-- **apps/web/src/app/admin/page.tsx** (modificado): enlace 'Usuarios'.
-- **apps/web/src/app/admin/usuarios/page.tsx**, **nuevo/page.tsx** y **[id]/page.tsx** (nuevos): las tres pantallas de la sección 10, con RoleGuard area '/admin'.
+- **backend/src/controllers/users.controller.ts** y **backend/src/routes/users.routes.ts** (nuevos): el router fija `Cache-Control: no-store` y exige `requireAuth` + `requireRole('admin')` en todas sus rutas; el controller valida `userId` (entero positivo, máximo 2147483647), parsea el cuerpo con los esquemas y devuelve 201/200/204.
+- **backend/src/app.ts** (modificado): un solo LoginLimiter compartido entre authService y userAdminService; monta `/users` en el router de la API.
+- **backend/src/create-admin.ts** (modificado): valida el PIN con strongPinSchema (aprobado, S-004-06); el resto no cambia.
+- **frontend/src/lib/api/client.ts** (modificado): `ApiRequestOptions.method` admite 'PATCH'.
+- **frontend/src/lib/api/users.ts** (nuevo): `getUsers()`, `createUser(input: CreateUserRequest)`, `updateUser(userId: number, input: UpdateUserRequest)`, `resetUserPin(userId: number, pin: string)`. Respuestas JSON validadas con los esquemas de shared; `expectedStatus` 201/200/204 según la operación.
+- **frontend/src/app/admin/page.tsx** (modificado): enlace 'Usuarios'.
+- **frontend/src/app/admin/usuarios/page.tsx**, **nuevo/page.tsx** y **[id]/page.tsx** (nuevos): las tres pantallas de la sección 10, con RoleGuard area '/admin'.
 
-Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/users.test.ts`, `apps/api/src/services/auth/login-limiter-clear-attempts.test.ts` —archivo nuevo; login-limiter.test.ts de la 003 no se toca—, `apps/web/src/lib/api/users.test.ts` y `client-patch.test.ts`, componentes `*.test.tsx`); integración en apps/api/tests/ (`users-admin.test.ts`, `users-admin-service.test.ts` para el servicio); E2E en e2e/users-admin.spec.ts.
+Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/users.test.ts`, `backend/src/services/auth/login-limiter-clear-attempts.test.ts` —archivo nuevo; login-limiter.test.ts de la 003 no se toca—, `frontend/src/lib/api/users.test.ts` y `client-patch.test.ts`, componentes `*.test.tsx`); integración en backend/tests/ (`users-admin.test.ts`, `users-admin-service.test.ts` para el servicio); E2E en e2e/users-admin.spec.ts.
 
 ## 12. Cambios a specs y documentos anteriores (señalados)
 
@@ -515,7 +515,7 @@ Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/u
 | 003, sección 14 ("Crear, editar, desactivar usuarios, asignar roles y cambiar PIN desde la web (propuesta 004), incluido desbloquear a un usuario a mano") y sección 18 (notas para la 004) | Ahora en alcance de esta spec. La sección 18 pedía: requireRole('admin'), USERNAME_TAKEN por HTTP, borrar sesiones y conteo al desactivar o cambiar el PIN, y decidir la autogestión del administrador — cubierto por D-004-01, D-004-04 y D-004-05. | — |
 | 003, helpers de pruebas (resetMigrationTables, clearAuthTables, migrateAndClearAuthTables) | Sin cambios: ya cubren users y sessions y esta spec no agrega tablas. | — |
 | 003, `pnpm users:create-admin` | Aprobado (S-004-06): el comando valida el PIN con strongPinSchema (rechaza PIN fáciles). Las pruebas AC-26 y AC-27 de la 003 no cambian: '975310' es un PIN fuerte y '97a5' sigue fallando por formato; un PIN débil bien formado (por ejemplo '1234') respondería 'Ese PIN es muy fácil de adivinar. Elige otro.' y código 1. | backend-dev (T-09) |
-| 003, apps/web/src/lib/api/client.ts | `ApiRequestOptions.method` suma 'PATCH' (AC-19); el resto del contrato del cliente no cambia. | frontend-dev |
+| 003, frontend/src/lib/api/client.ts | `ApiRequestOptions.method` suma 'PATCH' (AC-19); el resto del contrato del cliente no cambia. | frontend-dev |
 | e2e/global-setup.ts | Crea e2e.gestion2 y borra 'e2e.gestion' si existe (limpieza sobre polleria_test con las mismas guardias; la tabla users está autorizada). | test-writer (T-05) |
 | docs/api/openapi.yaml | Versión 0.3.1 → 0.4.0 con lo de 9.5. | spec-writer (esta spec) |
 | CLAUDE.md (Comandos), PROGRESS.md | Sin cambios de comandos ni de decisiones; el orquestador actualiza PROGRESS al cerrar. | orquestador, al cerrar |
@@ -565,7 +565,7 @@ Respondidas el 2026-10-08, todas con la respuesta recomendada: 1 (el administrad
 
 ## 17. Acción del usuario y verificación manual
 
-Acción en apps/api/.env: ninguna. No hay variables nuevas ni migraciones nuevas.
+Acción en backend/.env: ninguna. No hay variables nuevas ni migraciones nuevas.
 
 Después de que la funcionalidad esté implementada:
 1. `pnpm dev` y entrar como administrador a http://localhost:3000/admin: tocar 'Usuarios'.

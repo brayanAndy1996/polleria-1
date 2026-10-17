@@ -23,7 +23,7 @@ Hechos verificados el 2026-10-08 en esta PC (Windows 11, Node 24.1.0, pnpm 10.12
 
 ### 1. PIN con bcrypt 6.0.0 (aprobada en CLAUDE.md)
 
-- bcrypt 6.0.0 en dependencies de apps/api, costo 10 (`PIN_HASH_COST`).
+- bcrypt 6.0.0 en dependencies de backend, costo 10 (`PIN_HASH_COST`).
 - pnpm-workspace.yaml: `ignoredBuiltDependencies: [bcrypt]`. No se usa onlyBuiltDependencies porque el script de instalación solo sirve para compilar desde el código fuente, lo que en Windows exige Python y Visual Studio Build Tools. Si algún día bcrypt no trajera binario para la plataforma, la instalación seguiría pero bcrypt fallaría al cargarse: se detectaría en la primera prueba.
 
 ### 2. Sesión: token aleatorio guardado como hash en la base (sin dependencias)
@@ -72,7 +72,7 @@ Se instala además bcrypt 6.0.0 (ya aprobada en CLAUDE.md, diferida desde el ADR
 
 ## Consecuencias
 
-- Positivas: una sola dependencia nueva de soporte (tipos); el usuario no tiene que tocar apps/api/.env; cerrar sesión, desactivar o cambiar el rol de un usuario valen al instante; ninguna copia de la base ni del .env permite fabricar una sesión.
+- Positivas: una sola dependencia nueva de soporte (tipos); el usuario no tiene que tocar backend/.env; cerrar sesión, desactivar o cambiar el rol de un usuario valen al instante; ninguna copia de la base ni del .env permite fabricar una sesión.
 - Negativas: una consulta a la base por cada solicitud protegida (insignificante en el local); los bloqueos por intentos se borran al reiniciar la API; la tabla sessions acumula sesiones vencidas hasta el siguiente inicio de sesión exitoso.
 - Riesgos: si bcrypt dejara de publicar binarios para win32-x64, la instalación en otra PC necesitaría herramientas de compilación; si en el futuro hay varias instancias de la API, el límite de intentos debe pasar a la base.
 - Si el usuario prefiere JWT: agregar SESSION_SECRET (Zod, mínimo 32 caracteres, la API no arranca sin ella), aprobar jose 6.2.12 o escribir el HMAC con node:crypto, y ajustar AC-04 y AC-07 de la 001, AC-02 y AC-05 de la 002 y las pruebas de procesos que arrancan la API.

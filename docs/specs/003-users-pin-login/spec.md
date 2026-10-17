@@ -36,7 +36,7 @@ Aclaración aprobada por el usuario («Corregir ambos ahora», ADV-003-06 y ADV-
 - Por qué no JWT (lo que mencionan backend-dev.md y la nota de D-01 de la 001):
   - Como requireAuth igual debe leer al usuario en la base en cada solicitud (activo y roles al día), un JWT no ahorra la consulta.
   - Cerrar sesión borra la sesión de verdad. Con un JWT la cookie seguiría sirviendo hasta vencer, salvo que se agregue otra columna de versión.
-  - No hay clave de firma: no hay variable SESSION_SECRET que el usuario deba crear, cuidar y rotar, y si alguien la viera no podría fabricar sesiones de administrador. apps/api/.env no cambia (D-003-13).
+  - No hay clave de firma: no hay variable SESSION_SECRET que el usuario deba crear, cuidar y rotar, y si alguien la viera no podría fabricar sesiones de administrador. backend/.env no cambia (D-003-13).
   - No hace falta ninguna librería de JWT ni código criptográfico propio (firmar, comparar en tiempo constante, validar el encabezado).
 - Costo: una tabla más (sessions) y una consulta por solicitud protegida, insignificante para 5 dispositivos y 20 mesas (RNF-04).
 - Las alternativas evaluadas (jose, jsonwebtoken, HMAC propio con SESSION_SECRET) están en el ADR 0002.
@@ -113,7 +113,7 @@ Aclaración aprobada por el usuario («Corregir ambos ahora», ADV-003-06 y ADV-
 **D-003-10. Primer administrador con un comando interactivo (SUPUESTO S-003-10).**
 - `pnpm users:create-admin` pregunta el nombre de usuario, el nombre para mostrar, el PIN y la repetición del PIN, y crea un usuario activo con un solo rol, `admin`. El PIN nunca va como argumento (quedaría en el historial de la terminal) ni en una variable de entorno o archivo (quedaría en el disco).
 - Si la entrada es una terminal (PowerShell, Símbolo del sistema), el PIN no se ve mientras se escribe. Si no es una terminal (entrada por tubería, como en las pruebas, o Git Bash, que en Windows no entrega una terminal real a Node), lee las respuestas línea por línea y escribe en stderr un aviso de que el PIN se verá al escribirlo.
-- Verificado en el código de pnpm 10.12.1: con `--filter` y un solo paquete, el script hereda la terminal (stdio "inherit"), así que el script de la raíz funciona igual que ejecutarlo en apps/api.
+- Verificado en el código de pnpm 10.12.1: con `--filter` y un solo paquete, el script hereda la terminal (stdio "inherit"), así que el script de la raíz funciona igual que ejecutarlo en backend.
 - Se puede ejecutar cuando sea, no solo la primera vez: sirve también para recuperar el acceso si el dueño olvida su PIN (crea otro administrador). Quien puede ejecutar comandos en la PC del local ya tiene acceso total a la base, así que no abre una puerta nueva.
 - Valida cada respuesta apenas la recibe y se detiene en el primer error, con código de salida 1 y sin crear nada. Revisa si el nombre de usuario ya existe antes de pedir el PIN.
 - Los datos de demostración (mozos de ejemplo) son de la Fase 6 y la gestión de usuarios desde la web es de la 004: este comando solo crea administradores.
@@ -125,19 +125,19 @@ Aclaración aprobada por el usuario («Corregir ambos ahora», ADV-003-06 y ADV-
 
 **D-003-12. Web: guardia en el cliente y cliente HTTP central.**
 - La seguridad vive en la API. La web solo decide qué pantalla mostrar: cada página de área envuelve su contenido en `RoleGuard`, que consulta GET /api/auth/me con TanStack Query (clave `['auth', 'me']`, `retry: false`). No se usa el proxy (middleware) de Next.
-- Todas las llamadas a la API pasan por un cliente central (`apps/web/src/lib/api/client.ts`): mismo origen, JSON, tiempo límite de 10 s, errores como `ApiError`. Ante un 401 UNAUTHENTICATED llama a un manejador que, por defecto, recarga la página en /login con `hardNavigate` (salvo que ya esté en /login o que la llamada pida `skipAuthRedirect`). El health de la 001 sigue con su propia función (getServerStatus).
+- Todas las llamadas a la API pasan por un cliente central (`frontend/src/lib/api/client.ts`): mismo origen, JSON, tiempo límite de 10 s, errores como `ApiError`. Ante un 401 UNAUTHENTICATED llama a un manejador que, por defecto, recarga la página en /login con `hardNavigate` (salvo que ya esté en /login o que la llamada pida `skipAuthRedirect`). El health de la 001 sigue con su propia función (getServerStatus).
 - Cerrar sesión solo recarga tras confirmar HTTP 204 sin cuerpo; cualquier otra respuesta o error conserva la pantalla y permite reintentar (AC-35). Ese cierre confirmado y la sesión vencida recargan la página completa (`window.location.assign` dentro de `hardNavigate`), no una navegación interna: así se borra de la memoria todo lo que veía el usuario anterior, importante en la PC de caja compartida.
 - Al iniciar sesión, la navegación al destino de D-003-16 es interna (`useRouter().replace` de next/navigation). Cambiar de área también es una navegación interna: la sesión es la misma.
 - El tipado viene de los esquemas Zod de @polleria/shared. openapi-typescript sigue diferido: la 7.13.0 todavía declara `typescript ^5.x` (ADR 0002).
 
 **D-003-13. Sin variables de entorno nuevas.**
-- Nada de esta spec se configura por .env: CONFIG_VARIABLES sigue con las 7 variables de la 002 y apps/api/.env.example no cambia. AC-04 y AC-07 de la 001 y AC-02 y AC-05 de la 002 no cambian, y el apps/api/.env del usuario sigue sirviendo tal cual.
+- Nada de esta spec se configura por .env: CONFIG_VARIABLES sigue con las 7 variables de la 002 y backend/.env.example no cambia. AC-04 y AC-07 de la 001 y AC-02 y AC-05 de la 002 no cambian, y el backend/.env del usuario sigue sirviendo tal cual.
 - Duración de la sesión, límite de intentos y costo de bcrypt son constantes exportadas (sección 11). Cambiarlas es un cambio de spec.
 
 **D-003-14. Primera migración de dominio.**
-- Dos migraciones nuevas en apps/api/src/db/migrations: `20261008120000-create-users.ts` y `20261008120100-create-sessions.ts` (umzug, D-05 de la 001), con `down` que borra la tabla. Las restricciones viven también en la base (CHECK, UNIQUE, FOREIGN KEY), no solo en Zod.
+- Dos migraciones nuevas en backend/src/db/migrations: `20261008120000-create-users.ts` y `20261008120100-create-sessions.ts` (umzug, D-05 de la 001), con `down` que borra la tabla. Las restricciones viven también en la base (CHECK, UNIQUE, FOREIGN KEY), no solo en Zod.
 - Claves primarias enteras autoincrementales (`id` INTEGER). Las specs siguientes siguen la misma convención.
-- Consecuencia para las pruebas: el helper resetMigrationTables (apps/api/tests/helpers/test-database.ts) debe borrar también sessions y users antes de las tablas de registro de umzug; si no, volver a migrar falla con "la tabla ya existe" (AC-21 y AC-24 de la 001). Lo ajusta el test-writer (sección 12).
+- Consecuencia para las pruebas: el helper resetMigrationTables (backend/tests/helpers/test-database.ts) debe borrar también sessions y users antes de las tablas de registro de umzug; si no, volver a migrar falla con "la tabla ya existe" (AC-21 y AC-24 de la 001). Lo ajusta el test-writer (sección 12).
 
 **D-003-15. Varios roles por persona: columna `roles` de tipo arreglo (revisión 1).**
 - Decisión del usuario (2026-10-08): una persona puede tener varios roles, por ejemplo un mozo que también cobra en caja. Reemplaza "un rol por usuario" (S-003-04 original).
@@ -229,13 +229,13 @@ Datos comunes de las pruebas:
 
 ### 4.2 Base de datos (migraciones reales sobre polleria_test)
 
-**AC-05. Tabla users** (integración, apps/api)
+**AC-05. Tabla users** (integración, backend)
 - Dado polleria_test con `migrateUp(sequelize)` aplicado,
 - entonces information_schema muestra la tabla users con: id integer (clave primaria y autoincremental: SERIAL o IDENTITY), username character varying(32), display_name character varying(40), pin_hash character varying(60), roles (arreglo: en information_schema.columns, data_type 'ARRAY' y udt_name '_varchar'; `format_type(atttypid, atttypmod)` de pg_attribute da 'character varying(16)[]'), is_active boolean, created_at y updated_at timestamp with time zone, todas NOT NULL; y no existe una columna role;
 - y un `INSERT` con solo username 'mozo.juan', display_name 'Juan', pin_hash de 60 caracteres y roles '{waiter}' funciona y deja is_active true y created_at y updated_at con fecha; y también funcionan (con otros username) roles '{cashier,waiter}' (la base no exige un orden) y '{waiter,kitchen,cashier,admin}';
 - y cada uno de estos INSERT falla con un error de la base y no deja fila: username repetido; username 'Mozo.juan' (mayúsculas); username 'ab' o 'juan perez' (no cumple el patrón); roles '{}', '{chef}', '{Waiter}', '{waiter,waiter}', '{waiter,NULL}' o '{{waiter},{cashier}}' (dos dimensiones); display_name '' o ' Juan' (espacio al inicio); pin_hash de 59 o de 61 caracteres; y cualquiera de username, display_name, pin_hash o roles en NULL.
 
-**AC-06. Tabla sessions** (integración, apps/api)
+**AC-06. Tabla sessions** (integración, backend)
 - Dado polleria_test migrada y un usuario existente,
 - entonces la tabla sessions tiene: id integer (clave primaria y autoincremental), user_id integer, token_hash character varying(64), expires_at y created_at timestamp with time zone, todas NOT NULL, y created_at con valor por defecto;
 - un INSERT con user_id del usuario, token_hash de 64 caracteres hexadecimales en minúscula y expires_at funciona;
@@ -243,7 +243,7 @@ Datos comunes de las pruebas:
 - y al borrar el usuario se borran sus sesiones (ON DELETE CASCADE);
 - y pg_indexes muestra el índice `sessions_user_id_idx` sobre user_id y un índice único sobre token_hash.
 
-**AC-07. Las migraciones se aplican y se revierten** (integración, apps/api)
+**AC-07. Las migraciones se aplican y se revierten** (integración, backend)
 - Dado polleria_test sin tablas de dominio ni de registro (helper de limpieza de la sección 12),
 - cuando se ejecuta `migrateUp(sequelize)`, entonces devuelve `['20261008120000-create-users.ts', '20261008120100-create-sessions.ts']` en ese orden y existen users y sessions;
 - cuando luego se ejecuta `migrateDown(sequelize)`, devuelve `['20261008120100-create-sessions.ts']`, sessions ya no existe y users sí;
@@ -252,7 +252,7 @@ Datos comunes de las pruebas:
 
 ### 4.3 Servicios (unitarias)
 
-**AC-08. Cifrado del PIN** (unitaria, apps/api/src/services/auth/pin-hasher.ts)
+**AC-08. Cifrado del PIN** (unitaria, backend/src/services/auth/pin-hasher.ts)
 - Dado `PIN_HASH_COST` y `createBcryptPinHasher()`,
 - entonces PIN_HASH_COST es 10;
 - `hash('0007')` se resuelve con un texto de 60 caracteres que empieza con '$2b$10$' y es distinto de '0007', y dos hash del mismo PIN son distintos (sal aleatoria);
@@ -260,7 +260,7 @@ Datos comunes de las pruebas:
 - `verify('0007', 'no-es-un-hash')` y `verify('0007', '')` se resuelven con false, sin lanzar;
 - y `createBcryptPinHasher({ cost: 4 }).hash('1234')` empieza con '$2b$04$' y `createBcryptPinHasher().verify('1234', eseHash)` es true (verificar no depende del costo).
 
-**AC-09. Límite de intentos** (unitaria, apps/api/src/services/auth/login-limiter.ts)
+**AC-09. Límite de intentos** (unitaria, backend/src/services/auth/login-limiter.ts)
 - Dado `MAX_FAILED_LOGIN_ATTEMPTS` (5), `LOGIN_LOCK_DURATION_MS` (900000) y `createLoginLimiter({ now })` con un reloj que empieza en T0 y la prueba adelanta,
 - entonces para el usuario 7:
   - sin intentos, `getRetryAfterSeconds(7)` es null;
@@ -273,12 +273,12 @@ Datos comunes de las pruebas:
 - y `registerSuccess(99)` sobre un usuario sin intentos no lanza;
 - y con `createLoginLimiter({ now, maxFailedAttempts: 2, lockDurationMs: 1000 })`, después de 2 intentos devuelve 1.
 
-**AC-10. Token de sesión** (unitaria, apps/api/src/services/auth/session-token.ts)
+**AC-10. Token de sesión** (unitaria, backend/src/services/auth/session-token.ts)
 - Dado `generateSessionToken`, `hashSessionToken` y `SESSION_TOKEN_PATTERN`,
 - entonces SESSION_TOKEN_PATTERN es `/^[A-Za-z0-9_-]{43}$/` y 1000 llamadas a generateSessionToken devuelven 1000 textos distintos que lo cumplen;
 - y `hashSessionToken(t)` es igual a `createHash('sha256').update(t, 'utf8').digest('hex')` de node:crypto (64 caracteres hexadecimales en minúscula) y devuelve lo mismo para la misma entrada.
 
-**AC-11. Lectura de la cookie** (unitaria, apps/api/src/http/session-cookie.ts)
+**AC-11. Lectura de la cookie** (unitaria, backend/src/http/session-cookie.ts)
 - Dado `SESSION_COOKIE_NAME` ('polleria_session') y `readSessionCookie(cookieHeader)`,
 - entonces cada caso devuelve lo indicado y ninguno lanza:
 
@@ -399,7 +399,7 @@ Datos comunes de las pruebas:
 - entonces ni el cuerpo ni las cabeceras de ninguna de esas respuestas contienen '975310', '$2b$', el pin_hash guardado de dueno, 'pinHash' ni 'pin_hash';
 - y todas llevan `Cache-Control: no-store`.
 
-**AC-25. Servicio de usuarios** (integración, apps/api/src/services/users/user.service.ts)
+**AC-25. Servicio de usuarios** (integración, backend/src/services/users/user.service.ts)
 - Dado `createUserService({ models: defineModels(sequelize), pinHasher: createBcryptPinHasher() })` sobre polleria_test migrada,
 - cuando `createUser({ username: ' Dueno ', displayName: '  Don Carlos ', pin: '0007', roles: ['admin'] })`, entonces se resuelve con exactamente `{ id, username: 'dueno', displayName: 'Don Carlos', roles: ['admin'] }` (id entero positivo), y la fila tiene roles '{admin}', is_active true y un pin_hash que empieza con '$2b$10$' y que `verify('0007', pin_hash)` acepta;
 - cuando se crea caja.mozo con `roles: ['cashier', 'waiter']`, entonces se resuelve con `roles: ['waiter', 'cashier']` y la fila guarda '{waiter,cashier}' (se guarda en el orden de USER_ROLES);
@@ -409,7 +409,7 @@ Datos comunes de las pruebas:
 
 ### 4.5 Comando del primer administrador (proceso real)
 
-En estas pruebas el proceso es `node --disable-warning=ExperimentalWarning apps/api/src/create-admin.ts`, con el entorno copiado de process.env más NODE_ENV=test y DATABASE_URL igual a DATABASE_URL_TEST, la entrada estándar como tubería (la prueba escribe las líneas y la cierra) y un tiempo límite de 15 s.
+En estas pruebas el proceso es `node --disable-warning=ExperimentalWarning backend/src/create-admin.ts`, con el entorno copiado de process.env más NODE_ENV=test y DATABASE_URL igual a DATABASE_URL_TEST, la entrada estándar como tubería (la prueba escribe las líneas y la cierra) y un tiempo límite de 15 s.
 
 **AC-26. Crea un administrador** (integración con proceso real)
 - Dado polleria_test migrada y sin usuarios,
@@ -437,9 +437,9 @@ En estas pruebas el proceso es `node --disable-warning=ExperimentalWarning apps/
 
 ### 4.6 Web (unitarias y de componentes, con MSW)
 
-En estas pruebas `next/navigation` se simula (`useRouter` devuelve un `replace` espiado) y `apps/web/src/lib/navigation.ts` se simula para espiar `hardNavigate`. Los componentes se renderizan dentro de Providers (001). Las respuestas de la API se simulan con MSW según el contrato.
+En estas pruebas `next/navigation` se simula (`useRouter` devuelve un `replace` espiado) y `frontend/src/lib/navigation.ts` se simula para espiar `hardNavigate`. Los componentes se renderizan dentro de Providers (001). Las respuestas de la API se simulan con MSW según el contrato.
 
-**AC-28. Cliente HTTP central** (unitaria, apps/web/src/lib/api/client.ts)
+**AC-28. Cliente HTTP central** (unitaria, frontend/src/lib/api/client.ts)
 - Dado `createApiClient({ onUnauthenticated, timeoutMs })` con onUnauthenticated espiado,
 - `request('/auth/me')` hace un GET a `<window.location.origin>/api/auth/me` con `credentials: 'same-origin'` y `Accept: application/json`, y con un 200 JSON se resuelve con el objeto recibido;
 - `request('/auth/login', { method: 'POST', body: { a: 1 } })` envía `{"a":1}` con `Content-Type: application/json`;
@@ -487,7 +487,7 @@ En estas pruebas `next/navigation` se simula (`useRouter` devuelve un `replace` 
 - y cuando localStorage lanza al leer o al escribir, la pantalla funciona igual (muestra la lista y el inicio de sesión llega a replace).
 
 **AC-33. Guardia de rol** (componente, con la página /mozo)
-- Dado el default export de apps/web/src/app/mozo/page.tsx (áreas de D-003-07), con `window.location.pathname` en '/mozo' y localStorage vacío,
+- Dado el default export de frontend/src/app/mozo/page.tsx (áreas de D-003-07), con `window.location.pathname` en '/mozo' y localStorage vacío,
 - mientras `GET /api/auth/me` no responde, un elemento con role="status" muestra 'Cargando...' y no se ve el encabezado 'Mozo';
 - con 200 de un waiter, muestra el encabezado de nivel 1 'Mozo'; con 200 de un waiter+cashier, también;
 - con 200 de un cashier, llama a `replace('/caja')` y el encabezado 'Mozo' nunca aparece;
@@ -513,11 +513,11 @@ En estas pruebas `next/navigation` se simula (`useRouter` devuelve un `replace` 
 - cuando se toca 'Cerrar sesión', entonces se hace exactamente un `POST /api/auth/logout` y, exclusivamente si responde HTTP 204 sin cuerpo, luego `hardNavigate('/login')` una vez; mientras espera, el botón dice 'Cerrando sesión...' y está deshabilitado;
 - y cuando el logout responde cualquier estado distinto de 204 (incluidos 500 y 200 o 202 con JSON válido, con `{ error: ... }`, con JSON mal formado o sin JSON), falla la red o vence el tiempo límite, un elemento con role="alert" muestra 'No se pudo cerrar la sesión. Intenta de nuevo.', hardNavigate no se llama y el botón vuelve a estar habilitado; se puede reintentar y solo un 204 posterior recarga. El error conserva el status HTTP real (200, 202, 500, etc.; 0 solo para red o tiempo límite), no se convierte en éxito por ser 2xx. AC-28 conserva su aceptación genérica de 200 JSON válidos: la exigencia de 204 es específica de logout.
 
-**AC-36. Enlace para iniciar sesión en Inicio** (componente, apps/web/src/app/page.tsx)
+**AC-36. Enlace para iniciar sesión en Inicio** (componente, frontend/src/app/page.tsx)
 - Dado la página de inicio de la 001 dentro de Providers con la salud simulada en 200,
 - entonces, además del encabezado 'Sistema Pollería' y del indicador 'Conectado' (AC-27 de la 001, sin cambios), muestra un enlace 'Iniciar sesión' con href '/login'.
 
-**AC-41. Áreas permitidas y destino al entrar** (unitaria, apps/web/src/lib/auth/roles.ts y last-area.ts; nuevo en la revisión 1)
+**AC-41. Áreas permitidas y destino al entrar** (unitaria, frontend/src/lib/auth/roles.ts y last-area.ts; nuevo en la revisión 1)
 - Dado lo que exportan roles.ts y last-area.ts,
 - entonces `AREA_PATHS` es `['/mozo', '/caja', '/cocina', '/admin']`; `AREA_LABELS` es `{ '/mozo': 'Mozo', '/caja': 'Caja', '/cocina': 'Cocina', '/admin': 'Administración' }`; `AREA_ALLOWED_ROLES` es `{ '/mozo': ['waiter', 'admin'], '/caja': ['cashier', 'admin'], '/cocina': ['kitchen', 'admin'], '/admin': ['admin'] }`; y `AREA_SELECTOR_PATH` es '/areas';
 - `getAllowedAreas(roles)` devuelve lo de la tabla de D-003-16 como rutas y en ese orden: `['waiter']` da `['/mozo']`; `['kitchen']`, `['/cocina']`; `['cashier']`, `['/caja']`; `['waiter', 'cashier']` y también `['cashier', 'waiter']`, `['/mozo', '/caja']`; `['waiter', 'kitchen']`, `['/mozo', '/cocina']`; `['kitchen', 'cashier']`, `['/caja', '/cocina']`; `['waiter', 'kitchen', 'cashier']`, `['/mozo', '/caja', '/cocina']`; y `['admin']` y `['waiter', 'admin']`, las cuatro;
@@ -541,7 +541,7 @@ En estas pruebas `next/navigation` se simula (`useRouter` devuelve un `replace` 
 - `readLastArea()` devuelve null si la clave no existe o guarda '/areas', '/login', 'caja' o '';
 - y cuando localStorage lanza al leer, `readLastArea()` devuelve null, y cuando lanza al escribir, `saveLastArea('/mozo')` no lanza.
 
-**AC-42. Pantalla "¿Dónde vas a trabajar?"** (componente, apps/web/src/app/areas/page.tsx; nuevo en la revisión 1)
+**AC-42. Pantalla "¿Dónde vas a trabajar?"** (componente, frontend/src/app/areas/page.tsx; nuevo en la revisión 1)
 - Dado el default export de app/areas/page.tsx, con `window.location.pathname` en '/areas' y localStorage vacío,
 - mientras `GET /api/auth/me` no responde, un elemento con role="status" muestra 'Cargando...';
 - con 200 de Ana (waiter+cashier), muestra el encabezado de nivel 1 '¿Dónde vas a trabajar?', la línea 'Ana · Mozo, Cajero', el botón 'Cerrar sesión' y, dentro de un elemento nav con nombre accesible 'Áreas', exactamente dos enlaces en este orden: 'Mozo' (href '/mozo') y 'Caja' (href '/caja'); y no llama a `replace`;
@@ -611,12 +611,12 @@ No son comportamiento, por eso no llevan AC. Los comandos con grep se ejecutan e
 
 | ID | Requisito | Comando | Resultado esperado |
 | --- | --- | --- | --- |
-| R-003-01 | apps/api con `bcrypt` 6.0.0 en dependencies y `@types/bcrypt` 6.0.0 en devDependencies, exactas. pnpm-workspace.yaml con `ignoredBuiltDependencies: [bcrypt]` (no onlyBuiltDependencies: bcrypt trae binarios precompilados y su script de instalación solo compilaría desde el código fuente si faltaran, lo que exige Python y Visual Studio Build Tools). | `pnpm install --frozen-lockfile` y `pnpm --filter @polleria/api why @types/node` | Código 0, sin el aviso "Ignored build scripts"; @types/node solo en 24.19.1. |
+| R-003-01 | backend con `bcrypt` 6.0.0 en dependencies y `@types/bcrypt` 6.0.0 en devDependencies, exactas. pnpm-workspace.yaml con `ignoredBuiltDependencies: [bcrypt]` (no onlyBuiltDependencies: bcrypt trae binarios precompilados y su script de instalación solo compilaría desde el código fuente si faltaran, lo que exige Python y Visual Studio Build Tools). | `pnpm install --frozen-lockfile` y `pnpm --filter @polleria/api why @types/node` | Código 0, sin el aviso "Ignored build scripts"; @types/node solo en 24.19.1. |
 | R-003-02 | Scripts: en la raíz `users:create-admin` = `pnpm --filter @polleria/api run users:create-admin`; en @polleria/api `users:create-admin` = `node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/create-admin.ts`. Compatibles con Windows (R-15 de la 001). | `pnpm run` | Lista users:create-admin. |
-| R-003-03 | vitest.config.ts agrega `apps/api/src/create-admin.ts` a coverage.exclude (como server.ts, db/cli.ts y print-test-page.ts). apps/api/src/services/auth/** y apps/api/src/services/users/** cumplen el 90 % de services. | `pnpm test:coverage` | Código 0. |
-| R-003-04 | Sin variables de entorno nuevas (D-003-13). | `git diff main -- apps/api/.env.example apps/api/src/config/env.ts` | Sin resultados. |
-| R-003-05 | Toda ruta de apps/api/src/routes, salvo /health, /auth/users, /auth/login y /auth/logout, usa requireAuth (en esta spec, solo /auth/me). | Revisión del reviewer de apps/api/src/routes/*.ts | Se cumple. |
-| R-003-06 | `pnpm users:create-admin` en PowerShell no muestra el PIN mientras se escribe (no se ve nada o se ve un * por dígito) y Ctrl+C cancela con 'Se canceló la creación del administrador.' y código 1. | Prueba manual en PowerShell, con apps/api/.env y polleria_dev migrada | Se cumple; borrar después el usuario de prueba si no se quiere conservar. |
+| R-003-03 | vitest.config.ts agrega `backend/src/create-admin.ts` a coverage.exclude (como server.ts, db/cli.ts y print-test-page.ts). backend/src/services/auth/** y backend/src/services/users/** cumplen el 90 % de services. | `pnpm test:coverage` | Código 0. |
+| R-003-04 | Sin variables de entorno nuevas (D-003-13). | `git diff main -- backend/.env.example backend/src/config/env.ts` | Sin resultados. |
+| R-003-05 | Toda ruta de backend/src/routes, salvo /health, /auth/users, /auth/login y /auth/logout, usa requireAuth (en esta spec, solo /auth/me). | Revisión del reviewer de backend/src/routes/*.ts | Se cumple. |
+| R-003-06 | `pnpm users:create-admin` en PowerShell no muestra el PIN mientras se escribe (no se ve nada o se ve un * por dígito) y Ctrl+C cancela con 'Se canceló la creación del administrador.' y código 1. | Prueba manual en PowerShell, con backend/.env y polleria_dev migrada | Se cumple; borrar después el usuario de prueba si no se quiere conservar. |
 | R-003-07 | La web sigue sin recursos de internet (R-14 de la 001). | El grep de R-14 de la 001 | Sin resultados. |
 | R-003-08 | docs/api/openapi.yaml es OpenAPI 3.1 válido, versión 0.3.1 (revisión 1). | `npx -y @redocly/cli@latest lint docs/api/openapi.yaml` (desde una carpeta temporal) | "valid", sin errores (se aceptan advertencias como la respuesta Forbidden sin uso). |
 | R-003-09 | Definición de terminado de CLAUDE.md. | `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm test:coverage` | Código 0 en los cuatro. |
@@ -891,76 +891,76 @@ El test-writer importa desde estas rutas; si un módulo no existe todavía, la p
   - `sessionResponseSchema` (estricto: user y expiresAt ISO UTC con Z, como healthResponseSchema) y `type SessionResponse`.
   - `loginUserSchema`, `loginUsersResponseSchema` y `type LoginUser`, `type LoginUsersResponse`.
 - **packages/shared/src/errors.ts** (modificado): ERROR_CODES suma INVALID_CREDENTIALS, UNAUTHENTICATED, FORBIDDEN, TOO_MANY_ATTEMPTS y USERNAME_TAKEN. errorResponseSchema no cambia.
-- **apps/api/src/db/migrations/20261008120000-create-users.ts** y **20261008120100-create-sessions.ts**: `up` y `down` con `{ context: QueryInterface }` (D-05 de la 001).
-- **apps/api/src/models/index.ts**
+- **backend/src/db/migrations/20261008120000-create-users.ts** y **20261008120100-create-sessions.ts**: `up` y `down` con `{ context: QueryInterface }` (D-05 de la 001).
+- **backend/src/models/index.ts**
   - `interface UserAttributes { id: number; username: string; displayName: string; pinHash: string; roles: UserRole[]; isActive: boolean; createdAt: Date; updatedAt: Date }`.
   - `interface SessionAttributes { id: number; userId: number; tokenHash: string; expiresAt: Date; createdAt: Date }`.
   - `interface Models { User: ...; Session: ... }` (modelos de Sequelize tipados con esos atributos).
   - `defineModels(sequelize: Sequelize): Models` (D-003-11).
-- **apps/api/src/services/auth/pin-hasher.ts**
+- **backend/src/services/auth/pin-hasher.ts**
   - `PIN_HASH_COST` = 10.
   - `interface PinHasher { hash(pin: string): Promise<string>; verify(pin: string, pinHash: string): Promise<boolean> }`.
   - `createBcryptPinHasher(options?: { cost?: number }): PinHasher`. verify nunca lanza.
-- **apps/api/src/services/auth/login-limiter.ts**
+- **backend/src/services/auth/login-limiter.ts**
   - `MAX_FAILED_LOGIN_ATTEMPTS` = 5, `LOGIN_LOCK_DURATION_MS` = 900000.
   - `interface LoginLimiter { getRetryAfterSeconds(userId: number): number | null; registerAttempt(userId: number): void; registerSuccess(userId: number): void }`.
   - `createLoginLimiter(options: { now: () => Date; maxFailedAttempts?: number; lockDurationMs?: number }): LoginLimiter`.
-- **apps/api/src/services/auth/session-token.ts**
+- **backend/src/services/auth/session-token.ts**
   - `SESSION_TOKEN_PATTERN` = `/^[A-Za-z0-9_-]{43}$/`, `generateSessionToken(): string`, `hashSessionToken(token: string): string`.
-- **apps/api/src/services/auth/session.service.ts**
+- **backend/src/services/auth/session.service.ts**
   - `SESSION_DURATION_MS` = 57600000.
   - `interface AuthContext { sessionId: number; user: AuthUser; expiresAt: Date }`. `user.roles` va siempre en el orden de USER_ROLES (sortUserRoles al leer).
   - `interface SessionService { createSession(userId: number): Promise<{ token: string; expiresAt: Date }>; resolveSession(token: string | undefined): Promise<AuthContext | null>; deleteSession(token: string | undefined): Promise<void>; deleteExpiredSessions(): Promise<number> }`.
   - `createSessionService(deps: { models: Models; now?: () => Date }): SessionService`. resolveSession devuelve null sin consultar la base si el token falta o no cumple SESSION_TOKEN_PATTERN.
-- **apps/api/src/services/auth/auth.service.ts**
+- **backend/src/services/auth/auth.service.ts**
   - `interface AuthService { listLoginUsers(): Promise<LoginUser[]>; login(input: LoginRequest): Promise<{ token: string; session: SessionResponse }>; logout(token: string | undefined): Promise<void> }`.
   - `createAuthService(deps: { models: Models; sessionService: SessionService; pinHasher: PinHasher; loginLimiter: LoginLimiter }): AuthService`. login lanza AppError INVALID_CREDENTIALS (401) o TOO_MANY_ATTEMPTS (429, `details.retryAfterSeconds`).
-- **apps/api/src/services/users/user.service.ts**
+- **backend/src/services/users/user.service.ts**
   - `interface CreateUserInput { username: string; displayName: string; pin: string; roles: UserRole[] }`.
   - `interface UserService { createUser(input: CreateUserInput): Promise<AuthUser> }`.
   - `createUserService(deps: { models: Models; pinHasher: PinHasher }): UserService`. Valida con los esquemas de shared, roles con userRolesSchema (ZodError), guarda los roles en el orden de USER_ROLES y traduce el choque del índice único a AppError USERNAME_TAKEN (409).
-- **apps/api/src/http/session-cookie.ts**
+- **backend/src/http/session-cookie.ts**
   - `SESSION_COOKIE_NAME` = 'polleria_session'.
   - `readSessionCookie(cookieHeader: string | undefined): string | undefined` (pura, AC-11).
   - `setSessionCookie(res: Response, token: string): void` y `clearSessionCookie(res: Response): void` (atributos de D-003-02).
-- **apps/api/src/middlewares/auth.ts**
+- **backend/src/middlewares/auth.ts**
   - `createRequireAuth(deps: { sessionService: SessionService }): RequestHandler`.
   - `requireRole(...roles: UserRole[]): RequestHandler` (lanza con la lista vacía; deja pasar con al menos uno de los roles, usando hasAnyRole).
   - `getAuthContext(res: Response): AuthContext | undefined`.
-- **apps/api/src/controllers/auth.controller.ts** y **apps/api/src/routes/auth.routes.ts**: internos (las pruebas usan createApp). El router de auth fija `Cache-Control: no-store` antes de sus rutas y el controller pone `Retry-After` antes de pasar el error 429.
-- **apps/api/src/app.ts** (modificado)
+- **backend/src/controllers/auth.controller.ts** y **backend/src/routes/auth.routes.ts**: internos (las pruebas usan createApp). El router de auth fija `Cache-Control: no-store` antes de sus rutas y el controller pone `Retry-After` antes de pasar el error 429.
+- **backend/src/app.ts** (modificado)
   - `interface AppDependencies { sequelize: Sequelize; healthTimeoutMs?: number; now?: () => Date; pinHasher?: PinHasher }`. now (por defecto `() => new Date()`) es el reloj de sesiones y límite de intentos; pinHasher por defecto es `createBcryptPinHasher()`.
   - `createApp(deps: AppDependencies): Express`. Crea los modelos, un LoginLimiter propio por app, los servicios y monta las rutas de auth. Las pruebas de la 001 que llaman `createApp({ sequelize })` siguen funcionando.
-- **apps/api/src/create-admin.ts**
+- **backend/src/create-admin.ts**
   - Punto de entrada de `pnpm users:create-admin` (D-003-10). Solo lee process.env. Usa `process.exitCode`.
-- **apps/web/src/lib/navigation.ts**
+- **frontend/src/lib/navigation.ts**
   - `hardNavigate(path: string): void` (hace `window.location.assign(path)`; existe para poder simularlo en las pruebas).
-- **apps/web/src/lib/api/client.ts**
+- **frontend/src/lib/api/client.ts**
   - `DEFAULT_API_TIMEOUT_MS` = 10000.
   - `class ApiError extends Error` con `status: number`, `code: string`, `details: unknown`.
   - `interface ApiRequestOptions { method?: 'GET' | 'POST'; body?: unknown; skipAuthRedirect?: boolean; expectedStatus?: number }`.
   - `createApiClient(options?: { onUnauthenticated?: () => void; timeoutMs?: number }): { request(path: string, options?: ApiRequestOptions): Promise<unknown> }`. path sin el prefijo /api (por ejemplo '/auth/me').
   - `expectedStatus` es una validación opcional interna del contrato de respuesta, no se envía por HTTP. Cuando se indica, antes de aceptar una respuesta 2xx o resolver su cuerpo, el cliente exige ese status: otro 2xx se rechaza con `ApiError`, status HTTP real, code 'UNEXPECTED_RESPONSE' y message 'Respuesta inesperada del servidor. Intenta nuevamente.', incluso si el cuerpo es JSON válido o contiene `{ error: ... }`. Las respuestas no 2xx conservan el manejo de errores y el status real de AC-28; cuando se requiere JSON, un cuerpo mal formado o sin JSON se rechaza según AC-28 y también conserva el status recibido. Sin `expectedStatus`, AC-28 no cambia: 200 JSON válido se resuelve con el objeto y 204 con undefined.
   - `apiClient`: instancia por defecto; su onUnauthenticated llama a `hardNavigate('/login')` salvo que `window.location.pathname` sea '/login'.
-- **apps/web/src/lib/api/auth.ts**
+- **frontend/src/lib/api/auth.ts**
   - `getLoginUsers(): Promise<LoginUser[]>`, `getSession(options?: { skipAuthRedirect?: boolean }): Promise<SessionResponse>`, `login(input: LoginRequest): Promise<SessionResponse>`, `logout(): Promise<void>`. Las tres funciones con respuesta JSON validan con los esquemas de shared; si no cumple, ApiError UNEXPECTED_RESPONSE.
   - `logout` usa `request('/auth/logout', { method: 'POST', expectedStatus: 204, skipAuthRedirect: true })` y solo se resuelve con void si la respuesta es HTTP 204 (sin cuerpo, sin validación JSON). Ningún otro status se acepta como cierre, con cualquier cuerpo. `skipAuthRedirect` evita que un error del logout provoque una recarga automática por 401: todos los errores se propagan con su status real y la pantalla permite reintentar según AC-35.
-- **apps/web/src/lib/auth/roles.ts** (revisión 1: ya no exporta ROLE_HOME_PATHS)
+- **frontend/src/lib/auth/roles.ts** (revisión 1: ya no exporta ROLE_HOME_PATHS)
   - `ROLE_LABELS` (valores de AC-34) y `formatRoleLabels(roles: readonly UserRole[]): string` (etiquetas en el orden de USER_ROLES, separadas por ', ').
   - `type AreaPath = '/mozo' | '/caja' | '/cocina' | '/admin'`, `AREA_PATHS: readonly AreaPath[]` (en ese orden), `AREA_LABELS: Readonly<Record<AreaPath, string>>`, `AREA_ALLOWED_ROLES: Readonly<Record<AreaPath, readonly UserRole[]>>` (D-003-07) y `AREA_SELECTOR_PATH` = '/areas'.
   - `getAllowedAreas(roles: readonly UserRole[]): AreaPath[]` y `resolveLandingPath(roles: readonly UserRole[], lastArea: string | null): AreaPath | '/areas'` (D-003-16, AC-41). Funciones puras.
-- **apps/web/src/lib/auth/last-user.ts**
+- **frontend/src/lib/auth/last-user.ts**
   - `LAST_USERNAME_STORAGE_KEY` = 'polleria:lastUsername', `readLastUsername(): string | null`, `saveLastUsername(username: string): void` (no lanzan aunque localStorage falle).
-- **apps/web/src/lib/auth/last-area.ts** (revisión 1)
+- **frontend/src/lib/auth/last-area.ts** (revisión 1)
   - `LAST_AREA_STORAGE_KEY` = 'polleria:lastArea', `readLastArea(): AreaPath | null` (null si no hay valor, si no es una de AREA_PATHS o si localStorage falla) y `saveLastArea(area: AreaPath): void` (no lanza).
-- **apps/web/src/components/auth/login-screen.tsx**: `LoginScreen`, componente cliente sin props. apps/web/src/app/login/page.tsx lo renderiza.
-- **apps/web/src/components/auth/role-guard.tsx**: `RoleGuard({ area: AreaPath; children: ReactNode })`, componente cliente (revisión 1: recibe el área en lugar de la lista de roles; los roles salen de AREA_ALLOWED_ROLES).
-- **apps/web/src/components/auth/logout-button.tsx**: `LogoutButton`, componente cliente sin props.
-- **apps/web/src/components/auth/area-selector.tsx** (revisión 1): `AreaSelector`, componente cliente sin props (sección 10.4). apps/web/src/app/areas/page.tsx lo renderiza.
-- **apps/web/src/app/mozo/page.tsx**, **caja/page.tsx**, **cocina/page.tsx**, **admin/page.tsx** y (revisión 1) **areas/page.tsx**: default export de cada página (síncronos, sin APIs exclusivas del servidor, como la página de inicio de la 001).
-- **apps/web/src/app/page.tsx** (modificado): suma el enlace 'Iniciar sesión'.
+- **frontend/src/components/auth/login-screen.tsx**: `LoginScreen`, componente cliente sin props. frontend/src/app/login/page.tsx lo renderiza.
+- **frontend/src/components/auth/role-guard.tsx**: `RoleGuard({ area: AreaPath; children: ReactNode })`, componente cliente (revisión 1: recibe el área en lugar de la lista de roles; los roles salen de AREA_ALLOWED_ROLES).
+- **frontend/src/components/auth/logout-button.tsx**: `LogoutButton`, componente cliente sin props.
+- **frontend/src/components/auth/area-selector.tsx** (revisión 1): `AreaSelector`, componente cliente sin props (sección 10.4). frontend/src/app/areas/page.tsx lo renderiza.
+- **frontend/src/app/mozo/page.tsx**, **caja/page.tsx**, **cocina/page.tsx**, **admin/page.tsx** y (revisión 1) **areas/page.tsx**: default export de cada página (síncronos, sin APIs exclusivas del servidor, como la página de inicio de la 001).
+- **frontend/src/app/page.tsx** (modificado): suma el enlace 'Iniciar sesión'.
 
-Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/auth.test.ts`, `apps/api/src/services/auth/*.test.ts`, `apps/api/src/http/session-cookie.test.ts`, componentes `*.test.tsx`, `apps/web/src/lib/auth/roles.test.ts`, `apps/web/src/lib/auth/last-area.test.ts`); integración en apps/api/tests/ (`auth-*.test.ts`, `users-migrations.test.ts`, `create-admin-process.test.ts`), con helpers nuevos en apps/api/tests/helpers/ (por ejemplo `auth.ts` para crear usuarios y obtener cookies); E2E en e2e/auth.spec.ts con e2e/global-setup.ts.
+Rutas sugeridas para pruebas: unitarias junto al código (`packages/shared/src/auth.test.ts`, `backend/src/services/auth/*.test.ts`, `backend/src/http/session-cookie.test.ts`, componentes `*.test.tsx`, `frontend/src/lib/auth/roles.test.ts`, `frontend/src/lib/auth/last-area.test.ts`); integración en backend/tests/ (`auth-*.test.ts`, `users-migrations.test.ts`, `create-admin-process.test.ts`), con helpers nuevos en backend/tests/helpers/ (por ejemplo `auth.ts` para crear usuarios y obtener cookies); E2E en e2e/auth.spec.ts con e2e/global-setup.ts.
 
 ## 12. Cambios a specs y documentos anteriores (señalados)
 
@@ -969,10 +969,10 @@ Ningún cambio altera lo que ya ve el usuario en la pantalla Inicio ni en `pnpm 
 | Elemento | Cambio | Quién |
 | --- | --- | --- |
 | 001, D-01 ("La futura sesión JWT en cookie httpOnly") | La sesión es un token opaco guardado en la base, en cookie httpOnly del mismo origen (D-003-01). Se agrega una nota en la 001. | spec-writer (esta spec) |
-| 001, helper resetMigrationTables (apps/api/tests/helpers/test-database.ts) | Además de SequelizeMeta y SequelizeData, borra sessions y users (en ese orden o con CASCADE), siempre después de la doble verificación de la base _test. Sin esto, AC-21 y AC-24 de la 001 y el ataque ADV-001-06 fallan con "la tabla ya existe" al volver a migrar. Las aserciones de esas pruebas no cambian. | test-writer (T-03) |
+| 001, helper resetMigrationTables (backend/tests/helpers/test-database.ts) | Además de SequelizeMeta y SequelizeData, borra sessions y users (en ese orden o con CASCADE), siempre después de la doble verificación de la base _test. Sin esto, AC-21 y AC-24 de la 001 y el ataque ADV-001-06 fallan con "la tabla ya existe" al volver a migrar. Las aserciones de esas pruebas no cambian. | test-writer (T-03) |
 | 001, R-12 | `pnpm db:migrate` sobre una base nueva ya no dice 'No hay migraciones pendientes.' la primera vez: aplica las dos migraciones de esta spec. | — (nota) |
 | 001, R-04 | Además de format y printer:test, se permite el script raíz users:create-admin. | backend-dev (T-21) |
-| 001, R-09 | coverage.exclude suma apps/api/src/create-admin.ts. | backend-dev (T-21) |
+| 001, R-09 | coverage.exclude suma backend/src/create-admin.ts. | backend-dev (T-21) |
 | 001, sección 10 (Inicio) | Suma el enlace 'Iniciar sesión' (AC-36). AC-27 y AC-29 a AC-32 de la 001 no cambian. | frontend-dev (T-24) |
 | 001, sección 13 ("Autenticación, sesión, PIN, roles y requireRole") | Ahora en alcance de esta spec. | — |
 | 001, AC-03 y AC-38 (ERROR_CODES) | ERROR_CODES suma 5 códigos. Esas pruebas piden "al menos" los códigos anteriores: no cambian. | backend-dev (T-15) |
@@ -1045,7 +1045,7 @@ Nuevas de la revisión 1 (ninguna bloquea las pruebas si se acepta la recomendac
 
 Preguntas originales (respondidas):
 
-1. (técnica) ¿Apruebas guardar la sesión en la base con un token aleatorio en lugar de un JWT firmado (S-003-01)? Recomendado: sí. Evita la variable SESSION_SECRET (tu apps/api/.env no cambia), cerrar sesión la invalida de verdad y no suma librerías. Si prefieres JWT, se agrega SESSION_SECRET y cambian AC-04 y AC-07 de la 001.
+1. (técnica) ¿Apruebas guardar la sesión en la base con un token aleatorio en lugar de un JWT firmado (S-003-01)? Recomendado: sí. Evita la variable SESSION_SECRET (tu backend/.env no cambia), cerrar sesión la invalida de verdad y no suma librerías. Si prefieres JWT, se agrega SESSION_SECRET y cambian AC-04 y AC-07 de la 001.
 2. (dueño) Largo del PIN: ¿de 4 a 6 dígitos con botón Entrar (recomendado, S-003-03; el administrador puede usar 6 para más seguridad) o 4 dígitos fijos que entran solos al completar (un toque menos)?
 3. (dueño) ¿Cada persona tiene un solo rol, y el dueño (administrador) puede usar también las pantallas de mozo y caja (recomendado, S-003-04)? Si alguien es mozo y cajero a la vez, por ahora tendría dos usuarios.
 4. (dueño) ¿Está bien que la pantalla de inicio muestre los nombres de los trabajadores activos para tocar el suyo (recomendado, S-003-06, más rápido), o prefieres que cada uno escriba su nombre de usuario?
@@ -1057,7 +1057,7 @@ Preguntas originales (respondidas):
 
 ## 17. Acción del usuario y verificación manual
 
-Acción en apps/api/.env: ninguna. No hay variables nuevas (D-003-13).
+Acción en backend/.env: ninguna. No hay variables nuevas (D-003-13).
 
 Después de que la funcionalidad esté implementada:
 1. `pnpm install` (instala bcrypt).

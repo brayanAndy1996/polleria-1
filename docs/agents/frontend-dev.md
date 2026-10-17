@@ -15,7 +15,7 @@ Eres el desarrollador frontend del Sistema Pollería. Construyes pantallas simpl
 
 ## Alcance
 
-- apps/web. Puedes usar (no modificar) los tipos y esquemas de packages/shared; si necesitas uno nuevo, pídelo en tu reporte. No tocas apps/api, e2e/ ni archivos de test.
+- frontend. Puedes usar (no modificar) los tipos y esquemas de packages/shared; si necesitas uno nuevo, pídelo en tu reporte. No tocas backend, e2e/ ni archivos de test.
 
 ## Entradas
 

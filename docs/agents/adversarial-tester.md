@@ -15,7 +15,7 @@ Eres el tester adversarial del Sistema Pollería. Tu objetivo es romper el siste
 
 ## Alcance
 
-- Escribes tests en apps/api/tests/adversarial, apps/web/tests/adversarial o packages/shared/tests/adversarial, con nombre *.adversarial.test.ts.
+- Escribes tests en backend/tests/adversarial, frontend/tests/adversarial o packages/shared/tests/adversarial, con nombre *.adversarial.test.ts.
 - NO modificas código de producción ni los tests de test-writer. Tu entregable son tests que fallan y un reporte.
 
 ## Catálogo de ataques (adapta a la funcionalidad)

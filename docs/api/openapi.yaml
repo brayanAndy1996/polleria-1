@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Sistema Pollería API
   version: 0.10.0
-  summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
+  summary: Contrato entre la web (frontend) y la API (backend) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
 

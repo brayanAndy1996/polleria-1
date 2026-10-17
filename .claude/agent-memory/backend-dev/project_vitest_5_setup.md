@@ -9,8 +9,8 @@ Verificado en T-05 (spec 001, 2026-10-07) con vitest 5.0.3, Vite 8.3.3 (oxc/roll
 
 - `pnpm install` muestra "unmet peer msw@^2.4.9: found 3.0.2" bajo `@vitest/mocker`. Es un peer OPCIONAL: no es un conflicto, no hay que cambiar versiones ni detenerse. MSW 3 funciona con Vitest 5 en el proyecto web.
 - Los proyectos van en `test.projects`; `coverage` solo existe en la raíz. JSX automático en Vite 8: `oxc: { jsx: { runtime: 'automatic' } }` dentro del proyecto inline.
-- El umbral global de cobertura cuenta TAMBIÉN los archivos de los globs (`packages/shared/src/**`, `apps/api/src/services/**`); no es "el resto". Los globs de umbral son relativos a la raíz.
-- `coverage.include` lista archivos .ts/.tsx aunque ningún test los cargue (ignora .gitkeep y CSS). Con apps/web/src/app/page.tsx placeholder (0 %), `pnpm test:coverage` sale con código 1 hasta que T-24 lo implemente y lo pruebe.
+- El umbral global de cobertura cuenta TAMBIÉN los archivos de los globs (`packages/shared/src/**`, `backend/src/services/**`); no es "el resto". Los globs de umbral son relativos a la raíz.
+- `coverage.include` lista archivos .ts/.tsx aunque ningún test los cargue (ignora .gitkeep y CSS). Con frontend/src/app/page.tsx placeholder (0 %), `pnpm test:coverage` sale con código 1 hasta que T-24 lo implemente y lo pruebe.
 - En el entorno jsdom de Vitest, `fetch('/api/health')` relativo funciona bajo MSW (handler `*/api/health`), y `AbortSignal.timeout` / `AbortController` con fetch también. HeroUI (`Chip`) y `@testing-library/jest-dom/vitest` cargan sin configuración extra.
 - `'@polleria/shared'` se resuelve por el enlace del workspace y también como auto-referencia desde packages/shared/tests; no hace falta alias.
 

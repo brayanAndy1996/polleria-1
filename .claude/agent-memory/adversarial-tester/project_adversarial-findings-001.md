@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 
-Ataque a la funcionalidad 001 (base del monorepo) el 2026-10-07. Tests en apps/api/tests/adversarial/ y apps/web/tests/adversarial/ (*.adversarial.test.ts). Hallazgos abiertos (ninguno Crítico ni Alto, así que no bloquean la DoD):
+Ataque a la funcionalidad 001 (base del monorepo) el 2026-10-07. Tests en backend/tests/adversarial/ y frontend/tests/adversarial/ (*.adversarial.test.ts). Hallazgos abiertos (ninguno Crítico ni Alto, así que no bloquean la DoD):
 
 - ADV-001-01/02 (Medio): el errorHandler solo mapea `entity.parse.failed` y `entity.too.large`; cualquier otro error del lector del cuerpo (Content-Encoding desconocido, gzip corrupto) cae a 500 INTERNAL_ERROR con traza en stderr, siendo una falla de cliente (4xx).
 - ADV-001-04 (Medio) y ADV-001-05 (Bajo): gap de la guardia de base, ver [[project-test-db-guard-gap]].

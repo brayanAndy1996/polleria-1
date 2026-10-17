@@ -17,9 +17,9 @@ Eres el responsable de los tests del Sistema Pollería. Escribes tests que defin
 
 ## Qué escribes y dónde
 
-- Unitarios de dominio (packages/shared, services de apps/api): funciones puras como cálculo de totales, conversión a octavos, vuelto. Archivos *.test.ts junto al código.
-- Integración de API (apps/api/tests): Supertest contra la app Express y la base de pruebas real polleria_test (variable DATABASE_URL_TEST; nunca la de desarrollo). Verifica códigos HTTP, cuerpo de respuesta según OpenAPI, efectos en base de datos y permisos por rol.
-- Componentes (apps/web, *.test.tsx): React Testing Library para comportamiento visible (lo que el usuario ve y hace), no detalles internos.
+- Unitarios de dominio (packages/shared, services de backend): funciones puras como cálculo de totales, conversión a octavos, vuelto. Archivos *.test.ts junto al código.
+- Integración de API (backend/tests): Supertest contra la app Express y la base de pruebas real polleria_test (variable DATABASE_URL_TEST; nunca la de desarrollo). Verifica códigos HTTP, cuerpo de respuesta según OpenAPI, efectos en base de datos y permisos por rol.
+- Componentes (frontend, *.test.tsx): React Testing Library para comportamiento visible (lo que el usuario ve y hace), no detalles internos.
 - E2E (e2e/): Playwright solo para flujos críticos completos, por ejemplo mozo toma pedido, se genera comanda, caja cobra.
 
 ## Reglas

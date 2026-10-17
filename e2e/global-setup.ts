@@ -11,14 +11,14 @@ import {
   connectTestDatabase,
   getTestDatabaseUrl,
   migrateAndClearAuthTables,
-} from ${moduleUrl('../apps/api/tests/helpers/test-database.ts')};
-import { defineModels } from ${moduleUrl('../apps/api/src/models/index.ts')};
-import { createBcryptPinHasher } from ${moduleUrl('../apps/api/src/services/auth/pin-hasher.ts')};
-import { createUserService } from ${moduleUrl('../apps/api/src/services/users/user.service.ts')};
-import { createProductService } from ${moduleUrl('../apps/api/src/services/products/product.service.ts')};
-import { createProductPortionService } from ${moduleUrl('../apps/api/src/services/products/product-portion.service.ts')};
-import { createComboItemService } from ${moduleUrl('../apps/api/src/services/combo-items/combo-item.service.ts')};
-import { createTableService } from ${moduleUrl('../apps/api/src/services/tables/table.service.ts')};
+} from ${moduleUrl('../backend/tests/helpers/test-database.ts')};
+import { defineModels } from ${moduleUrl('../backend/src/models/index.ts')};
+import { createBcryptPinHasher } from ${moduleUrl('../backend/src/services/auth/pin-hasher.ts')};
+import { createUserService } from ${moduleUrl('../backend/src/services/users/user.service.ts')};
+import { createProductService } from ${moduleUrl('../backend/src/services/products/product.service.ts')};
+import { createProductPortionService } from ${moduleUrl('../backend/src/services/products/product-portion.service.ts')};
+import { createComboItemService } from ${moduleUrl('../backend/src/services/combo-items/combo-item.service.ts')};
+import { createTableService } from ${moduleUrl('../backend/src/services/tables/table.service.ts')};
 
 try {
   if (decodeURIComponent(new URL(getTestDatabaseUrl()).pathname) !== '/polleria_test') {
