@@ -156,13 +156,40 @@ describe('015: migración de inventario sobre polleria_test', () => {
       ),
     ).toBe(true);
 
-    const indexes = await rows<{ indexdef: string }>(
-      "SELECT indexdef FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'inventory_movements'",
+    const indexes = await rows<{
+      indexdef: string;
+      indisunique: boolean;
+      predicate: string | null;
+      keyExpressions: string[];
+    }>(
+      `SELECT pg_get_indexdef(i.indexrelid) AS indexdef,
+              i.indisunique,
+              pg_get_expr(i.indpred, i.indrelid) AS predicate,
+              ARRAY(
+                SELECT pg_get_indexdef(i.indexrelid, position, true)
+                FROM generate_series(1, i.indnkeyatts) AS position
+                ORDER BY position
+              ) AS "keyExpressions"
+         FROM pg_index i
+         JOIN pg_class table_class ON table_class.oid = i.indrelid
+         JOIN pg_namespace namespace ON namespace.oid = table_class.relnamespace
+        WHERE namespace.nspname = current_schema()
+          AND table_class.relname = 'inventory_movements'`,
     );
     expect(
-      indexes.some(
-        ({ indexdef }) => /ticket_id, kind/.test(indexdef) && /WHERE \(type/.test(indexdef),
-      ),
+      indexes.some(({ indisunique, predicate, keyExpressions }) => {
+        const normalizedKeys = keyExpressions.map((key) =>
+          key.replaceAll('"', '').replaceAll(' ', '').toLowerCase(),
+        );
+        return (
+          indisunique &&
+          normalizedKeys[0] === 'ticket_id' &&
+          normalizedKeys[1] === 'kind' &&
+          normalizedKeys[2] === 'coalesce(product_id,0)' &&
+          predicate !== null &&
+          /\btype\b[\s\S]*?=\s*'consumption'/i.test(predicate)
+        );
+      }),
     ).toBe(true);
     expect(indexes.some(({ indexdef }) => /\(id\)/.test(indexdef))).toBe(true);
   });
