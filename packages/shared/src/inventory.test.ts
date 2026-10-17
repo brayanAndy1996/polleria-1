@@ -77,7 +77,6 @@ describe('015 inventory pure domain', () => {
     it.each([
       [-1, 1],
       [1.5, 1],
-      [0, 1],
       [INVENTORY_QUANTITY_MAX, 1],
       [0, -1],
       [INVENTORY_QUANTITY_MAX + 1, -1],
@@ -314,6 +313,15 @@ describe('015 inventory pure domain', () => {
       });
     });
 
+    it('accepts resolved direct chicken at the maximum without multiplying line quantity again', () => {
+      expect(calculateInventoryDemand([chicken(11, INVENTORY_QUANTITY_MAX, 0, 2)])).toEqual({
+        breastEighths: INVENTORY_QUANTITY_MAX,
+        legEighths: 0,
+        drinks: [],
+        undefinedChickenProductIds: [],
+      });
+    });
+
     it('multiplies combo component demand by combo quantity without adding parent totals', () => {
       const items: InventoryConsumptionItem[] = [
         {
@@ -394,7 +402,7 @@ describe('015 inventory pure domain', () => {
       [chicken(1, 0, 0, 0)],
       [{ ...chicken(1, 0, 0), productId: 0 }],
       [{ ...chicken(1, 0, 0), quantity: 1.1 }],
-      [{ ...chicken(1, INVENTORY_QUANTITY_MAX, 0), quantity: 2 }],
+      [chicken(1, INVENTORY_QUANTITY_MAX, 0), chicken(2, 1, 0)],
       [
         {
           ...chicken(1, 0, 0),
