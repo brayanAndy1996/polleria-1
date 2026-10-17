@@ -1,4 +1,7 @@
 import { DataTypes } from 'sequelize';
+import { definePaymentModel } from './payment.ts';
+import type { PaymentModel } from './payment.ts';
+export type { PaymentModel } from './payment.ts';
 import { defineKitchenTicketPrintModels } from './kitchen-ticket-print.ts';
 import type {
   KitchenTicketPrintModel,
@@ -254,6 +257,7 @@ export type IdempotencyKeyModel = Model<
 > &
   IdempotencyKeyAttributes;
 export interface Models {
+  Payment: ModelStatic<PaymentModel>;
   KitchenTicketPrint: ModelStatic<KitchenTicketPrintModel>;
   KitchenTicketPrintAttempt: ModelStatic<KitchenTicketPrintAttemptModel>;
   User: ModelStatic<UserModel>;
@@ -285,9 +289,11 @@ export function defineModels(sequelize: Sequelize): Models {
     sequelize.isDefined('OrderItemSauce') &&
     sequelize.isDefined('IdempotencyKey') &&
     sequelize.isDefined('KitchenTicketPrint') &&
-    sequelize.isDefined('KitchenTicketPrintAttempt')
+    sequelize.isDefined('KitchenTicketPrintAttempt') &&
+    sequelize.isDefined('Payment')
   ) {
     return {
+      Payment: sequelize.model('Payment') as ModelStatic<PaymentModel>,
       KitchenTicketPrint: sequelize.model(
         'KitchenTicketPrint',
       ) as ModelStatic<KitchenTicketPrintModel>,
@@ -514,6 +520,7 @@ export function defineModels(sequelize: Sequelize): Models {
     { tableName: 'idempotency_keys', underscored: true, updatedAt: false },
   );
   const models: Models = {
+    Payment: definePaymentModel(sequelize),
     ...defineKitchenTicketPrintModels(sequelize),
     User,
     Session,
@@ -620,6 +627,9 @@ export function initOrderItemAssociations(
 /** Registra todas las asociaciones entre modelos ya definidos. */
 function initAssociations(models: Models): void {
   const { User, Session, Product, ProductPortion } = models;
+  models.Payment.belongsTo(models.Order, { foreignKey: 'orderId', as: 'order' });
+  models.Payment.belongsTo(User, { foreignKey: 'cashierUserId', as: 'cashier' });
+  models.Order.hasOne(models.Payment, { foreignKey: 'orderId', as: 'payment' });
   models.KitchenTicket.hasOne(models.KitchenTicketPrint, {
     foreignKey: 'ticketId',
     as: 'printSnapshot',

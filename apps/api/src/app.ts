@@ -1,4 +1,6 @@
 import express from 'express';
+import { createPaymentService } from './services/payments/payment.service.ts';
+import { createPaymentsController } from './controllers/payments.controller.ts';
 import type { Express } from 'express';
 import type { Sequelize } from 'sequelize';
 import { configureZodLocale } from './config/zod-locale.ts';
@@ -61,6 +63,8 @@ const NO_STORE_PATH_PREFIXES = [
   '/api/orders',
   '/api/menu',
   '/api/kitchen-ticket-prints',
+  '/api/cashier',
+  '/api/payments',
 ] as const;
 
 /**
@@ -138,6 +142,8 @@ export function createApp({
   const orderItemsController = createOrderItemsController({ orderItemService });
   const menuService = createMenuService({ models });
   const menuController = createMenuController({ menuService });
+  const paymentService = createPaymentService({ models, now });
+  const paymentsController = createPaymentsController({ paymentService });
   const requireAuth = createRequireAuth({ sessionService });
 
   const app = express();
@@ -170,6 +176,7 @@ export function createApp({
   app.use(
     '/api',
     createApiRouter({
+      paymentsController,
       healthService,
       authController,
       usersController,

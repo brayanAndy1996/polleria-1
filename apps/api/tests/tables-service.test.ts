@@ -196,7 +196,8 @@ describe('009: servicio de mesas sobre polleria_test', () => {
       (typeof tables)[number],
       (typeof tables)[number],
     ];
-    // Mesa 2 y Barra: 'ready' y el MISMO pedido embebido con sus once claves.
+    // Mesa 2 y Barra: 'ready' y el MISMO pedido embebido con sus trece claves (D-010-14:
+    // la spec 010 suma items y totalCents a las once de D-009-14).
     expect(barraView).toMatchObject({ id: barra, isActive: true, state: 'ready' });
     expect(mesa2View).toMatchObject({ id: mesa2, isActive: true, state: 'ready' });
     expect(barraView.order).toEqual(mesa2View.order);

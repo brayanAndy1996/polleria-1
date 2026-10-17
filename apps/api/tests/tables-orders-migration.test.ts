@@ -20,6 +20,7 @@ const MIGRATIONS = [
   '20261010120000-create-tables-orders.ts',
   '20261011120000-create-order-items.ts',
   '20261012150000-create-kitchen-ticket-prints.ts',
+  '20261016120000-create-payments.ts',
 ];
 const TABLES_ORDERS_MIGRATION = '20261010120000-create-tables-orders.ts';
 const ORDER_ITEMS_MIGRATION = '20261011120000-create-order-items.ts';
@@ -609,11 +610,20 @@ describe('009: tablas orders y tables con su migración sobre polleria_test', ()
       'combo_items',
       'orders',
       'tables',
+      'kitchen_tickets',
+      'order_items',
+      'order_item_components',
+      'order_item_sauces',
+      'idempotency_keys',
     ])
       expect(await tableExists(sequelize, table)).toBe(true);
 
     // La última aplicada es la de la spec 010: revierte primero ella, luego la
     // de la 009, que es la que interesa a esta prueba.
+    expect(await tableExists(sequelize, 'payments')).toBe(true);
+    expect(await migrateDown(sequelize)).toEqual(['20261016120000-create-payments.ts']);
+    expect(await tableExists(sequelize, 'payments')).toBe(false);
+    expect(await tableExists(sequelize, 'kitchen_ticket_prints')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual([
       '20261012150000-create-kitchen-ticket-prints.ts',
     ]);
@@ -633,9 +643,11 @@ describe('009: tablas orders y tables con su migración sobre polleria_test', ()
       TABLES_ORDERS_MIGRATION,
       ORDER_ITEMS_MIGRATION,
       '20261012150000-create-kitchen-ticket-prints.ts',
+      '20261016120000-create-payments.ts',
     ]);
     expect(await tableExists(sequelize, 'orders')).toBe(true);
     expect(await tableExists(sequelize, 'tables')).toBe(true);
+    expect(await tableExists(sequelize, 'order_items')).toBe(true);
     const userId = await insertUser('mozo.migra');
     const orderId = await insertOrder({ openedBy: userId });
     await insertTable('Mesa 1', { currentOrderId: orderId });

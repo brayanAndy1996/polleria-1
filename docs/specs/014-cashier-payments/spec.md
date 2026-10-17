@@ -2,9 +2,9 @@
 
 Fecha: 2026-10-13. Fase 4, RF-13 y primer bloque de RF-14; auditoría mínima de RF-27.
 
-**Estado:** alcance aprobado por el usuario el 2026-10-13: un medio por pago (efectivo, Yape, Plin o tarjeta), pre-cuenta imprimible desde el navegador y cierre que libera mesas. Las reglas P-01…P-07 fueron aprobadas por el usuario con la aclaración de que todos los importes visibles y entradas deben estar en soles con decimales. No hay código ni contrato implementado de 014.
+**Estado:** alcance aprobado por el usuario el 2026-10-13: un medio por pago (efectivo, Yape, Plin o tarjeta), pre-cuenta imprimible desde el navegador y cierre que libera mesas. Las reglas P-01…P-07 fueron aprobadas con la aclaración de que los importes visibles y entradas deben estar en soles con decimales. Implementación y C-01 completados el 2026-10-16 en feat/014-cashier-payments, con OpenAPI0.11.0 implemented. Validación transaccional, cobertura y E2E contra polleria_test aprobados; evidencia y límites en verification.md. Pendiente revisión del usuario y autorización posterior para integrar a main/dev.
 
-Publicación documental: integrada a **main** el 2026-10-15 con autorización del usuario (merge `40c4631`). Origen: `feat/014-cashier-payments`, desde main `c3021d2`. **La implementación sigue pendiente**, empezando por S-01. La preparación demo y el rediseño visual permanecen en `dev`; no se incluyen en esta integración.
+Publicación documental: integrada a **main** el 2026-10-15 con autorización del usuario (merge `40c4631`). Origen: `feat/014-cashier-payments`, desde main `c3021d2`; en ese corte la implementación estaba pendiente. La preparación demo y el rediseño azul fueron integrados posteriormente de dev a main el 2026-10-16 por autorización del usuario (merge `5e452c0`). La implementación de014 permanece separada en su rama.
 
 ## 1. Resultado esperado
 
@@ -21,15 +21,15 @@ Ejemplo: cuarto pierna S/ 17,00 + bebida S/ 4,00 = S/ 21,00. Con efectivo, la pa
 
 ## 2. Alcance y decisiones aprobadas
 
-| ID | Decisión |
-| --- | --- |
-| P-01 | Cobrar cualquier pedido abierto con total positivo e ítems, aunque el mozo aún no haya solicitado cuenta. La lista permite distinguir los que pidieron cuenta. |
-| P-02 | Una anulación pendiente bloquea el cobro hasta su aprobación o rechazo. Ítems anulados no se cobran. El precio proviene del pedido, nunca de la carta actual. |
-| P-03 | Yape/Plin/tarjeta se verifican manualmente por el cajero; no hay integración bancaria. La interfaz exige confirmar que recibió el pago. Efectivo admite recibido mayor al total y calcula vuelto. |
-| P-04 | Sin descuentos, propinas, recargos, pago parcial, devolución ni reapertura en esta entrega. Un cobro confirmado es definitivo; estas acciones necesitan su propia spec. |
-| P-05 | Cajero/admin cobran y consultan pagos; mozo puede ver/imprimir la pre-cuenta. Cocina no accede a los nuevos endpoints de Caja. No se pide un segundo PIN para el cobro normal. |
+| ID   | Decisión                                                                                                                                                                                                                                                   |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P-01 | Cobrar cualquier pedido abierto con total positivo e ítems, aunque el mozo aún no haya solicitado cuenta. La lista permite distinguir los que pidieron cuenta.                                                                                             |
+| P-02 | Una anulación pendiente bloquea el cobro hasta su aprobación o rechazo. Ítems anulados no se cobran. El precio proviene del pedido, nunca de la carta actual.                                                                                              |
+| P-03 | Yape/Plin/tarjeta se verifican manualmente por el cajero; no hay integración bancaria. La interfaz exige confirmar que recibió el pago. Efectivo admite recibido mayor al total y calcula vuelto.                                                          |
+| P-04 | Sin descuentos, propinas, recargos, pago parcial, devolución ni reapertura en esta entrega. Un cobro confirmado es definitivo; estas acciones necesitan su propia spec.                                                                                    |
+| P-05 | Cajero/admin cobran y consultan pagos; mozo puede ver/imprimir la pre-cuenta. Cocina no accede a los nuevos endpoints de Caja. No se pide un segundo PIN para el cobro normal.                                                                             |
 | P-06 | Pre-cuenta por diálogo de impresión del navegador, como aprobó el usuario; no genera comanda ni acredita papel. Es una excepción acotada a la regla 7 de CLAUDE.md para esta impresión manual: las comandas automáticas siguen pasando por PrinterService. |
-| P-07 | Importes del cobro entre 0 y 2147483647 céntimos, enteros seguros. Total pagable estrictamente positivo. Un total que exceda el rango se muestra como no cobrable; no se trunca ni redondea. |
+| P-07 | Importes del cobro entre 0 y 2147483647 céntimos, enteros seguros. Total pagable estrictamente positivo. Un total que exceda el rango se muestra como no cobrable; no se trunca ni redondea.                                                               |
 
 La apertura/cierre de caja y cuadre (RF-16), pagos mixtos/división (RF-15), ticket de venta (RF-17), SUNAT, impresora térmica, stock, delivery y reportes están fuera. La pantalla de Caja conserva la atención de comandas de la 013.
 
@@ -50,7 +50,12 @@ Imprimir no registra pago ni congela el pedido. La hoja muestra PRE-CUENTA, núm
 POST requiere sesión cashier/admin, JSON estricto e Idempotency-Key con las mismas reglas de formato que la 010. Cuerpo:
 
 ```json
-{"method":"cash","receivedCents":3000,"billToken":"<64 caracteres hexadecimales>","confirmedReceived":true}
+{
+  "method": "cash",
+  "receivedCents": 3000,
+  "billToken": "<64 caracteres hexadecimales>",
+  "confirmedReceived": true
+}
 ```
 
 Los cuatro métodos son `cash`, `yape`, `plin`, `card`; confirmedReceived debe ser true. Para no efectivo receivedCents coincide exactamente con el total; para efectivo es mayor o igual. El monto imputado es siempre el total actual, no el recibido. Falta de efectivo produce error, nunca pago parcial. La confirmación es una declaración del usuario, no verificación bancaria.
@@ -71,31 +76,31 @@ El snapshot de pago conserva las mesas y cuenta revisadas, cajero (id/nombre al 
 
 Nueva tabla `payments` con migración reversible antes de usarse, sin backfill de pedidos cerrados históricos. No alterar el esquema de Order ni agregar stock.
 
-| Campo | Regla |
-| --- | --- |
-| id | INTEGER PK autogenerada |
-| order_id | INTEGER NOT NULL, FK orders, UNIQUE: un pago completo por pedido |
-| method | VARCHAR, CHECK cash/yape/plin/card |
-| amount_cents | INTEGER, CHECK 1…2147483647 |
-| received_cents | INTEGER, CHECK amount_cents…2147483647 |
-| change_cents | INTEGER, CHECK = received_cents - amount_cents |
-| cashier_user_id | FK users, NOT NULL; nombre histórico en snapshot |
-| paid_at | TIMESTAMPTZ NOT NULL; presentación en America/Lima |
-| bill_token | CHAR(64), hexadecimal minúscula |
+| Campo                       | Regla                                                                               |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| id                          | INTEGER PK autogenerada                                                             |
+| order_id                    | INTEGER NOT NULL, FK orders, UNIQUE: un pago completo por pedido                    |
+| method                      | VARCHAR, CHECK cash/yape/plin/card                                                  |
+| amount_cents                | INTEGER, CHECK 1…2147483647                                                         |
+| received_cents              | INTEGER, CHECK amount_cents…2147483647                                              |
+| change_cents                | INTEGER, CHECK = received_cents - amount_cents                                      |
+| cashier_user_id             | FK users, NOT NULL; nombre histórico en snapshot                                    |
+| paid_at                     | TIMESTAMPTZ NOT NULL; presentación en America/Lima                                  |
+| bill_token                  | CHAR(64), hexadecimal minúscula                                                     |
 | snapshot_version / snapshot | versión 1 y JSONB estricto del contenido de cuenta/pago, validado antes de escribir |
 
 CHECK adicional: métodos no efectivo exigen recibido = amount y change = 0. Sin ON DELETE CASCADE ni endpoints para alterar pagos. Índice por paid_at/id para la futura consulta, sin reportes en esta entrega. Transición closed ejecutada únicamente por este servicio; cancelled y merged siguen sus reglas previas.
 
 ## 6. API propuesta — contrato después de aprobar
 
-Base `/api`; no-store también en errores, incluidos rechazos del lector global. OpenAPI actual sigue en 0.10.0; S-01 preparará 0.11.0 con operaciones pending antes de TDD. No se amplían esquemas antiguos de respuesta.
+Base `/api`; no-store también en errores, incluidos rechazos del lector global. OpenAPI0.11.0 preparado en S-01; sus cuatro operaciones están implemented tras las verificaciones de C-01. No se amplían esquemas antiguos de respuesta.
 
-| Método y ruta | Roles | Respuesta |
-| --- | --- | --- |
-| GET /cashier/orders?afterOrderId=N | cashier/admin | 200 `{orders,nextAfterOrderId}`; solo open, por id ascendente, páginas de 50; resumen con mesas, total, openedAt, billRequestedAt, hasPendingVoids y canPay. Query entero positivo opcional; sin filtros extra. |
-| GET /orders/{orderId}/bill | waiter/cashier/admin | 200 `{bill}` consistente; 404 ORDER_NOT_FOUND, 409 ORDER_NOT_OPEN para no abiertos. Un total 0, excesivo o anulación pendiente se puede revisar con canPay=false. |
-| POST /orders/{orderId}/payments | cashier/admin | 201 `{order,payment}`; order conserva esquema de 0.10.0 y status closed; payment incluye id, orderId, method, amountCents, receivedCents, changeCents, cashier, paidAt y snapshot. |
-| GET /payments/{paymentId} | cashier/admin | 200 `{payment}` inmutable para recuperar confirmación tras navegar/recargar; 404 PAYMENT_NOT_FOUND. |
+| Método y ruta                      | Roles                | Respuesta                                                                                                                                                                                                       |
+| ---------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET /cashier/orders?afterOrderId=N | cashier/admin        | 200 `{orders,nextAfterOrderId}`; solo open, por id ascendente, páginas de 50; resumen con mesas, total, openedAt, billRequestedAt, hasPendingVoids y canPay. Query entero positivo opcional; sin filtros extra. |
+| GET /orders/{orderId}/bill         | waiter/cashier/admin | 200 `{bill}` consistente; 404 ORDER_NOT_FOUND, 409 ORDER_NOT_OPEN para no abiertos. Un total 0, excesivo o anulación pendiente se puede revisar con canPay=false.                                               |
+| POST /orders/{orderId}/payments    | cashier/admin        | 201 `{order,payment}`; order conserva esquema de 0.10.0 y status closed; payment incluye id, orderId, method, amountCents, receivedCents, changeCents, cashier, paidAt y snapshot.                              |
+| GET /payments/{paymentId}          | cashier/admin        | 200 `{payment}` inmutable para recuperar confirmación tras navegar/recargar; 404 PAYMENT_NOT_FOUND.                                                                                                             |
 
 Errores nuevos propuestos: BILL_CHANGED (409), PENDING_VOIDS (409), ORDER_NOT_PAYABLE (409), INSUFFICIENT_CASH (422), PAYMENT_NOT_FOUND (404). Se conservan VALIDATION_ERROR (400), IDEMPOTENCY_CONFLICT (409), ORDER_NOT_OPEN (409), ORDER_NOT_FOUND (404), 401/403, lector JSON y 500 sin detalles internos. Después de un replay aceptado no se sustituyen sus campos históricos por una vista nueva.
 
@@ -111,26 +116,26 @@ Mozo/admin tienen acceso a la pre-cuenta desde el pedido; el mozo no ve formular
 
 ## 8. Criterios de aceptación
 
-| AC | Evidencia requerida |
-| --- | --- |
-| AC-01 | Migración up/down/re-up en _test, constraints de importes/métodos, unique order y FK; ningún backfill. |
-| AC-02 | Pre-cuenta consistente: cantidades, cremas y combos sin doble suma, precios copiados y exclusión de voided; cero/exceso/pending visibles no cobrables. |
-| AC-03 | Token estable al releer y cambiar carta/marcas operativas; distinto ante cambios relevantes, incluso con total idéntico. |
-| AC-04 | Efectivo suficiente: un pago, vuelto exacto, closed y todas las mesas libres; referencia histórica conservada. |
-| AC-05 | Yape/Plin/card: confirmación true, recibido exacto y cero vuelto; sin servicios externos. |
-| AC-06 | Rechazar importes inválidos/insuficientes, cuenta vacía/cero/excesiva, void pendiente, cerrado/cancelled/merged y token viejo sin mutaciones. |
-| AC-07 | Replay secuencial/concurrente y ACK perdido devuelven mismo 201, sin segundo pago; clave reutilizada con cuerpo/pedido distinto rechazada. |
-| AC-08 | Dos cajeros, dos claves: un ganador. Cobro concurrente con send/void/request-void/move/join respeta locks y total revisado; sin liberar mesa de otro pedido ni deadlocks no resueltos. |
-| AC-09 | Fallo forzado de inserción/cierre/liberación/registro del replay revierte toda la operación y permite reintento. |
-| AC-10 | Auth/roles, sesión revocada, ids/query/body/clave estrictos y no-store en éxito/error; mozo/kitchen no cobran. |
-| AC-11 | Pago/snapshot inmutables y legibles tras renombrar usuarios/mesas/productos y reusar la mesa; no cambian respuestas antiguas. |
-| AC-12 | Lista paginada y polling visible de todas las páginas; carga/vacío/error y 401; atención 013 conservada. |
+| AC    | Evidencia requerida                                                                                                                                                                                                                                                                       |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-01 | Migración up/down/re-up en _test, constraints de importes/métodos, unique order y FK; ningún backfill.                                                                                                                                                                                    |
+| AC-02 | Pre-cuenta consistente: cantidades, cremas y combos sin doble suma, precios copiados y exclusión de voided; cero/exceso/pending visibles no cobrables.                                                                                                                                    |
+| AC-03 | Token estable al releer y cambiar carta/marcas operativas; distinto ante cambios relevantes, incluso con total idéntico.                                                                                                                                                                  |
+| AC-04 | Efectivo suficiente: un pago, vuelto exacto, closed y todas las mesas libres; referencia histórica conservada.                                                                                                                                                                            |
+| AC-05 | Yape/Plin/card: confirmación true, recibido exacto y cero vuelto; sin servicios externos.                                                                                                                                                                                                 |
+| AC-06 | Rechazar importes inválidos/insuficientes, cuenta vacía/cero/excesiva, void pendiente, cerrado/cancelled/merged y token viejo sin mutaciones.                                                                                                                                             |
+| AC-07 | Replay secuencial/concurrente y ACK perdido devuelven mismo 201, sin segundo pago; clave reutilizada con cuerpo/pedido distinto rechazada.                                                                                                                                                |
+| AC-08 | Dos cajeros, dos claves: un ganador. Cobro concurrente con send/void/request-void/move/join respeta locks y total revisado; sin liberar mesa de otro pedido ni deadlocks no resueltos.                                                                                                    |
+| AC-09 | Fallo forzado de inserción/cierre/liberación/registro del replay revierte toda la operación y permite reintento.                                                                                                                                                                          |
+| AC-10 | Auth/roles, sesión revocada, ids/query/body/clave estrictos y no-store en éxito/error; mozo/kitchen no cobran.                                                                                                                                                                            |
+| AC-11 | Pago/snapshot inmutables y legibles tras renombrar usuarios/mesas/productos y reusar la mesa; no cambian respuestas antiguas.                                                                                                                                                             |
+| AC-12 | Lista paginada y polling visible de todas las páginas; carga/vacío/error y 401; atención 013 conservada.                                                                                                                                                                                  |
 | AC-13 | Importes visibles/impresos y entradas en soles, nunca céntimos; 21.5/21,5 se muestran S/ 21,50; total S/ 21,00, recibido S/ 30,00 y vuelto S/ 9,00. Parsing decimal exacto, revisión/confirmación, doble clic, BILL_CHANGED y reintento con misma clave/cuerpo tras pérdida de respuesta. |
-| AC-14 | Pre-cuenta e impresión manual no crean pago ni comanda; hoja con etiquetas/detalle/total sin controles. Cocina sigue PrinterService. |
-| AC-15 | E2E desktop cash: pedido mixto, pre-cuenta, cobro/vuelto, mesas libres y lectura del pago; E2E mobile método electrónico, vista 360 px y reintento sin duplicación. No internet. |
+| AC-14 | Pre-cuenta e impresión manual no crean pago ni comanda; hoja con etiquetas/detalle/total sin controles. Cocina sigue PrinterService.                                                                                                                                                      |
+| AC-15 | E2E desktop cash: pedido mixto, pre-cuenta, cobro/vuelto, mesas libres y lectura del pago; E2E mobile método electrónico, vista 360 px y reintento sin duplicación. No internet.                                                                                                          |
 
 ## 9. Aprobación y cierre
 
-El principal redacta contrato y revisa; test-writer gpt-6-luna medium; implementer gpt-6.1-sol medium para cobro/transacciones/idempotencia y gpt-6-luna medium para UI, sin dos implementadores simultáneos. Bloques pequeños rojo → verde → revisión. No auditoría adversarial ni reviewer independientes; mantener casos críticos como regresiones.
+El principal redacta contrato y revisa; test-writer gpt-6.1-sol low (reemplazo de Luna autorizado el 2026-10-16); implementer gpt-6.1-sol medium para cobro/transacciones/idempotencia y gpt-6.1-sol low para UI sencilla, sin dos implementadores simultáneos. Bloques pequeños rojo → verde → revisión. No auditoría adversarial ni reviewer independientes; mantener casos críticos como regresiones.
 
 DoD: todos los AC trazados; tests completos, tipos, lint, cobertura con umbrales existentes, E2E desktop/mobile y contrato verificados. No migrar la base de desarrollo para validar esta feature; únicamente _test. Registro de PROGRESS/CONTINUAR y commits separados. Integración a main/dev solo con autorización correspondiente; no desplegar ni afirmar cobro bancario, comprobante fiscal o salida física.

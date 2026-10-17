@@ -1516,3 +1516,274 @@ button.button--secondary {
     transform: none;
   }
 }
+
+/* Caja 014: extiende los tokens del POS azul y aísla la hoja de impresión. */
+.cashier-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.bill-sheet,
+.payment-form,
+.cashier-orders {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-soft);
+}
+.bill-heading,
+.bill-line,
+.bill-total {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.bill-heading {
+  flex-wrap: wrap;
+}
+.bill-line {
+  flex-wrap: wrap;
+}
+.bill-sheet {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.bill-heading h2 {
+  font-size: 1.25rem;
+}
+.bill-items {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+}
+.bill-items > li {
+  padding: 16px 0;
+  border-top: 1px solid var(--petrol-soft);
+  break-inside: avoid;
+}
+.bill-items p {
+  margin-bottom: 6px;
+}
+.bill-subtotal {
+  text-align: right;
+  font-weight: 700;
+}
+.bill-total {
+  border-top: 2px solid var(--ink);
+  padding-top: 16px;
+  font-size: 1.25rem;
+}
+.bill-disclaimer {
+  margin: 16px 0 0;
+  font-size: 0.9rem;
+}
+.payment-form > h2 {
+  margin-bottom: 12px;
+}
+.payment-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-weight: 700;
+}
+.payment-field input,
+.payment-field select {
+  min-height: 48px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+}
+.payment-check {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 48px;
+  cursor: pointer;
+}
+.payment-check input {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.payment-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--ink);
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.payment-button:hover {
+  background: var(--petrol-soft);
+}
+.payment-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.payment-primary {
+  background: var(--ink);
+  color: var(--white);
+}
+.payment-primary:hover {
+  background: #254ca9;
+}
+.payment-button:focus-visible,
+.payment-link:focus-visible,
+.cashier-order-link:focus-visible,
+.payment-field input:focus-visible,
+.payment-field select:focus-visible {
+  outline: 3px solid var(--teal);
+  outline-offset: 3px;
+}
+.payment-link {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.payment-notice {
+  margin: 16px 0 0;
+  padding: 12px;
+  border-left: 3px solid var(--warning-ink);
+  color: var(--warning-ink);
+  background: #fff8e7;
+}
+.payment-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgb(30 58 138 / 40%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.payment-modal {
+  max-width: 480px;
+  width: 100%;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  background: var(--white);
+  color: var(--ink);
+  padding: 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+.payment-modal h2 {
+  margin-bottom: 16px;
+}
+.payment-totals {
+  margin: 16px 0;
+  font-variant-numeric: tabular-nums;
+}
+.payment-totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+}
+.payment-totals dd {
+  margin: 0;
+  font-weight: 800;
+}
+.cashier-order-list {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.cashier-order-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 20px 0;
+  border-top: 1px solid var(--petrol-soft);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.cashier-order-link:hover {
+  background: var(--paper);
+}
+.cashier-order-link > div {
+  display: flex;
+  flex-direction: column;
+}
+.cashier-order-link > span {
+  grid-column: 1 / -1;
+  font-size: 0.9rem;
+}
+@media (min-width: 1024px) {
+  .cashier-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  }
+}
+@media (max-width: 480px) {
+  .bill-sheet,
+  .payment-form,
+  .cashier-orders {
+    padding: 18px;
+  }
+  .bill-heading .payment-button {
+    width: 100%;
+  }
+}
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  html,
+  body {
+    min-width: 0;
+    background: white;
+    color: black;
+  }
+  .print-hidden,
+  .app-header,
+  .skip-link,
+  .area-navigation,
+  .session-header {
+    display: none !important;
+  }
+  .app-shell,
+  .workspace-main,
+  .cashier-layout {
+    display: block !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white;
+  }
+  .bill-sheet {
+    color: black;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+    width: 100%;
+  }
+  .bill-sheet h2 {
+    color: black;
+  }
+  .bill-total {
+    border-color: black;
+  }
+}

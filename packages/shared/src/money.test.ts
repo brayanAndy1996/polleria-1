@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { PRICE_INPUT_MESSAGE, formatSoles, parseSolesToCents } from '@polleria/shared';
+import {
+  PRICE_INPUT_MESSAGE,
+  formatCashierSoles,
+  formatSoles,
+  parseSolesToCents,
+} from '@polleria/shared';
 
 describe('008: dinero en soles en la interfaz (shared)', () => {
   it.each([
@@ -46,5 +51,26 @@ describe('008: dinero en soles en la interfaz (shared)', () => {
       expect(parseSolesToCents).toBeTypeOf('function');
       expect(parseSolesToCents(text)).toBeNull();
     },
+  );
+});
+
+describe('014: dinero de Caja en soles', () => {
+  it.each([
+    [2100, 'S/ 21,00'],
+    [2150, 'S/ 21,50'],
+    [900, 'S/ 9,00'],
+    [5, 'S/ 0,05'],
+  ])('AC-13: formatCashierSoles(%i) muestra "%s"', (cents, expected) => {
+    expect(formatCashierSoles(cents)).toBe(expected);
+  });
+
+  it.each(['21.5', '21,5'])('AC-13: %s se interpreta exactamente como 2150 céntimos', (text) => {
+    expect(parseSolesToCents(text)).toBe(2150);
+    expect(formatCashierSoles(parseSolesToCents(text)!)).toBe('S/ 21,50');
+  });
+
+  it.each([-1, 21.5, NaN, Infinity, '2100', null])(
+    'AC-13: formatCashierSoles rechaza un valor que no son céntimos enteros no negativos (%s)',
+    (value) => expect(() => formatCashierSoles(value as never)).toThrow(),
   );
 });

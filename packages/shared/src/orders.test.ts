@@ -19,6 +19,7 @@ import type {
   JoinTableRequest,
   MoveOrderRequest,
   Order,
+  OrderItem,
   OrderStatus,
 } from '@polleria/shared';
 
@@ -38,7 +39,10 @@ const ORDER_NEEDS_TABLE_BODY = {
   },
 };
 
-/** Un pedido abierto válido: las trece claves exactas de D-010-14 (la 010 suma items y totalCents). */
+/**
+ * Un pedido abierto válido: las trece claves exactas de D-010-14 (spec 010), que suman
+ * `items` y `totalCents` a las once de D-009-14. Sin ítems enviados, ambas van vacías.
+ */
 const OPEN_ORDER = {
   id: 12,
   status: 'open',
@@ -281,3 +285,66 @@ describe('009: esquemas del ciclo del pedido', () => {
     expect(errorResponseSchema.safeParse(ORDER_NEEDS_TABLE_BODY).success).toBe(true);
   });
 });
+
+// Spec 010 (AC-02): orderSchema pasa de 11 a 13 claves exigiendo items y totalCents.
+describe('010: orderSchema con los ítems y el total del pedido', () => {
+  it('AC-02: exige items como lista y totalCents como entero no negativo', () => {
+    expect(orderSchema.parse(OPEN_ORDER)).toEqual(OPEN_ORDER);
+    // Un ítem válido dentro de la lista se acepta con las claves de orderItemSchema.
+    const conItem = { ...OPEN_ORDER, totalCents: 1600, items: [VALID_ORDER_ITEM] };
+    expect(orderSchema.parse(conItem)).toEqual(conItem);
+    for (const input of [
+      // Sin las dos claves nuevas la forma de la 009 ya no basta.
+      { ...OPEN_ORDER, items: undefined },
+      { ...OPEN_ORDER, totalCents: undefined },
+      {
+        id: 12,
+        status: 'open',
+        tables: [],
+        openedBy: { id: 2, displayName: 'Juan' },
+        openedAt: '2026-10-10T18:30:00.000Z',
+        readyAt: null,
+        billRequestedAt: null,
+        closedAt: null,
+        closedBy: null,
+        cancelReason: null,
+        mergedIntoOrderId: null,
+      },
+      { ...OPEN_ORDER, items: 'sin ítems' },
+      { ...OPEN_ORDER, items: [{ id: 1 }] },
+      { ...OPEN_ORDER, totalCents: -1 },
+      { ...OPEN_ORDER, totalCents: 1.5 },
+      { ...OPEN_ORDER, totalCents: '1600' },
+    ])
+      expect(orderSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+/** Un ítem del pedido válido: las 25 claves de orderItemSchema (D-010-14, spec 010). */
+const VALID_ORDER_ITEM: OrderItem = {
+  id: 31,
+  productId: 5,
+  productName: 'Pollo a la brasa',
+  productCategory: 'chicken',
+  quantity: 2,
+  priceCents: 1400,
+  portion: 'quarter',
+  cut: 'leg',
+  breastEighths: 0,
+  legEighths: 4,
+  notes: 'sin ensalada',
+  sauces: [{ productId: 9, productName: 'Aj\u00ED', quantity: 1, priceCents: 0 }],
+  components: [],
+  status: 'sent',
+  kitchenTicketId: 8,
+  voidTicketId: null,
+  voidedBy: null,
+  voidedAt: null,
+  voidReason: null,
+  voidRequestedBy: null,
+  voidRequestedAt: null,
+  voidRequestReason: null,
+  orderedAtTable: { id: 3, name: 'Mesa 3' },
+  createdBy: { id: 2, displayName: 'Juan' },
+  createdAt: '2026-10-11T18:35:00.000Z',
+};

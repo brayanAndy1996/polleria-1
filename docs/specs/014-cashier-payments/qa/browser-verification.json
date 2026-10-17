@@ -1,0 +1,75 @@
+{
+  "data": "mocked, no DB",
+  "captures": [
+    {
+      "name": "caja-desktop",
+      "width": 1440,
+      "height": 900,
+      "scroll": 1440
+    },
+    {
+      "name": "caja-mobile",
+      "width": 360,
+      "height": 800,
+      "scroll": 360
+    },
+    {
+      "name": "cuenta-mobile",
+      "width": 360,
+      "height": 800,
+      "scroll": 360
+    },
+    {
+      "name": "cuenta-tablet",
+      "width": 768,
+      "height": 1024,
+      "scroll": 768
+    },
+    {
+      "name": "cuenta-desktop",
+      "width": 1440,
+      "height": 900,
+      "scroll": 1440
+    },
+    {
+      "name": "confirmacion-mobile",
+      "width": 360,
+      "height": 800,
+      "scroll": 360
+    },
+    {
+      "name": "respuesta-perdida-mobile",
+      "width": 360,
+      "height": 800,
+      "scroll": 360
+    },
+    {
+      "name": "pago-mobile",
+      "width": 360,
+      "height": 800,
+      "scroll": 360
+    },
+    {
+      "name": "pago-desktop",
+      "width": 1440,
+      "height": 900,
+      "scroll": 1440
+    },
+    {
+      "name": "precuenta-mozo-mobile",
+      "width": 360,
+      "height": 800,
+      "scroll": 360
+    },
+    {
+      "name": "precuenta-impresion",
+      "width": 360,
+      "height": 800,
+      "scroll": 360
+    }
+  ],
+  "pageErrors": [],
+  "replayPreserved": true,
+  "cancelWithoutPayment": true,
+  "dialogFocusAndReturn": true
+}

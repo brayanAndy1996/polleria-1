@@ -14,6 +14,9 @@ beforeEach(() => {
       HttpResponse.json({ prints: [], nextAfterTicketId: null }),
     ),
     http.get('*/api/orders/:orderId/ticket-prints', () => HttpResponse.json({ prints: [] })),
+    http.get('*/api/cashier/orders', () =>
+      HttpResponse.json({ orders: [], nextAfterOrderId: null }),
+    ),
   );
 });
 

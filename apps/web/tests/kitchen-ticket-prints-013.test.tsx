@@ -338,11 +338,11 @@ describe('013: estado separado por pedido y copias permitidas', () => {
     expect(screen.queryByRole('button', { name: 'Solicitar copia' })).not.toBeInTheDocument();
   });
 
-  it('AC-13: caja copia ANULADO failed/uncertain desde atención y conserva placeholder de cobro', async () => {
+  it('AC-13: caja copia ANULADO failed/uncertain desde atención junto a pedidos abiertos', async () => {
     attention([print(9, 'uncertain', 'void')]);
     show('caja');
     await screen.findByText('Mesa al emitir 9');
-    expect(screen.getByText('Aquí cobrarás las cuentas.')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Pedidos abiertos' })).toBeVisible();
     expect(row(9).getByRole('button', { name: 'Solicitar copia' })).toBeVisible();
     expect(row(9).getByText('Revisar salida')).toBeVisible();
   });

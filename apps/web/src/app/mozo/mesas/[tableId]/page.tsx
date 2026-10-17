@@ -602,6 +602,12 @@ function OccupiedTable({
           <h2 className="text-xl font-semibold">Acciones</h2>
           <div className="flex flex-wrap gap-3">
             <Link
+              href={`/mozo/pedidos/${current.id}/cuenta`}
+              className="inline-flex min-h-12 items-center text-accent underline underline-offset-4"
+            >
+              Ver pre-cuenta
+            </Link>
+            <Link
               href={`/mozo/mesas/${table.id}/agregar`}
               className="inline-flex min-h-12 items-center text-accent underline underline-offset-4"
             >

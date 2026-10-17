@@ -1,6 +1,6 @@
 import { hostname } from 'node:os';
 import { randomUUID } from 'node:crypto';
-import { readdir, readFile, writeFile, symlink, mkdir } from 'node:fs/promises';
+import { readdir, readFile, writeFile, symlink, mkdir, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import type { Sequelize } from 'sequelize';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -503,13 +503,33 @@ describe('013: despacho local exclusivo y recuperación sin repetir I/O', () => 
       const row = (await attempts())[0]!;
       const filename = path.join(dir, `${row.documents![0]!.jobId}.txt`);
       const fs = await import('node:fs/promises');
+      let protectedFile: string | undefined;
+      const protectedContent = row.documents![0]!.lines.join('\n') + '\n';
       if (scenario === 'missing') await fs.unlink(filename);
       else if (scenario === 'different') await writeFile(filename, 'contenido ajeno\n');
       else if (scenario === 'symlink') {
         await fs.unlink(filename);
         const target = path.join(dir, 'original');
-        await writeFile(target, row.documents![0]!.lines.join('\n') + '\n');
-        await symlink(target, filename);
+        await writeFile(target, protectedContent);
+        protectedFile = target;
+        try {
+          await symlink(target, filename);
+        } catch (error) {
+          if (
+            process.platform !== 'win32' ||
+            !(error instanceof Error) ||
+            !('code' in error) ||
+            error.code !== 'EPERM'
+          )
+            throw error;
+          // Windows permite junctions reales sin el privilegio de file symlink.
+          const targetDirectory = path.join(dir, 'protected-original');
+          await mkdir(targetDirectory);
+          protectedFile = path.join(targetDirectory, 'original.txt');
+          await writeFile(protectedFile, protectedContent);
+          await symlink(targetDirectory, filename, 'junction');
+        }
+        expect((await lstat(filename)).isSymbolicLink()).toBe(true);
       } else if (scenario === 'directory') {
         await fs.unlink(filename);
         await mkdir(filename);
@@ -527,6 +547,8 @@ describe('013: despacho local exclusivo y recuperación sin repetir I/O', () => 
       expect((await attempts())[0]!.status).toBe(scenario === 'missing' ? 'failed' : 'uncertain');
       expect(output).not.toHaveBeenCalled();
       expect(await readdir(dir)).toEqual(before);
+      if (protectedFile !== undefined)
+        expect(await readFile(protectedFile, 'utf8')).toBe(protectedContent);
       if (scenario === 'different')
         expect(await readFile(filename, 'utf8')).toBe('contenido ajeno\n');
     },

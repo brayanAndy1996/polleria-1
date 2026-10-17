@@ -1,5 +1,16 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## 014 implementada y validada — 2026-10-16
+
+- Dev integrado y publicado en main por autorización del usuario: merge `5e452c0`. El desarrollo nuevo está en `feat/014-cashier-payments`, sin integrar cobros a main.
+- S-01…C-01 completados: schemas/dinero en soles, pre-cuenta/token, migración/modelo Payment, cierre transaccional/replay, cuatro endpoints, lista paginada/polling, confirmación/reintento, histórico e impresión manual. Validado con PostgreSQL17.5/polleria_test del usuario; ningún cambio en polleria_dev.
+- Principal verificó regresión sin DB: 92 archivos, 2076 pruebas aprobadas y 3 fallos esperados existentes. Controller 8/8 adicional; dirigido cliente/componentes/controller 28/28. Builds Turbopack y Webpack aprobados; caché antigua preservada fuera de ruta activa para resolver fallo inicial de PostCSS.
+- QA visual con fixtures interceptadas: 11 capturas a360/768/1440, sin overflow/pageerrors; foco/cancelación y retry con misma clave/cuerpo aprobados. Hoja print sin controles. Evidencia en docs/specs/014-cashier-payments/verification.md y qa/.
+- El checkout real del usuario es `C:\Users\braya\Desktop\proyectos1\polleria - copia`, limpio en main; su .env conecta a polleria_test en localhost:5432, PostgreSQL17.5. El principal verifica desde `work/polleria-1` leyendo únicamente DATABASE_URL_TEST de ese archivo, sin copiar credenciales ni cambiar la copia del usuario. No crear bases/roles ni tocar polleria_dev.
+- Cierre:149 archivos/2880 pruebas aprobadas,5 fallos esperados previos separados; cobertura de líneas96,71 %, shared99,32 %, servicios de pagos90,62 %. Umbrales existentes sin cambios. DB dirigida014:42/42. E2E reales:30 aprobados/14 no aplicables, en ejecuciones serializadas separadas. Tipos/lint globales aprobados; builds Turbopack/Webpack previos conservados, producción sin cambios posteriores. Historia y pruebas locales preservadas con merge `a06b4df` y conciliación sin perder casos.
+- OpenAPI0.11:cuatro operaciones implemented,598 referencias verificadas. Siguiente paso: revisión del usuario de la rama014; integración a main/dev requiere autorización posterior. Sin prueba física, integración bancaria ni caja avanzada. Ver docs/specs/014-cashier-payments/verification.md para trazabilidad de todos los AC y límites.
+- Usuario reemplazó Luna por GPT-6.1-sol low para test-writer/trabajo sencillo. Implementación compleja mantiene6.1-sol medium. Principal mantiene docs/contrato y revisión; sin reviewer ni adversarial independientes. Ver AGENTS.md y docs/agents/modelos-codex.md.
+
 ## Actualización — 2026-10-16
 
 El usuario autorizó integrar todo dev en main y continuar la 014. El rediseño azul, demo y corrección SSR quedan integrados; las notas inferiores sobre separación de ramas y prohibición de integrar son históricas. La 014 tiene spec aprobada y continúa con contrato y TDD en su rama de funcionalidad; su implementación aún no está autorizada para integrar a main.

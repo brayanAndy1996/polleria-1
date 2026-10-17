@@ -203,5 +203,11 @@ export type {
   ComboItem,
   ComboItemsResponse,
 } from './combos.ts';
-export { PRICE_INPUT_MESSAGE, formatSoles, parseSolesToCents } from './money.ts';
+export {
+  PRICE_INPUT_MESSAGE,
+  formatSoles,
+  formatCashierSoles,
+  parseSolesToCents,
+} from './money.ts';
 export * from './kitchen-ticket-prints.ts';
+export * from './payments.ts';
