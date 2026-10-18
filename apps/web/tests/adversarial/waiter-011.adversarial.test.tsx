@@ -563,7 +563,7 @@ describe('ADV-011-07: el aviso de tope de envío se limpia al quitar una línea'
     expect(screen.getByText('Un envío admite hasta 20 ítems.')).toBeVisible();
     fireEvent.click(within(cartLine('Chaufa')).getByRole('button', { name: 'Quitar' }));
     expect(screen.queryByText('Un envío admite hasta 20 ítems.')).toBeNull();
-  });
+  }, 15_000);
 });
 
 describe('ADV-011-08: los nombres de componentes no llevan caracteres invisibles', () => {

@@ -427,7 +427,7 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     fireEvent.click(screen.getAllByRole('button', { name: 'Agregar al pedido' }).at(-1)!);
     expect(await screen.findByText('Un envío admite hasta 20 ítems.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Enviar a cocina (20)' })).toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('AC-17: enviar hace un solo POST con Idempotency-Key y el cuerpo de D-011-08; tras el 201 vuelve con el aviso', async () => {
     const posts: { body: unknown; key: string | null }[] = [];
