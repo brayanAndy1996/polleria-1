@@ -12,11 +12,13 @@ Luna vuelve a ser la elección para test-writer y trabajo sencillo. Los bloques 
 
 ## Flujo vigente
 
+Desde el 2026-10-18 se aplica [pruebas por riesgo](pruebas-por-riesgo.md), por solicitud del usuario de reducir consumo. Esta actualización prevalece sobre repeticiones de verificación exigidas por cortes anteriores; conserva modelos, separación de roles y casos críticos.
+
 1. El principal prepara spec/tareas/contrato y obtiene aprobación del comportamiento nuevo. Mantiene los 14 AC y P-01…P-06 ya aprobados de la 013.
 2. test-writer escribe o repara las pruebas de un bloque pequeño y demuestra rojo causal, distinguiendo módulos ausentes, bugs y fallos de fixtures/entorno.
 3. implementer escribe producción mínima y refactoriza hasta verde. No puede crear, modificar ni borrar tests.
 4. El principal revisa diff, trazabilidad y resultados. Las discrepancias de tests vuelven al test-writer. Si cambia comportamiento aprobado, consulta al usuario.
-5. Verificaciones dirigidas por bloque; suite completa, tipos, lint, cobertura y E2E pertinentes al cierre. Ningún resultado omitido/esperado se cuenta como aprobado.
+5. Una ejecución dirigida por bloque. El principal revisa diff y evidencia del ejecutor, sin repetir las mismas pruebas si el código probado no cambió y el resultado es fiable. Al cierre, una ejecución global con cobertura, tipos, lint, un build y E2E críticos pertinentes; la ejecución con cobertura ya cuenta como suite global. Repetir solo por cambios relevantes, fallos o evidencia insuficiente. Ningún resultado omitido/esperado se cuenta como aprobado.
 6. El principal mantiene PROGRESS/CONTINUAR y solicita autorización para integrar a main. Mantener commits de tests, producción y docs separados.
 
 Se eliminan los subagentes separados spec-writer/reviewer y la ronda adversarial independiente. Las pruebas adversariales existentes permanecen en la suite; test-writer mantiene regresiones críticas de dinero, permisos, idempotencia y concurrencia. La revisión principal no tiene la independencia del reviewer anterior: registrar esta limitación. No ampliar ni reducir criterios de aceptación para ahorrar cuota.
@@ -24,6 +26,8 @@ Se eliminan los subagentes separados spec-writer/reviewer y la ronda adversarial
 ## Delegación y ejecución
 
 Solo un test-writer y un implementer activos; usar collaboration.spawn_agent con fork_turns="none", model explícito (gpt-6-luna para pruebas/trabajo sencillo o gpt-6.1-sol para implementación compleja) y reasoning_effort="medium". Pasar únicamente rol, spec/AC/tareas del bloque, contrato pertinente, archivos asignados, decisiones y evidencia de rojo disponible. No heredar todo el historial ni crear subagentes secundarios.
+
+Son máximos, no una obligación de mantener dos agentes trabajando o esperando. No crear un implementer antes de disponer del bloque rojo que debe resolver; no abrir turnos solo para planificar de nuevo, confirmar recepción o repetir resultados. El principal comunica hallazgos agrupados y actualiza PROGRESS/CONTINUAR al terminar un hito o interrumpir el trabajo, sin copiar el historial de herramientas en cada documento. Las pruebas existentes no se leen completas por defecto: buscar las relevantes y revisar su diff.
 
 No superponer tests de DB, cobertura y E2E sobre polleria_test. Coordinar el dueño del slot de DB. No instalaciones simultáneas ni escrituras sobre los mismos archivos. El entorno de nube ya está aislado: no crear worktrees salvo solicitud.
 

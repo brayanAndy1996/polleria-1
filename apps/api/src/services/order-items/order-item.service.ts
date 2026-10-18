@@ -5,11 +5,14 @@ import {
   ORDER_ACTIVE_ITEMS_MAX,
   PORTIONS,
   chickenConsumption,
+  calculateInventoryDemand,
+  hasAnyRole,
   sendOrderItemsRequestSchema,
   voidOrderItemRequestSchema,
 } from '@polleria/shared';
 import type {
   Cut,
+  InventoryDemand,
   KitchenTicket,
   KitchenTicketKind,
   Order,
@@ -28,7 +31,13 @@ import type {
   TableModel,
 } from '../../models/index.ts';
 import { loadOrderViews, toOrderItems } from '../orders/order-view.ts';
-import { createOrderNotFoundError, createOrderNotOpenError } from '../orders/order.service.ts';
+import {
+  createForbiddenError,
+  createOrderNotFoundError,
+  createOrderNotOpenError,
+} from '../orders/order.service.ts';
+import { createInventoryService } from '../inventory/inventory.service.ts';
+import type { InventoryService } from '../inventory/inventory.service.ts';
 import type { OrderActor } from '../orders/order.service.ts';
 import type { KitchenTicketPrintService } from '../kitchen-ticket-prints/kitchen-ticket-print.service.ts';
 
@@ -193,18 +202,22 @@ function validationIssues(issues: Issue[]): AppError {
 interface OrderItemServiceDeps {
   models: Models;
   kitchenTicketPrintService?: KitchenTicketPrintService;
+  inventoryService?: InventoryService;
+  now?: () => Date;
 }
 export type createOrderItemService = (deps: OrderItemServiceDeps) => OrderItemService;
 
 export function createOrderItemService({
   models,
   kitchenTicketPrintService,
+  inventoryService,
+  now = () => new Date(),
 }: OrderItemServiceDeps): OrderItemService {
   const maybeSequelize = models.Order.sequelize;
   if (maybeSequelize === undefined)
     throw new Error('Los modelos no están vinculados a una conexión de Sequelize.');
   const sequelize = maybeSequelize;
-  const now = () => new Date();
+  const inventory = inventoryService ?? createInventoryService({ models, now });
 
   /**
    * Intenta registrar la clave. Devuelve 'claimed' si esta transacción es la
@@ -407,6 +420,9 @@ export function createOrderItemService({
       const parsed: SendOrderItemsRequest = sendOrderItemsRequestSchema.parse(body);
       const requestHash = requestHashOf(parsed);
       return sequelize.transaction(async (transaction) => {
+        const user = await models.User.findByPk(actor.userId, { transaction });
+        if (user === null || !user.isActive || !hasAnyRole(user.roles, ['waiter', 'admin']))
+          throw createForbiddenError();
         const claim = await claimKey(SCOPE_SEND, key, orderId, requestHash, transaction);
         if (claim !== 'claimed')
           return claim.response_body as { order: Order; ticket: KitchenTicket };
@@ -623,8 +639,8 @@ export function createOrderItemService({
               const hasEighths =
                 given.breastEighths !== undefined || given.legEighths !== undefined;
               if (!hasEighths) continue;
-              componentIssue = true;
               if ((given.portion ?? null) !== 'half') {
+                componentIssue = true;
                 issues.push({
                   path: `${path}.components`,
                   message: 'La distribución de partes solo se indica en el medio pollo.',
@@ -636,6 +652,7 @@ export function createOrderItemService({
                 given.legEighths === undefined ||
                 given.breastEighths + given.legEighths !== 4
               ) {
+                componentIssue = true;
                 issues.push({
                   path: `${path}.components`,
                   message: 'La distribución del medio debe sumar 4 octavos entre pecho y pierna.',
@@ -682,6 +699,41 @@ export function createOrderItemService({
         });
         if (issues.length > 0) throw validationIssues(issues);
 
+        let demand: InventoryDemand;
+        try {
+          demand = calculateInventoryDemand(
+            resolved.map((detail) => {
+              if (detail === undefined) throw new Error('No se pudo resolver el ítem del pedido.');
+              return {
+                productId: detail.product.id,
+                category: detail.product.category,
+                quantity: detail.quantity,
+                breastEighths: detail.breastEighths,
+                legEighths: detail.legEighths,
+                components: detail.components.map((component) => {
+                  const product = productById.get(component.productId);
+                  if (product === undefined)
+                    throw new Error('No se pudo resolver el componente del pedido.');
+                  return {
+                    productId: component.productId,
+                    category: product.category,
+                    quantity: component.quantity,
+                    breastEighths: component.breastEighths,
+                    legEighths: component.legEighths,
+                  };
+                }),
+              };
+            }),
+          );
+        } catch (error) {
+          if (!(error instanceof RangeError)) throw error;
+          throw new AppError({
+            code: 'INVENTORY_QUANTITY_OUT_OF_RANGE',
+            message: 'El movimiento deja el stock fuera del rango permitido.',
+            httpStatus: 409,
+          });
+        }
+
         const hasTickets = await models.KitchenTicket.count({
           where: { orderId, kind: { [Op.in]: ['initial', 'additional'] } },
           transaction,
@@ -694,6 +746,7 @@ export function createOrderItemService({
           },
           { transaction },
         );
+        await inventory.consume(demand, ticket.id, actor, transaction);
         // La mesa de origen: la de menor id entre las que cubren el pedido.
         const orderedAtTableId = await models.Table.min<number | null, TableModel>('id', {
           where: { currentOrderId: orderId },

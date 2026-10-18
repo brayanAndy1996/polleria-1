@@ -100,6 +100,9 @@ describe('013: migración durable de generación file en polleria_test', () => {
       createdByUserId: seed.waiter.id,
     });
     expect(await tableExists(sequelize, 'payments')).toBe(true);
+    expect(await migrateDown(sequelize)).toEqual(['20261017120000-create-inventory.ts']);
+    expect(await tableExists(sequelize, 'inventory_state')).toBe(false);
+    expect(await tableExists(sequelize, 'payments')).toBe(true);
     expect(await migrateDown(sequelize)).toEqual(['20261016120000-create-payments.ts']);
     expect(await tableExists(sequelize, 'payments')).toBe(false);
     expect(await migrateDown(sequelize)).toEqual([PRINT_MIGRATION]);
@@ -107,6 +110,7 @@ describe('013: migración durable de generación file en polleria_test', () => {
     expect(await migrateUp(sequelize)).toEqual([
       PRINT_MIGRATION,
       '20261016120000-create-payments.ts',
+      '20261017120000-create-inventory.ts',
     ]);
     expect(await tableExists(sequelize, 'payments')).toBe(true);
     expect(await sqlRows(sequelize, 'SELECT * FROM kitchen_ticket_prints')).toEqual([]);

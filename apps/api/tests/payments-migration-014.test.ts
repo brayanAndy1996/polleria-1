@@ -10,6 +10,7 @@ import {
 } from './helpers/test-database.ts';
 
 const PAYMENT_MIGRATION = '20261016120000-create-payments.ts';
+const INVENTORY_MIGRATION = '20261017120000-create-inventory.ts';
 const PRE_PAYMENT_MIGRATIONS = [
   '20261008120000-create-users.ts',
   '20261008120100-create-sessions.ts',
@@ -194,11 +195,14 @@ describe('014: migración de pagos sobre polleria_test', () => {
 
   it('AC-01: down retira payments y re-up la recrea sin alterar las tablas anteriores', async () => {
     const down = await migrateDown(sequelize);
-    expect(down).toEqual([PAYMENT_MIGRATION]);
+    expect(down).toEqual([INVENTORY_MIGRATION]);
+    expect(await tableExists(sequelize, 'inventory_state')).toBe(false);
+    expect(await tableExists(sequelize, 'payments')).toBe(true);
+    expect(await migrateDown(sequelize)).toEqual([PAYMENT_MIGRATION]);
     expect(await tableExists(sequelize, 'payments')).toBe(false);
     expect(await tableExists(sequelize, 'orders')).toBe(true);
 
-    expect(await migrateUp(sequelize)).toEqual([PAYMENT_MIGRATION]);
+    expect(await migrateUp(sequelize)).toEqual([PAYMENT_MIGRATION, INVENTORY_MIGRATION]);
     expect(await tableExists(sequelize, 'payments')).toBe(true);
     const count = await rows<{ count: string }>('SELECT count(*)::text AS count FROM payments');
     expect(count[0]?.count).toBe('0');
@@ -214,7 +218,7 @@ describe('014: migración de pagos sobre polleria_test', () => {
       { bind: [userId, orderId] },
     );
 
-    expect(await migrateUp(sequelize)).toEqual([PAYMENT_MIGRATION]);
+    expect(await migrateUp(sequelize)).toEqual([PAYMENT_MIGRATION, INVENTORY_MIGRATION]);
     const count = await rows<{ count: string }>(
       'SELECT count(*)::text AS count FROM payments WHERE order_id = $1',
       [orderId],

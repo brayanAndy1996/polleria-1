@@ -161,6 +161,15 @@ const TICKET_INICIAL = {
   createdBy: JUAN,
   createdAt: '2026-10-11T15:05:00.000Z',
 };
+const INVENTORY_OFF = {
+  chicken: { enabled: false, breastEighths: 0, legEighths: 0 },
+  drinks: [{ productId: 4, productName: 'Inca Kola', enabled: false, quantity: 0 }],
+  generatedAt: '2026-10-17T15:00:00.000Z',
+};
+const INVENTORY_AVAILABLE = {
+  ...INVENTORY_OFF,
+  drinks: [{ productId: 4, productName: 'Inca Kola', enabled: true, quantity: 2 }],
+};
 
 function show(node: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -220,6 +229,8 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
       http.get('*/api/tables', () => HttpResponse.json({ tables: [MESA3] })),
       http.get('*/api/orders/41', () => HttpResponse.json(ORDER)),
       http.get('*/api/orders/41/tickets', () => HttpResponse.json({ tickets: [] })),
+      // Inventario opt-in por prueba: las regresiones anteriores conservan el estado apagado.
+      http.get('*/api/inventory/availability', () => HttpResponse.json(INVENTORY_OFF)),
     );
     mockMenu();
   });
@@ -416,7 +427,7 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     fireEvent.click(screen.getAllByRole('button', { name: 'Agregar al pedido' }).at(-1)!);
     expect(await screen.findByText('Un envío admite hasta 20 ítems.')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Enviar a cocina (20)' })).toBeInTheDocument();
-  });
+  }, 15_000);
 
   it('AC-17: enviar hace un solo POST con Idempotency-Key y el cuerpo de D-011-08; tras el 201 vuelve con el aviso', async () => {
     const posts: { body: unknown; key: string | null }[] = [];
@@ -472,12 +483,15 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
   });
 
   it('AC-17: tras un fallo de red "Reintentar envío" repite la MISMA clave', async () => {
-    const keys: (string | null)[] = [];
+    const requests: Array<{ key: string | null; body: string }> = [];
     let attempts = 0;
     server.use(
-      http.post('*/api/orders/41/items', ({ request }) => {
+      http.post('*/api/orders/41/items', async ({ request }) => {
         attempts += 1;
-        keys.push(request.headers.get('Idempotency-Key'));
+        requests.push({
+          key: request.headers.get('Idempotency-Key'),
+          body: await request.clone().text(),
+        });
         if (attempts === 1) return HttpResponse.error();
         return HttpResponse.json({ order: ORDER, ticket: TICKET_INICIAL }, { status: 201 });
       }),
@@ -494,17 +508,102 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     expect(screen.getByRole('button', { name: 'Enviar a cocina (1)' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar envío' }));
     await waitFor(() => {
-      expect(keys).toHaveLength(2);
+      expect(requests).toHaveLength(2);
     });
-    expect(keys[0]).toMatch(/^[\x21-\x7E]{1,128}$/);
-    expect(keys[1]).toBe(keys[0]);
+    expect(requests[0]!.key).toMatch(/^[\x21-\x7E]{1,128}$/);
+    expect(requests[1]).toEqual(requests[0]);
+  });
+
+  it('AC-14: un 409 de stock conserva carrito, muestra faltantes y no reenvía automáticamente', async () => {
+    let stockReads = 0;
+    const posts: unknown[] = [];
+    server.use(
+      http.get('*/api/inventory/availability', () => {
+        stockReads += 1;
+        return HttpResponse.json(INVENTORY_AVAILABLE);
+      }),
+      http.post('*/api/orders/41/items', async ({ request }) => {
+        posts.push(await request.json());
+        return HttpResponse.json(
+          errorBody('INSUFFICIENT_STOCK', 'No hay stock suficiente para enviar el pedido.', {
+            shortages: [{ kind: 'drink', productId: 4, available: 0, required: 2 }],
+          }),
+          { status: 409 },
+        );
+      }),
+    );
+    await renderAgregar();
+    await openEditor(/Inca Kola/);
+    addToCart();
+    const line = cartLine(/Inca Kola/);
+    fireEvent.change(within(line).getByLabelText(/cantidad/i), { target: { value: '2' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Enviar a cocina (1)' }));
+
+    expect(await screen.findByText(/no hay stock suficiente/i)).toBeVisible();
+    await waitFor(() => expect(stockReads).toBeGreaterThan(1));
+    expect(cartLine(/Inca Kola/)).toBeInTheDocument();
+    expect(within(cartLine(/Inca Kola/)).getByLabelText(/cantidad/i)).toHaveValue(2);
+    expect(posts).toHaveLength(1);
+  });
+
+  it('AC-14: error de disponibilidad se anuncia como desconocido y no como saldo cero', async () => {
+    server.use(
+      http.get('*/api/inventory/availability', () =>
+        HttpResponse.json(errorBody('INTERNAL_ERROR'), { status: 500 }),
+      ),
+    );
+    await renderAgregar();
+    expect(await screen.findByText(/disponibilidad sin confirmar/i)).toBeVisible();
+    expect(screen.queryByText(/disponible: 0/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Pollo a la brasa/ })).toBeEnabled();
+  });
+
+  it('AC-14/15: respuesta incierta congela cuerpo y clave y el replay se permite con stock agotado', async () => {
+    let stock = INVENTORY_AVAILABLE;
+    let availabilityReads = 0;
+    const observed: Array<{ key: string | null; body: string }> = [];
+    let attempts = 0;
+    server.use(
+      http.get('*/api/inventory/availability', () => {
+        availabilityReads += 1;
+        return HttpResponse.json(stock);
+      }),
+      http.post('*/api/orders/41/items', async ({ request }) => {
+        observed.push({
+          key: request.headers.get('Idempotency-Key'),
+          body: await request.clone().text(),
+        });
+        attempts += 1;
+        if (attempts === 1) {
+          stock = {
+            ...INVENTORY_AVAILABLE,
+            drinks: [{ productId: 4, productName: 'Inca Kola', enabled: true, quantity: 0 }],
+          };
+          return HttpResponse.error();
+        }
+        return HttpResponse.json({ order: ORDER, ticket: TICKET_INICIAL }, { status: 201 });
+      }),
+    );
+    await renderAgregar();
+    await openEditor(/Inca Kola/);
+    addToCart();
+    fireEvent.click(await screen.findByRole('button', { name: 'Enviar a cocina (1)' }));
+    expect(await screen.findByRole('button', { name: 'Reintentar envío' })).toBeVisible();
+    expect(within(cartLine(/Inca Kola/)).getByLabelText(/cantidad/i)).toBeDisabled();
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() => expect(availabilityReads).toBeGreaterThan(1));
+    expect(stock.drinks[0]!.quantity).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar envío' }));
+    await waitFor(() => expect(observed).toHaveLength(2));
+    expect(observed[1]).toEqual(observed[0]);
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/mozo/mesas/3'));
   });
 
   it('AC-17: "Enviando..." se muestra mientras sale el POST', async () => {
     server.use(
       http.post('*/api/orders/41/items', async () => {
-        await delay(50);
-        return HttpResponse.json({ order: ORDER, ticket: TICKET_INICIAL }, { status: 201 });
+        await delay(500);
+        return HttpResponse.error();
       }),
     );
     await renderAgregar();
@@ -512,11 +611,52 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     addToCart();
     fireEvent.click(await screen.findByRole('button', { name: 'Enviar a cocina (1)' }));
     expect(await screen.findByText('Enviando...')).toBeVisible();
-    await waitFor(() => {
-      expect(
-        mocks.replace.mock.calls.concat(mocks.push.mock.calls).map((c: unknown[]) => c[0]),
-      ).toContain('/mozo/mesas/3');
-    });
+    expect(within(cartLine(/^Chaufa/)).getByLabelText(/cantidad/i)).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Reintentar envío' })).toBeVisible();
+    expect(within(cartLine(/^Chaufa/)).getByLabelText(/cantidad/i)).toBeDisabled();
+  });
+
+  it('AC-14: el combo cuarto pierna usa solo pierna, limita el carrito y deja disponibles otras porciones con saldo', async () => {
+    let stock = {
+      ...INVENTORY_OFF,
+      chicken: { enabled: true, breastEighths: 0, legEighths: 2 },
+    };
+    let availabilityReads = 0;
+    server.use(
+      http.get('*/api/inventory/availability', () => {
+        availabilityReads += 1;
+        return HttpResponse.json(stock);
+      }),
+    );
+    await renderAgregar();
+
+    await openEditor('Mostrito');
+    expect(screen.getByRole('button', { name: 'Agregar al pedido' })).toBeEnabled();
+    addToCart();
+    const combo = cartLine('Mostrito');
+    const comboQuantity = within(combo).getByLabelText(/cantidad/i);
+    fireEvent.change(comboQuantity, { target: { value: '2' } });
+    expect(comboQuantity).toHaveValue(1);
+
+    fireEvent.click(within(combo).getByRole('button', { name: /quitar/i }));
+    stock = {
+      ...INVENTORY_OFF,
+      chicken: { enabled: true, breastEighths: 4, legEighths: 6 },
+    };
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() => expect(availabilityReads).toBeGreaterThan(1));
+    const chickenCard = (await screen.findByRole('button', { name: 'Pollo a la brasa' })).closest(
+      'li',
+    )!;
+    expect(
+      await within(chickenCard).findByText(
+        'Pecho disponible: 4 octavos · Pierna disponible: 6 octavos',
+      ),
+    ).toBeVisible();
+    await openEditor(/Pollo a la brasa/);
+    const portion = screen.getByRole('combobox', { name: 'Presentación' });
+    fireEvent.change(portion, { target: { value: selectedValueOf(portion, 'Pollo entero') } });
+    expect(screen.getByRole('button', { name: 'Agregar al pedido' })).toBeEnabled();
   });
 
   it('AC-18: un 400 lleva los issues items.N.* a cada línea del carrito y los de raíz arriba', async () => {

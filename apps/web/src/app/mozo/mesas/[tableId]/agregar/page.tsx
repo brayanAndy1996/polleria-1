@@ -15,6 +15,7 @@ import {
 } from '@polleria/shared';
 import type {
   Cut,
+  InventorySnapshot,
   MenuComboItem,
   MenuProduct,
   OrderItemComponentInput,
@@ -23,12 +24,13 @@ import type {
 } from '@polleria/shared';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Label } from '@heroui/react';
 import { RoleGuard } from '../../../../../components/auth/role-guard.tsx';
 import { ScreenState } from '../../../../../components/auth/screen-state.tsx';
 import { LabeledInput } from '../../../../../components/users/labeled-input.tsx';
 import { apiClient, parseResponse } from '../../../../../lib/api/client.ts';
+import { ApiError } from '../../../../../lib/api/client.ts';
 import { apiErrorMessage } from '../../../../../lib/api/error-message.ts';
 import {
   issuesFromApiError,
@@ -37,6 +39,11 @@ import {
   uniqueMessages,
 } from '../../../../../lib/api/issues.ts';
 import { getMenu } from '../../../../../lib/api/menu.ts';
+import { getInventoryAvailability } from '../../../../../lib/api/inventory.ts';
+import {
+  calculateCartInventoryDemand,
+  inventoryShortages,
+} from '../../../../../lib/inventory-demand.ts';
 import { createIdempotencyKey } from '../../../../../lib/idempotency.ts';
 import {
   CUT_LABELS,
@@ -77,7 +84,8 @@ function offeredCuts(product: MenuProduct, portion: Portion | null): Cut[] {
 }
 
 /** Parte ofertada por defecto para una presentación de una sola parte: pierna si está. */
-function defaultCut(product: MenuProduct, portion: Portion): Cut {
+function defaultCut(product: MenuProduct, portion: Portion): Cut | null {
+  if (!(SINGLE_CUT_PORTIONS as readonly string[]).includes(portion)) return null;
   const cuts = offeredCuts(product, portion);
   if (cuts.includes('leg')) return 'leg';
   return cuts[0] ?? 'leg';
@@ -142,7 +150,7 @@ function linePrice(line: CartLine): number {
 interface EditorState {
   quantity: string;
   portion: Portion | null;
-  cut: Cut;
+  cut: Cut | null;
   breastEighths: number;
   legEighths: number;
   notes: string;
@@ -166,7 +174,7 @@ function defaultEditorState(product: MenuProduct): EditorState {
   return {
     quantity: '1',
     portion,
-    cut: portion === null ? 'leg' : defaultCut(product, portion),
+    cut: portion === null ? null : defaultCut(product, portion),
     breastEighths: DEFAULT_DISTRIBUTION.breast,
     legEighths: DEFAULT_DISTRIBUTION.leg,
     notes: '',
@@ -181,12 +189,14 @@ function LabeledSelect({
   label,
   value,
   onChange,
+  disabled = false,
   children,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -196,6 +206,7 @@ function LabeledSelect({
         id={id}
         className="min-h-12 w-full rounded-xl border border-separator bg-surface px-3"
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
       >
         {children}
@@ -211,12 +222,18 @@ function ItemEditor({
   editor,
   onChange,
   onAdd,
+  disabled = false,
+  addAllowed = true,
+  availabilityMessage,
 }: {
   product: MenuProduct;
   sauces: MenuProduct[];
   editor: EditorState;
   onChange: (next: EditorState) => void;
   onAdd: () => void;
+  disabled?: boolean;
+  addAllowed?: boolean;
+  availabilityMessage?: string;
 }) {
   const portions = offeredPortions(product);
   const singleCut =
@@ -228,6 +245,7 @@ function ItemEditor({
         label="Cantidad"
         inputMode="numeric"
         value={editor.quantity}
+        disabled={disabled}
         onChange={(event) => onChange({ ...editor, quantity: event.target.value })}
       />
       {product.category === 'chicken' && portions.length > 0 && (
@@ -235,6 +253,7 @@ function ItemEditor({
           id={`portion-${product.id}`}
           label="Presentación"
           value={editor.portion ?? ''}
+          disabled={disabled}
           onChange={(value) => {
             const portion = value as Portion;
             onChange({ ...editor, portion, cut: defaultCut(product, portion) });
@@ -251,7 +270,8 @@ function ItemEditor({
         <LabeledSelect
           id={`cut-${product.id}`}
           label="Parte"
-          value={editor.cut}
+          value={editor.cut ?? ''}
+          disabled={disabled}
           onChange={(value) => {
             // Solo partes realmente ofertadas: un valor ajeno a la grilla no
             // puede colarse por el DOM (ADV-011-11).
@@ -271,6 +291,7 @@ function ItemEditor({
           id={`dist-${product.id}`}
           label="Distribución"
           value={`${editor.breastEighths}-${editor.legEighths}`}
+          disabled={disabled}
           onChange={(value) => {
             const [breast, leg] = value.split('-').map(Number);
             onChange({ ...editor, breastEighths: breast!, legEighths: leg! });
@@ -309,6 +330,7 @@ function ItemEditor({
                     id={`component-cut-${product.id}-${item.product.id}`}
                     label="Parte"
                     value={choice.cut}
+                    disabled={disabled}
                     onChange={(value) => {
                       const next = new Map(editor.componentChoices);
                       next.set(item.product.id, { ...choice, cut: value as Cut });
@@ -326,6 +348,7 @@ function ItemEditor({
                     id={`component-dist-${product.id}-${item.product.id}`}
                     label="Distribución"
                     value={`${choice.breastEighths}-${choice.legEighths}`}
+                    disabled={disabled}
                     onChange={(value) => {
                       const [breast, leg] = value.split('-').map(Number);
                       const next = new Map(editor.componentChoices);
@@ -360,6 +383,7 @@ function ItemEditor({
                   <input
                     type="checkbox"
                     checked={checked}
+                    disabled={disabled}
                     onChange={(event) => {
                       const next = new Map(editor.sauces);
                       if (event.target.checked) next.set(sauce.id, 1);
@@ -375,6 +399,7 @@ function ItemEditor({
                     label="Cantidad"
                     inputMode="numeric"
                     value={String(editor.sauces.get(sauce.id) ?? 1)}
+                    disabled={disabled}
                     onChange={(event) => {
                       const next = new Map(editor.sauces);
                       next.set(sauce.id, Number(event.target.value) || 1);
@@ -392,13 +417,19 @@ function ItemEditor({
           id={`notes-${product.id}`}
           label="Observación"
           value={editor.notes}
+          disabled={disabled}
           onChange={(event) => onChange({ ...editor, notes: event.target.value })}
         />
         <p className="text-sm text-muted">
           {editor.notes.length}/{ORDER_ITEM_NOTES_MAX}
         </p>
       </div>
-      <Button className="min-h-12" onPress={onAdd}>
+      {availabilityMessage && (
+        <p role="status" className="text-sm text-warning">
+          {availabilityMessage}
+        </p>
+      )}
+      <Button className="min-h-12" isDisabled={disabled || !addAllowed} onPress={onAdd}>
         Agregar al pedido
       </Button>
     </div>
@@ -435,11 +466,13 @@ function CartSection({
   lineErrors,
   onQuantity,
   onRemove,
+  disabled = false,
 }: {
   lines: CartLine[];
   lineErrors: Map<number, string[]>;
   onQuantity: (key: number, value: string) => void;
   onRemove: (key: number) => void;
+  disabled?: boolean;
 }) {
   if (lines.length === 0) return null;
   return (
@@ -475,12 +508,17 @@ function CartSection({
                 <LabeledInput
                   id={`cart-qty-${line.key}`}
                   label="Cantidad"
+                  type="number"
+                  min={1}
+                  max={99}
+                  step={1}
                   inputMode="numeric"
                   value={String(line.quantity)}
+                  disabled={disabled}
                   onChange={(event) => onQuantity(line.key, event.target.value)}
                 />
               </div>
-              <Button className="min-h-12" onPress={() => onRemove(line.key)}>
+              <Button className="min-h-12" isDisabled={disabled} onPress={() => onRemove(line.key)}>
                 Quitar
               </Button>
             </div>
@@ -527,10 +565,16 @@ function OrderComposer({
   tableId,
   products,
   table,
+  availability,
+  availabilityUnknown,
+  refreshAvailability,
 }: {
   tableId: number;
   products: MenuProduct[];
   table: z.infer<typeof takerTableSchema> | undefined;
+  availability: InventorySnapshot | undefined;
+  availabilityUnknown: boolean;
+  refreshAvailability: () => void;
 }) {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -542,6 +586,7 @@ function OrderComposer({
   const [sendErrors, setSendErrors] = useState<string[]>([]);
   const [lineErrors, setLineErrors] = useState<Map<number, string[]>>(new Map());
   const [sendFailed, setSendFailed] = useState(false);
+  const [sendUncertain, setSendUncertain] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'all'>('all');
   const pendingSend = useRef<{ body: unknown; key: string } | null>(null);
@@ -554,6 +599,7 @@ function OrderComposer({
   };
 
   const touchCart = (next: CartLine[]) => {
+    if (sendUncertain || send.isPending || sending.current) return;
     setCart(next);
     pendingSend.current = null;
     setSendFailed(false);
@@ -564,6 +610,7 @@ function OrderComposer({
   };
 
   const addToCart = (product: MenuProduct) => {
+    if (sendUncertain || send.isPending || sending.current) return;
     if (editor === null) return;
     if (cart.length >= ORDER_ITEMS_PER_SEND_MAX) {
       setCartError('Un envío admite hasta 20 ítems.');
@@ -637,6 +684,7 @@ function OrderComposer({
       setCart([]);
       pendingSend.current = null;
       setSendFailed(false);
+      setSendUncertain(false);
       setSendErrors([]);
       setLineErrors(new Map());
       try {
@@ -652,7 +700,17 @@ function OrderComposer({
       const issues = issuesFromApiError(error);
       const split = splitIssues(issues, 'items', cart.length);
       setLineErrors(split.byIndex);
-      setSendErrors(issues.length > 0 ? uniqueMessages(split.root) : [apiErrorMessage(error)]);
+      const code = error instanceof ApiError ? error.code : '';
+      const status = error instanceof ApiError ? error.status : 0;
+      const uncertain = !(error instanceof ApiError && (status === 400 || status === 409));
+      setSendUncertain(uncertain);
+      if (!uncertain) pendingSend.current = null;
+      const message =
+        code === 'INSUFFICIENT_STOCK'
+          ? 'No hay stock suficiente para enviar el pedido. Revisa la disponibilidad y reduce la cantidad.'
+          : apiErrorMessage(error);
+      setSendErrors(uniqueMessages([...split.root, message]));
+      if (code === 'INSUFFICIENT_STOCK') refreshAvailability();
     },
     onSettled: () => {
       sending.current = false;
@@ -670,6 +728,31 @@ function OrderComposer({
         setSendErrors(uniqueMessages(split.root));
         return;
       }
+      if (!availabilityUnknown && availability !== undefined) {
+        try {
+          const demand = calculateCartInventoryDemand(products, cart);
+          if (availability.chicken.enabled && demand.undefinedChickenProductIds.length > 0) {
+            setSendFailed(false);
+            setSendErrors(['Configura el consumo de pollo antes de enviar este pedido.']);
+            return;
+          }
+          const shortages = inventoryShortages(availability, demand);
+          if (shortages.length > 0) {
+            setSendFailed(false);
+            setSendErrors([
+              `No hay stock suficiente para enviar el pedido. ${shortages
+                .map(
+                  (item) =>
+                    `${item.kind === 'drink' ? 'bebida' : item.kind === 'breast' ? 'pecho' : 'pierna'}: disponible ${item.available}, requerido ${item.required}`,
+                )
+                .join('; ')}.`,
+            ]);
+            return;
+          }
+        } catch {
+          // Si la carta no permite confirmar la demanda, la API decide al enviar.
+        }
+      }
       pendingSend.current = { body: parsed.data, key: createIdempotencyKey() };
     }
     sending.current = true;
@@ -677,6 +760,7 @@ function OrderComposer({
   };
 
   const sauces = products.filter((product) => product.category === 'sauce');
+  const locked = sendUncertain || send.isPending;
   const normalizedSearch = search
     .trim()
     .toLocaleLowerCase('es-PE')
@@ -693,9 +777,117 @@ function OrderComposer({
   const shownCategories = PRODUCT_CATEGORIES.filter((category) =>
     filteredProducts.some((product) => product.category === category),
   );
+  const stockLabel = (product: MenuProduct) => {
+    if (availabilityUnknown || availability === undefined) return '';
+    if (product.category === 'chicken') {
+      if (!availability.chicken.enabled) return 'Sin control de stock';
+      return `Pecho ${availability.chicken.breastEighths === 0 ? 'agotado' : 'disponible'}: ${availability.chicken.breastEighths} octavos · Pierna ${availability.chicken.legEighths === 0 ? 'agotada' : 'disponible'}: ${availability.chicken.legEighths} octavos`;
+    }
+    if (product.category === 'drink') {
+      const drink = availability.drinks.find((entry) => entry.productId === product.id);
+      if (drink === undefined) return 'Disponibilidad sin confirmar';
+      return drink.enabled
+        ? drink.quantity === 0
+          ? 'Agotado'
+          : `Disponible: ${drink.quantity} unidades`
+        : 'Sin control de stock';
+    }
+    if (product.category === 'combo') {
+      try {
+        const demand = calculateCartInventoryDemand(products, [
+          ...cart,
+          {
+            productId: product.id,
+            quantity: 1,
+            portion: null,
+            cut: null,
+            breastEighths: 0,
+            legEighths: 0,
+            components: null,
+          },
+        ]);
+        const shortages = inventoryShortages(availability, demand);
+        return shortages.length > 0
+          ? `No alcanza para el pedido: ${shortages.map((item) => `${item.kind === 'drink' ? 'bebida' : item.kind === 'breast' ? 'pecho' : 'pierna'} ${item.available}/${item.required}`).join(', ')}`
+          : 'Disponibilidad suficiente para este pedido';
+      } catch {
+        return 'Disponibilidad sin confirmar';
+      }
+    }
+    return 'Sin control de stock';
+  };
+  const candidateAvailability = (product: MenuProduct) => {
+    if (availabilityUnknown || availability === undefined || editor === null)
+      return { allowed: true, message: undefined as string | undefined };
+    try {
+      const quantity = Math.max(1, Math.floor(Number(editor.quantity) || 1));
+      const components =
+        product.category === 'combo'
+          ? product.items.map((item) => {
+              const choice = editor.componentChoices.get(item.product.id);
+              return {
+                productId: item.product.id,
+                quantity: item.quantity,
+                ...(item.portion === null ? {} : { portion: item.portion }),
+                ...(item.cut === null ? {} : { cut: item.cut }),
+                ...(item.product.category !== 'chicken' ||
+                item.portion !== 'half' ||
+                choice === undefined
+                  ? {}
+                  : { breastEighths: choice.breastEighths, legEighths: choice.legEighths }),
+                ...(item.product.category === 'chicken' &&
+                choice !== undefined &&
+                item.portion !== null &&
+                (SINGLE_CUT_PORTIONS as readonly string[]).includes(item.portion)
+                  ? { cut: choice.cut }
+                  : {}),
+              };
+            })
+          : null;
+      const demand = calculateCartInventoryDemand(products, [
+        ...cart,
+        {
+          productId: product.id,
+          quantity,
+          portion: editor.portion,
+          cut: editor.cut,
+          breastEighths: editor.breastEighths,
+          legEighths: editor.legEighths,
+          components,
+        },
+      ]);
+      const shortages = inventoryShortages(availability, demand);
+      if (availability.chicken.enabled && demand.undefinedChickenProductIds.length > 0) {
+        return {
+          allowed: false,
+          message: 'El consumo de pollo requiere configuración del administrador.',
+        };
+      }
+      if (shortages.length > 0) {
+        return {
+          allowed: false,
+          message: `No alcanza: ${shortages.map((item) => `${item.kind === 'drink' ? 'bebida' : item.kind} ${item.available}/${item.required}`).join(', ')}.`,
+        };
+      }
+      return { allowed: true, message: undefined };
+    } catch {
+      return { allowed: false, message: 'Disponibilidad sin confirmar.' };
+    }
+  };
   return (
     <>
       <h1 className="text-3xl font-bold">Agregar ítems</h1>
+      <p
+        role={availabilityUnknown ? 'status' : undefined}
+        className={availabilityUnknown ? 'text-warning' : 'text-sm text-muted'}
+      >
+        {availabilityUnknown ? 'Disponibilidad sin confirmar' : 'Disponibilidad actualizada'}
+        {availabilityUnknown && (
+          <Button className="ml-2 min-h-12" variant="secondary" onPress={refreshAvailability}>
+            Reintentar disponibilidad
+          </Button>
+        )}
+      </p>
       {table !== undefined && <p>{table.name}</p>}
       <p>
         <Link href={`/mozo/mesas/${tableId}`} className="text-accent underline underline-offset-4">
@@ -758,6 +950,18 @@ function OrderComposer({
                             type="button"
                             aria-label={product.name}
                             className="composer-product-card"
+                            disabled={
+                              locked ||
+                              (product.category === 'drink' &&
+                                availability !== undefined &&
+                                !availabilityUnknown &&
+                                availability.drinks.some(
+                                  (drink) =>
+                                    drink.productId === product.id &&
+                                    drink.enabled &&
+                                    drink.quantity === 0,
+                                ))
+                            }
                             whileTap={{ scale: 0.985 }}
                             transition={{ duration: 0.12 }}
                             onClick={() => openEditor(product)}
@@ -786,15 +990,26 @@ function OrderComposer({
                             </span>
                             <span className="composer-product-action">Elegir</span>
                           </motion.button>
+                          {stockLabel(product) !== '' && (
+                            <p className="mt-2 text-sm text-muted">{stockLabel(product)}</p>
+                          )}
                           {editorProductId === product.id && editor !== null && (
                             <div>
-                              <ItemEditor
-                                product={product}
-                                sauces={sauces}
-                                editor={editor}
-                                onChange={setEditor}
-                                onAdd={() => addToCart(product)}
-                              />
+                              {(() => {
+                                const candidate = candidateAvailability(product);
+                                return (
+                                  <ItemEditor
+                                    product={product}
+                                    sauces={sauces}
+                                    editor={editor}
+                                    onChange={setEditor}
+                                    onAdd={() => addToCart(product)}
+                                    disabled={locked}
+                                    addAllowed={candidate.allowed}
+                                    availabilityMessage={candidate.message}
+                                  />
+                                );
+                              })()}
                             </div>
                           )}
                         </li>
@@ -815,22 +1030,41 @@ function OrderComposer({
             </p>
           </header>
           <section className="space-y-3">
-            <CartSection
-              lines={cart}
-              lineErrors={lineErrors}
-              onQuantity={(key, value) => {
-                touchCart(
-                  cart.map((line) =>
+            <fieldset disabled={locked} className="contents">
+              <CartSection
+                lines={cart}
+                disabled={locked}
+                lineErrors={lineErrors}
+                onQuantity={(key, value) => {
+                  const next = cart.map((line) =>
                     line.key === key
                       ? { ...line, quantity: Math.max(1, Math.floor(Number(value) || 1)) }
                       : line,
-                  ),
-                );
-              }}
-              onRemove={(key) => {
-                touchCart(cart.filter((line) => line.key !== key));
-              }}
-            />
+                  );
+                  if (!availabilityUnknown && availability !== undefined) {
+                    const shortages = inventoryShortages(
+                      availability,
+                      calculateCartInventoryDemand(products, next),
+                    );
+                    if (shortages.length > 0) {
+                      setCartError(
+                        `No alcanza para el pedido: ${shortages
+                          .map(
+                            (item) =>
+                              `${item.kind === 'drink' ? 'bebida' : item.kind} ${item.available}/${item.required}`,
+                          )
+                          .join(', ')}.`,
+                      );
+                      return;
+                    }
+                  }
+                  touchCart(next);
+                }}
+                onRemove={(key) => {
+                  touchCart(cart.filter((line) => line.key !== key));
+                }}
+              />
+            </fieldset>
             {cart.length === 0 && (
               <p className="composer-cart-empty">Agrega productos de la carta.</p>
             )}
@@ -887,6 +1121,19 @@ export default function Page() {
     queryFn: getTakerTables,
     retry: false,
   });
+  const availability = useQuery({
+    queryKey: ['waiter', 'inventory', 'availability'],
+    queryFn: getInventoryAvailability,
+    retry: false,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
+  });
+  const refetchAvailability = availability.refetch;
+  useEffect(() => {
+    const onFocus = () => void refetchAvailability();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refetchAvailability]);
   if (menu.isPending || tables.isPending)
     return (
       <ScreenState>
@@ -919,6 +1166,9 @@ export default function Page() {
         tableId={tableId}
         products={menu.data}
         table={tables.data.find((candidate) => candidate.id === tableId)}
+        availability={availability.data}
+        availabilityUnknown={availability.isError || availability.data === undefined}
+        refreshAvailability={() => void availability.refetch()}
       />
     </RoleGuard>
   );

@@ -16,6 +16,9 @@ export default function Page() {
         <Link href="/admin/mesas" className="admin-link">
           Mesas
         </Link>
+        <Link href="/admin/inventario" className="admin-link">
+          Inventario
+        </Link>
       </nav>
     </RoleGuard>
   );

@@ -1,4 +1,6 @@
 import express from 'express';
+import { createInventoryService } from './services/inventory/inventory.service.ts';
+import { createInventoryController } from './controllers/inventory.controller.ts';
 import { createPaymentService } from './services/payments/payment.service.ts';
 import { createPaymentsController } from './controllers/payments.controller.ts';
 import type { Express } from 'express';
@@ -65,6 +67,7 @@ const NO_STORE_PATH_PREFIXES = [
   '/api/kitchen-ticket-prints',
   '/api/cashier',
   '/api/payments',
+  '/api/inventory',
 ] as const;
 
 /**
@@ -91,6 +94,8 @@ export function createApp({
 
   const healthService = createHealthService({ sequelize, timeoutMs: healthTimeoutMs });
   const models = defineModels(sequelize);
+  const inventoryService = createInventoryService({ models, now });
+  const inventoryController = createInventoryController({ inventoryService });
   const sessionService = createSessionService({ models, now });
   // Un solo LoginLimiter compartido (D-004-08): limpiar el conteo desde la administración
   // (desactivar o restablecer el PIN) afecta al inicio de sesión real.
@@ -138,7 +143,12 @@ export function createApp({
     });
   const kitchenTicketPrintsController =
     createKitchenTicketPrintsController(kitchenTicketPrintService);
-  const orderItemService = createOrderItemService({ models, kitchenTicketPrintService });
+  const orderItemService = createOrderItemService({
+    models,
+    kitchenTicketPrintService,
+    inventoryService,
+    now,
+  });
   const orderItemsController = createOrderItemsController({ orderItemService });
   const menuService = createMenuService({ models });
   const menuController = createMenuController({ menuService });
@@ -167,7 +177,11 @@ export function createApp({
     // Las rutas sin cuerpo de la spec 009 saltan al router directamente: cualquier
     // cuerpo que llegue se ignora sin leerse (§9). El resto conserva el lector
     // JSON estricto con sus límites y su 415/413/400 habituales.
-    if (BODILESS_PATH_PATTERN.test(req.path)) {
+    if (
+      BODILESS_PATH_PATTERN.test(req.path) ||
+      (req.method === 'GET' &&
+        /^\/api\/inventory(?:\/(?:availability|movements))?\/?$/i.test(req.path))
+    ) {
       next();
       return;
     }
@@ -176,6 +190,7 @@ export function createApp({
   app.use(
     '/api',
     createApiRouter({
+      inventoryController,
       paymentsController,
       healthService,
       authController,

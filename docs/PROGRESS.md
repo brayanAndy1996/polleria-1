@@ -1,5 +1,28 @@
 # Progreso del proyecto — Sistema Pollería
 
+## 015: inventario implementado y validado — 2026-10-18
+
+- Cliente/helper `93124c9`, interfaz `4480696`, ajuste móvil `66c84a4`. Administrador dispone de saldos permanentes, tandas, entradas, ajustes auditados y controles; mozo valida disponibilidad y conserva el intento ante respuesta perdida. Paleta FigCraft azul/Nunito y Motion existente.
+- Test-writer e implementer Luna medium separados. Verde dirigido reutilizado: cliente/helper8/8, admin3/3 y mozo19/19. QA visual:8 capturas360/768/1440, cero pageerrors y sin scroll horizontal; inspección manual corrigió botones comprimidos. Build inicial Turbopack, tipos y formato globales aprobados.
+- Cierre completado sobre `b4bfe27`: 158 archivos, 2992 pruebas aprobadas y 5 fallos esperados previos; cobertura de líneas 95,49%, shared 99,21% y servicio de inventario 97,74%. Umbrales originales cumplidos. Dos E2E reales aplicables aprobados: administración→mozo→caja y recuperación móvil tras un201 confirmado. Tipos/lint/formato y build final Turbopack aprobados. Las correcciones y repeticiones justificadas por fallos están documentadas; no se borraron pruebas ni se rebajaron umbrales.
+- OpenAPI 0.12: ocho operaciones implemented y referencias verificadas. Evidencia y límites en docs/specs/015-basic-inventory/verification.md; sin reviewer independiente ni impresión física. Solo polleria_test; copia Desktop y polleria_dev intactas. Pendiente de revisión del usuario: no integrar015 en main sin autorización posterior.
+
+## Metodología ajustada por consumo — 2026-10-18 (corte anterior)
+
+- Usuario pidió identificar pruebas secundarias y reducir consumo. Auditoría estática y política en docs/agents/pruebas-por-riesgo.md: ejecución dirigida por riesgo, reutilización del verde entre roles y una sola suite global con cobertura al cierre. Sin borrar pruebas ni ocultar fallos; stock, cobros, permisos, concurrencia y reintentos siguen protegidos.
+- Candidatos concretos: repetición de navegación en admin, encabezado/conexión de inicio entre RTL/E2E y una aserción tautológica sobre un número local. Se omiten del ciclo habitual si no están afectados; no se marcan aprobados. Migraciones antiguas no se repiten durante UI sin cambio de esquema.
+- Menos coordinación y documentación repetida: no iniciar agentes para esperar, revisar solo contexto/diff relevante y actualizar evidencia por hito. Esta modificación solo documental no requiere Vitest, DB ni build.
+- Se conservan los dos archivos parciales de tests web015 sin implementar. El test-writer Luna agotó cuota en el turno anterior; no se sustituyó el modelo. La interfaz015 continúa pendiente después de este ajuste de metodología.
+
+## 015: backend verificado e interfaz en desarrollo — 2026-10-17
+
+- Regla aprobada: pollo y bebidas conservan saldo entre días, sin reinicio automático. Anular no repone; una devolución física se registra como ajuste positivo de administrador con motivo. Controles desactivados por defecto y sin backfill de pedidos antiguos.
+- Rama `feat/015-basic-inventory`, desde main `90bbeed` que ya contiene014. Dominio shared `7f63a89`, administración `c002e11` y consumo transaccional `37bb96e` implementados. Spec/contrato y evidencia en docs/specs/015-basic-inventory/.
+- Principal verificó shared:24 archivos,1100 aprobadas y3 fallos esperados anteriores. I-02:17 archivos/182 aprobadas en dos ejecuciones. I-03:10 archivos/147 aprobadas,99,96s, con pedidos, pagos e impresión durable. Son ejecuciones parcialmente solapadas: no sumar sus pruebas como casos únicos. Test-writer verificó también5 suites de inventario/47 aprobadas tras corregir fixtures. Tipos/lint/formato dirigidos aprobados.
+- El principal revisó consumo exacto, roles actuales antes del replay y orden de locks estado→productos KEY SHARE→saldos UPDATE. La carrera con recategorización está probada con concurrencia normal; no hay reproducción determinista de su intercalación. No hubo reviewer ni ronda adversarial independientes.
+- T-04 en test-writer Luna medium: primero cliente/helper, luego RTL y E2E. Implementer UI Luna medium distinto espera rojo; backend complejo GPT-6.1-sol medium terminado. Conservar FigCraft azul/Nunito y Motion existente. Todavía sin UI ni QA visual/E2E/cobertura global de015; ocho rutas OpenAPI siguen pending hasta cierre completo.
+- Copia Desktop y polleria_dev intactas. Verificación solo polleria_test mediante wrapper externo, con acceso de red elevado cuando lo requiere el sandbox. No crear bases/roles. No integrar015 a main sin autorización posterior. La regresión previa010 quedó corregida en `88c1b0c` con pruebas `b490fb3`.
+
 ## 014 integrada en main; preparación de 015 — 2026-10-17
 
 - Usuario autorizó integrar 014 y continuar con 015. Merge de 014 en main: `2e2202f`, desde el cierre validado `965c877`. Sin conflictos; el árbol del merge coincide con la rama probada antes de esta actualización documental. Se conserva la evidencia de 149 archivos, 2880 pruebas aprobadas, 5 fallos esperados anteriores, cobertura de líneas 96,71 % y 30 E2E aplicables aprobados en ejecuciones separadas. No se repiten suites por un merge sin cambios de código.

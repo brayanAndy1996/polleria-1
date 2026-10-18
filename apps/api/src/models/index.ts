@@ -1,4 +1,17 @@
 import { DataTypes } from 'sequelize';
+import { defineInventoryModels } from './inventory.ts';
+import type {
+  InventoryStateModel,
+  InventoryDrinkModel,
+  InventoryMovementModel,
+  InventoryCommandModel,
+} from './inventory.ts';
+export type {
+  InventoryStateModel,
+  InventoryDrinkModel,
+  InventoryMovementModel,
+  InventoryCommandModel,
+} from './inventory.ts';
 import { definePaymentModel } from './payment.ts';
 import type { PaymentModel } from './payment.ts';
 export type { PaymentModel } from './payment.ts';
@@ -257,6 +270,10 @@ export type IdempotencyKeyModel = Model<
 > &
   IdempotencyKeyAttributes;
 export interface Models {
+  InventoryState: ModelStatic<InventoryStateModel>;
+  InventoryDrink: ModelStatic<InventoryDrinkModel>;
+  InventoryMovement: ModelStatic<InventoryMovementModel>;
+  InventoryCommand: ModelStatic<InventoryCommandModel>;
   Payment: ModelStatic<PaymentModel>;
   KitchenTicketPrint: ModelStatic<KitchenTicketPrintModel>;
   KitchenTicketPrintAttempt: ModelStatic<KitchenTicketPrintAttemptModel>;
@@ -290,9 +307,19 @@ export function defineModels(sequelize: Sequelize): Models {
     sequelize.isDefined('IdempotencyKey') &&
     sequelize.isDefined('KitchenTicketPrint') &&
     sequelize.isDefined('KitchenTicketPrintAttempt') &&
-    sequelize.isDefined('Payment')
+    sequelize.isDefined('Payment') &&
+    sequelize.isDefined('InventoryState') &&
+    sequelize.isDefined('InventoryDrink') &&
+    sequelize.isDefined('InventoryMovement') &&
+    sequelize.isDefined('InventoryCommand')
   ) {
     return {
+      InventoryState: sequelize.model('InventoryState') as ModelStatic<InventoryStateModel>,
+      InventoryDrink: sequelize.model('InventoryDrink') as ModelStatic<InventoryDrinkModel>,
+      InventoryMovement: sequelize.model(
+        'InventoryMovement',
+      ) as ModelStatic<InventoryMovementModel>,
+      InventoryCommand: sequelize.model('InventoryCommand') as ModelStatic<InventoryCommandModel>,
       Payment: sequelize.model('Payment') as ModelStatic<PaymentModel>,
       KitchenTicketPrint: sequelize.model(
         'KitchenTicketPrint',
@@ -520,6 +547,7 @@ export function defineModels(sequelize: Sequelize): Models {
     { tableName: 'idempotency_keys', underscored: true, updatedAt: false },
   );
   const models: Models = {
+    ...defineInventoryModels(sequelize),
     Payment: definePaymentModel(sequelize),
     ...defineKitchenTicketPrintModels(sequelize),
     User,

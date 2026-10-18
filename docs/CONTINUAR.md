@@ -1,5 +1,24 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## 015: implementada y validada — 2026-10-18
+
+Backend y UI de `feat/015-basic-inventory` validados sobre `b4bfe27`: 158 archivos/2992 pruebas aprobadas, 5 fallos esperados previos y 95,49% de líneas; umbrales originales cumplidos. Dos E2E reales aplicables aprobados, ocho capturas a360/768/1440 sin desbordamiento ni pageerrors, tipos/lint/formato y build final Turbopack aprobados. OpenAPI0.12: ocho operaciones implemented. Luna cubrió pruebas e implementación sencilla, Sol6.1 medium el backend complejo; roles separados. Evidencia y límites en verification.md. Siguiente paso: revisión del usuario; no integrar015 a main sin autorización posterior ni iniciar otro alcance no aprobado. Los cortes inferiores son históricos salvo reglas de dominio y entorno.
+
+## Ajuste de metodología — 2026-10-18 (corte anterior)
+
+Aplicar docs/agents/pruebas-por-riesgo.md y AGENTS.md: menos pruebas no pertinentes durante cada bloque, reutilizar evidencia del mismo código entre roles, una sola ejecución global con cobertura al cierre y no crear agentes ociosos. No borrar pruebas ni ocultar errores críticos. Auditoría y cambio de metodología solo documentales; no ejecutar suites para este cambio.
+
+015 conserva backend verificado y UI pendiente. Siguen sin versionar `apps/web/src/lib/api/inventory.test.ts` y `apps/web/src/lib/inventory-demand.test.ts`, trabajo parcial del test-writer Luna antes de agotar cuota; no borrar ni atribuirles ejecución aprobada. Confirmar disponibilidad del modelo al retomar, sin sustituciones silenciosas ni bucles de reintentos. Los agentes UI estaban esperando rojo; no presumir que siguen trabajando. Los cortes inferiores son históricos salvo el estado técnico del backend.
+
+## Reanudación exacta de 015 — 2026-10-17
+
+- Rama `feat/015-basic-inventory`;014 ya está en main. Backend015 terminado: shared `7f63a89`, administración `c002e11`, consumo `37bb96e`; testsT03/B `a359052`/`4304dd8` y fixtures corregidas `9ec9653`. Principal verificó10 archivos/147 aprobadas tras I-03; evidencia y límites completos en verification.md. No sumar ejecuciones solapadas ni presentar fallos esperados como aprobados.
+- Siguiente bloque T-04: test-writer `/root/test_writer_015` Luna medium escribe primero `apps/web/src/lib/api/inventory.test.ts` y `lib/inventory-demand.test.ts`, luego RTLadmin/mozo y E2E. Implementer `/root/implementer_015_ui` Luna medium leyó skills/plan y espera rojo; no ha escrito UI. Backend implementer `/root/implementer_015_backend` GPT-6.1-sol medium terminó y está inactivo. Solo un implementer y un test-writer activos.
+- Leer ui-plan.md (dirección visual y puertos exactos), contract.md (locks/API), spec.md y tasks.md de015. Saldo permanente sin corte diario; anular no repone. No volver a preguntar estas reglas. No sobrescribir saldos leídos, congelar clave/cuerpo tras respuesta incierta y permitir replay aunque disponibilidad nueva sea0.
+- SlotDB libre tras verificación principal. Serializar PostgreSQL/cobertura/E2E; web puro puede correr separado. Usar `node ../run-local-test.cjs ...` en el checkout `work/polleria-1`, con require_escalated para TCP/temp si falla el sandbox. Wrapper lee solo DATABASE_URL_TEST de Desktop y exige polleria_test. PostgreSQL17/puerto5432 comprobados accesibles fuera del sandbox; no cambiar servicios ni usar polleria_dev.
+- Pendientes: cliente/helper/UI, revisión visual360/768/1440, checks globales/cobertura/build y E2E reales. OpenAPI0.12 conserva8 rutas pending hasta C-01; no marcar entrega completa. No hubo reviewer independiente. Mantener commits separados tests/producción/docs, publicar feature y pedir autorización posterior para integrar015 a main.
+- La copia Desktop permanece intacta. No crear worktrees ni bases/roles. Este clon descarga solo dev por defecto: actualizar main/features con fetch explícito de referencias antes de comparar; no confundir origin/main antiguo con GitHub.
+
 ## Estado vigente — 014 integrada y preparación de 015, 2026-10-17
 
 - Integración de 014 a main autorizada por el usuario y realizada con merge `2e2202f`, desde `965c877`. Árbol idéntico a la rama verificada antes de docs: 2880 pruebas aprobadas, 5 fallos esperados previos y 96,71 % de líneas; 30 E2E aplicables aprobados en ejecuciones separadas. Los registros inferiores son históricos.

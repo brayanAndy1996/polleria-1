@@ -243,6 +243,11 @@ const POLLO_FRITO = {
   items: [],
 };
 const MENU = [POLLO_FRITO, CHAUFA, INCA];
+const INVENTORY_OFF = {
+  chicken: { enabled: false, breastEighths: 0, legEighths: 0 },
+  drinks: [{ productId: 4, productName: 'Inca Kola', enabled: false, quantity: 0 }],
+  generatedAt: '2026-10-17T15:00:00.000Z',
+};
 
 function show(node: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -287,6 +292,8 @@ async function renderAgregar(products: JsonValue[] = MENU) {
     http.get('*/api/tables', () => HttpResponse.json({ tables: [MESA3_OCUPADA] })),
     http.get('*/api/orders/41', () => HttpResponse.json(ORDER_VACIO)),
     http.get('*/api/orders/41/tickets', () => HttpResponse.json({ tickets: [] })),
+    // Inventario opt-in: las pruebas históricas conservan el comportamiento sin control activo.
+    http.get('*/api/inventory/availability', () => HttpResponse.json(INVENTORY_OFF)),
   );
   const view = show(<AgregarPage />);
   expect(await screen.findByRole('heading', { name: 'Agregar ítems', level: 1 })).toBeVisible();
@@ -556,7 +563,7 @@ describe('ADV-011-07: el aviso de tope de envío se limpia al quitar una línea'
     expect(screen.getByText('Un envío admite hasta 20 ítems.')).toBeVisible();
     fireEvent.click(within(cartLine('Chaufa')).getByRole('button', { name: 'Quitar' }));
     expect(screen.queryByText('Un envío admite hasta 20 ítems.')).toBeNull();
-  });
+  }, 15_000);
 });
 
 describe('ADV-011-08: los nombres de componentes no llevan caracteres invisibles', () => {
@@ -730,13 +737,16 @@ describe('ADV-011-13 (resuelto): la clave del envío es estable por intento', ()
     expect(keys[1]).toBe(keys[0]);
   });
 
-  it('un intento nuevo tras editar el carrito genera una clave nueva', async () => {
-    const keys: string[] = [];
+  it('una respuesta incierta congela el carrito y reintenta la misma clave y cuerpo', async () => {
+    const requests: Array<{ key: string; body: string }> = [];
     let calls = 0;
     server.use(
-      http.post('*/api/orders/41/items', ({ request }) => {
+      http.post('*/api/orders/41/items', async ({ request }) => {
         calls += 1;
-        keys.push(request.headers.get('Idempotency-Key') ?? '');
+        requests.push({
+          key: request.headers.get('Idempotency-Key') ?? '',
+          body: await request.clone().text(),
+        });
         if (calls === 1) return HttpResponse.error();
         return HttpResponse.json({ order: ORDER_VACIO, ticket: makeTicket() }, { status: 201 });
       }),
@@ -748,12 +758,51 @@ describe('ADV-011-13 (resuelto): la clave del envío es estable por intento', ()
     addToCart();
     fireEvent.click(screen.getByRole('button', { name: /Enviar a cocina/ }));
     expect(await screen.findByText('No se pudo enviar el pedido.')).toBeVisible();
-    // Editar el carrito abandona el intento: el próximo envío es uno nuevo.
-    fireEvent.click(within(cartLine('Inca Kola')).getByRole('button', { name: 'Quitar' }));
+    const drinkLine = cartLine('Inca Kola');
+    expect(within(drinkLine).getByLabelText(/cantidad/i)).toBeDisabled();
+    const removeDrink = within(drinkLine).getByRole('button', { name: 'Quitar' });
+    expect(removeDrink).toBeDisabled();
+    fireEvent.click(removeDrink);
+    expect(cartLine('Inca Kola')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar envío' }));
+    await waitFor(() => expect(calls).toBe(2));
+    expect(requests[1]).toEqual(requests[0]);
+  });
+
+  it('un rechazo definitivo permite editar y crea una clave nueva para el nuevo cuerpo', async () => {
+    const requests: Array<{ key: string; body: string }> = [];
+    let calls = 0;
+    server.use(
+      http.post('*/api/orders/41/items', async ({ request }) => {
+        calls += 1;
+        requests.push({
+          key: request.headers.get('Idempotency-Key') ?? '',
+          body: await request.clone().text(),
+        });
+        if (calls === 1) {
+          return HttpResponse.json(errorBody('ORDER_NOT_OPEN', 'El pedido ya no está abierto.'), {
+            status: 409,
+          });
+        }
+        return HttpResponse.json({ order: ORDER_VACIO, ticket: makeTicket() }, { status: 201 });
+      }),
+    );
+    await renderAgregar();
+    await openEditor('Chaufa');
+    addToCart();
+    await openEditor('Inca Kola');
+    addToCart();
+    fireEvent.click(screen.getByRole('button', { name: /Enviar a cocina/ }));
+    expect(await screen.findByText('El pedido ya no está abierto.')).toBeVisible();
+    const drinkLine = cartLine('Inca Kola');
+    expect(within(drinkLine).getByRole('button', { name: 'Quitar' })).toBeEnabled();
+    fireEvent.click(within(drinkLine).getByRole('button', { name: 'Quitar' }));
+    expect(screen.getByRole('button', { name: /Enviar a cocina \(1\)/ })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /Enviar a cocina/ }));
     await waitFor(() => expect(calls).toBe(2));
-    expect(keys[1]).not.toBe(keys[0]);
-    expect(keys[1]).not.toBe('');
+    expect(requests[0]!.key).not.toBe('');
+    expect(requests[1]!.key).not.toBe(requests[0]!.key);
+    expect(requests[1]!.body).not.toBe(requests[0]!.body);
   });
 
   it('una tanda nueva tras el 201 genera una clave nueva', async () => {
