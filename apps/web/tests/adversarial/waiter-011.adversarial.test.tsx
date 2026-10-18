@@ -797,7 +797,7 @@ describe('ADV-011-13 (resuelto): la clave del envío es estable por intento', ()
     const drinkLine = cartLine('Inca Kola');
     expect(within(drinkLine).getByRole('button', { name: 'Quitar' })).toBeEnabled();
     fireEvent.click(within(drinkLine).getByRole('button', { name: 'Quitar' }));
-    expect(screen.queryByText('Inca Kola')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Enviar a cocina \(1\)/ })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /Enviar a cocina/ }));
     await waitFor(() => expect(calls).toBe(2));
     expect(requests[0]!.key).not.toBe('');
