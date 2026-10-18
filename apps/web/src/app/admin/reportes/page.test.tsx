@@ -62,7 +62,7 @@ function summary() {
 }
 function selectDate(date: string) {
   fireEvent.change(screen.getByLabelText('Fecha'), { target: { value: date } });
-  fireEvent.click(screen.getByRole('button', { name: 'Actualizar', exact: true }));
+  fireEvent.click(screen.getByRole('button', { name: /^Actualizar$/ }));
 }
 function barrier() {
   let release!: () => void;
@@ -126,7 +126,7 @@ describe('016: pantalla de ventas cobradas', () => {
     fail = false;
     fireEvent.click(
       screen.queryByRole('button', { name: /reintentar/i }) ??
-        screen.getByRole('button', { name: 'Actualizar', exact: true }),
+        screen.getByRole('button', { name: /^Actualizar$/ }),
     );
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
     expect(within(summary()).getByText('S/ 0,00', { exact: true })).toBeVisible();
