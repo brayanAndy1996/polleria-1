@@ -1,5 +1,13 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## 016 aprobada y en I-01 — 2026-10-18
+
+015 ya integrada y publicada en main: merge `2a6cf41`, registro `8aec23d`, árbol de producción igual al validado. Usuario aprobó el alcance de016 mediante pregunta de aprobación; no volver a preguntar ese alcance. Rama `feat/016-daily-sales-reports`, spec/contract/tasks016 y OpenAPI0.13 con una operación pending/700 referencias válidas.
+
+T-01 Luna (`874555a`, fixes `7cce042`) entregó6 casos compartidos, rojo por módulo ausente con0 assertions. I-01 Sol6.1 medium `/root/implementer_016_backend` implementa solo reports.ts/index shared (posibles códigos errors.ts); no API/UI todavía. Test-writer `/root/test_writer_016` completó su bloque y está inactivo; asignar T-02 solo cuando haya verde I-01, sin otro escritor simultáneo. Principal mantiene docs/contrato/revisión, no producción/tests. No repetir checks del mismo código sin razón.
+
+Reglas: fecha de cobro Lima, amountCents exacto, snapshots014, autor por OrderItem.createdByUserId (nombre actual), productos por presentación/nombre histórico, cremas resueltas y combos sin doble suma; totales conciliados. Año0000 inválido por PostgreSQL. No crear millones de pagos para forzar MAX_SAFE: schemas rechazan inseguros y prueba de3 pagos válidos supera int32; límite de cobertura a documentar. Solo polleria_test con wrapper protegido; no tocar Desktop/polleria_dev. Main015 ya publicada;016 no se integra sin autorización posterior. Los cortes inferiores son históricos.
+
 ## 015 integrada; preparación de 016 — 2026-10-18
 
 Usuario autorizó integrar la 015 y continuar. Merge `2a6cf41` en main, sin conflictos y con árbol idéntico a `8e9d83e`, ya validado. No repetir pruebas por esa integración. Continuar con la spec016 del reporte de ventas del día, siguiente requisito del prototipo. Concretar fecha de cobro en America/Lima, importes históricos y atribución de cada ítem al usuario que lo envió; obtener aprobación del nuevo comportamiento antes de tests/producción. Mantener Luna para pruebas/trabajo sencillo y Sol6.1 medium para dinero/transacciones, sin agentes ociosos. Los cortes inferiores son históricos.

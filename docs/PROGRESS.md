@@ -1,5 +1,11 @@
 # Progreso del proyecto — Sistema Pollería
 
+## 016: alcance aprobado y dominio en desarrollo — 2026-10-18
+
+- Usuario aprobó reporte diario de ventas cobradas, solo admin, por fecha de cobro en America/Lima: total, medios, horas, presentaciones y autor de cada ítem. Spec/contrato/tareas en docs/specs/016-daily-sales-reports; no incluye caja avanzada, pagos mixtos ni merma deducida del saldo permanente.
+- Rama `feat/016-daily-sales-reports` desde main `8aec23d`. S-01: OpenAPI0.13, una operación pending y700 referencias verificadas; no hay nueva migración prevista. T-01 Luna: seis casos en `874555a` y fixtures corregidas `7cce042`. Rojo por reports.ts ausente,0 assertions ejecutadas; no se atribuye fallo causal del algoritmo.
+- I-01 asignado a implementer distinto Sol6.1 medium por agregación monetaria/precisión. Solo shared; API/UI siguen pendientes. Reutilizar resultados dirigidos fiables y no iniciar agentes para esperar. Integración016 requerirá autorización posterior.
+
 ## 015 integrada en main — 2026-10-18
 
 - Usuario autorizó fusionar la 015 y continuar. Merge `2a6cf41`, sin conflictos, desde `8e9d83e`; árbol idéntico a la rama validada. Se conserva su evidencia de 2992 pruebas aprobadas, 5 fallos esperados previos, 95,49% de líneas y dos E2E reales, sin repetir suites por un merge sin cambios.
