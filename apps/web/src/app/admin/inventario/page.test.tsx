@@ -121,11 +121,11 @@ describe('015: administración de inventario', () => {
       }),
     );
     show();
-    expect(await screen.findByText('Tanda 1')).toBeVisible();
-    expect(screen.getByText('Tanda 50')).toBeVisible();
+    expect(await screen.findByText(/\bTanda 1\b/)).toBeVisible();
+    expect(screen.getByText(/\bTanda 50\b/)).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /cargar siguientes/i }));
-    expect(await screen.findByText('Tanda 51')).toBeVisible();
-    expect(screen.getByText('Tanda 1')).toBeVisible();
-    expect(screen.getByText('Tanda 50')).toBeVisible();
+    expect(await screen.findByText(/\bTanda 51\b/)).toBeVisible();
+    expect(screen.getByText(/\bTanda 1\b/)).toBeVisible();
+    expect(screen.getByText(/\bTanda 50\b/)).toBeVisible();
   });
 });
