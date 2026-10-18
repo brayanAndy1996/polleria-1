@@ -243,6 +243,11 @@ const POLLO_FRITO = {
   items: [],
 };
 const MENU = [POLLO_FRITO, CHAUFA, INCA];
+const INVENTORY_OFF = {
+  chicken: { enabled: false, breastEighths: 0, legEighths: 0 },
+  drinks: [{ productId: 4, productName: 'Inca Kola', enabled: false, quantity: 0 }],
+  generatedAt: '2026-10-17T15:00:00.000Z',
+};
 
 function show(node: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -287,6 +292,8 @@ async function renderAgregar(products: JsonValue[] = MENU) {
     http.get('*/api/tables', () => HttpResponse.json({ tables: [MESA3_OCUPADA] })),
     http.get('*/api/orders/41', () => HttpResponse.json(ORDER_VACIO)),
     http.get('*/api/orders/41/tickets', () => HttpResponse.json({ tickets: [] })),
+    // Inventario opt-in: las pruebas históricas conservan el comportamiento sin control activo.
+    http.get('*/api/inventory/availability', () => HttpResponse.json(INVENTORY_OFF)),
   );
   const view = show(<AgregarPage />);
   expect(await screen.findByRole('heading', { name: 'Agregar ítems', level: 1 })).toBeVisible();
