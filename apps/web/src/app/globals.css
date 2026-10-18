@@ -386,6 +386,20 @@ button.button--secondary,
 .workspace-main textarea:focus {
   border-color: var(--teal);
 }
+.inventory-admin .inventory-field,
+.inventory-review .inventory-field {
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  padding: 10px 12px;
+  color: var(--ink);
+  font: inherit;
+}
+.inventory-admin .inventory-field:focus,
+.inventory-review .inventory-field:focus {
+  border-color: var(--teal);
+}
 
 .public-screen {
   min-height: 100dvh;

@@ -15,21 +15,26 @@ export interface InventoryCartLineInput {
   cut: Cut | null;
   breastEighths: number;
   legEighths: number;
-  components: readonly {
-    productId: number;
-    quantity: number;
-    portion?: Portion;
-    cut?: Cut;
-    breastEighths?: number;
-    legEighths?: number;
-  }[] | null;
+  components:
+    | readonly {
+        productId: number;
+        quantity: number;
+        portion?: Portion;
+        cut?: Cut;
+        breastEighths?: number;
+        legEighths?: number;
+      }[]
+    | null;
 }
 
 function missingProduct(productId: number): never {
   throw new RangeError(`Inventory demand cannot be resolved for product ${productId}.`);
 }
 
-function portionDemand(portion: Portion | null, cut: Cut | null): {
+function portionDemand(
+  portion: Portion | null,
+  cut: Cut | null,
+): {
   breastEighths: number;
   legEighths: number;
 } {
@@ -55,11 +60,12 @@ export function calculateCartInventoryDemand(
     lines.map((line) => {
       const product = productsById.get(line.productId) ?? missingProduct(line.productId);
       if (product.category !== 'combo') {
-        const perUnit = product.category === 'chicken'
-          ? line.portion === 'half'
-            ? { breastEighths: line.breastEighths, legEighths: line.legEighths }
-            : portionDemand(line.portion, line.cut)
-          : { breastEighths: 0, legEighths: 0 };
+        const perUnit =
+          product.category === 'chicken'
+            ? line.portion === 'half'
+              ? { breastEighths: line.breastEighths, legEighths: line.legEighths }
+              : portionDemand(line.portion, line.cut)
+            : { breastEighths: 0, legEighths: 0 };
         return {
           productId: product.id,
           category: product.category,
@@ -74,21 +80,25 @@ export function calculateCartInventoryDemand(
 
       const recipe = comboRowsByProduct.get(product.id) ?? missingProduct(product.id);
       const selectedComponents = line.components;
-      const recipeComponents: NonNullable<InventoryCartLineInput['components']> = recipe.map((row) => ({
-        productId: row.product.id,
-        quantity: row.quantity,
-        ...(row.portion === null ? {} : { portion: row.portion }),
-        ...(row.cut === null ? {} : { cut: row.cut }),
-      }));
+      const recipeComponents: NonNullable<InventoryCartLineInput['components']> = recipe.map(
+        (row) => ({
+          productId: row.product.id,
+          quantity: row.quantity,
+          ...(row.portion === null ? {} : { portion: row.portion }),
+          ...(row.cut === null ? {} : { cut: row.cut }),
+        }),
+      );
       const components = (selectedComponents ?? recipeComponents).map((selected) => {
         const row = recipe.find((item) => item.product.id === selected.productId);
-        const componentProduct = productsById.get(selected.productId) ?? missingProduct(selected.productId);
+        const componentProduct =
+          productsById.get(selected.productId) ?? missingProduct(selected.productId);
         if (row === undefined) missingProduct(selected.productId);
 
         if (componentProduct.category === 'chicken') {
-          const consumption = selected.breastEighths !== undefined && selected.legEighths !== undefined
-            ? { breastEighths: selected.breastEighths, legEighths: selected.legEighths }
-            : portionDemand(selected.portion ?? row.portion, selected.cut ?? row.cut);
+          const consumption =
+            selected.breastEighths !== undefined && selected.legEighths !== undefined
+              ? { breastEighths: selected.breastEighths, legEighths: selected.legEighths }
+              : portionDemand(selected.portion ?? row.portion, selected.cut ?? row.cut);
           // Shared expects recipe component octaves to include the recipe quantity;
           // it applies the outer combo quantity once.
           return {
@@ -136,14 +146,18 @@ export function inventoryShortages(
   if (snapshot.chicken.enabled) {
     if (demand.breastEighths > snapshot.chicken.breastEighths) {
       shortages.push({
-        kind: 'breast', productId: null,
-        available: snapshot.chicken.breastEighths, required: demand.breastEighths,
+        kind: 'breast',
+        productId: null,
+        available: snapshot.chicken.breastEighths,
+        required: demand.breastEighths,
       });
     }
     if (demand.legEighths > snapshot.chicken.legEighths) {
       shortages.push({
-        kind: 'leg', productId: null,
-        available: snapshot.chicken.legEighths, required: demand.legEighths,
+        kind: 'leg',
+        productId: null,
+        available: snapshot.chicken.legEighths,
+        required: demand.legEighths,
       });
     }
   }
@@ -153,8 +167,10 @@ export function inventoryShortages(
     if (drink === undefined) missingProduct(required.productId);
     if (drink.enabled && required.quantity > drink.quantity) {
       shortages.push({
-        kind: 'drink', productId: required.productId,
-        available: drink.quantity, required: required.quantity,
+        kind: 'drink',
+        productId: required.productId,
+        available: drink.quantity,
+        required: required.quantity,
       });
     }
   }

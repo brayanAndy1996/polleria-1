@@ -26,7 +26,9 @@ export async function getInventoryAvailability(): Promise<InventorySnapshot> {
   return parseResponse(inventorySnapshotSchema, status, body);
 }
 
-export async function listInventoryMovements(afterId?: number): Promise<InventoryMovementsResponse> {
+export async function listInventoryMovements(
+  afterId?: number,
+): Promise<InventoryMovementsResponse> {
   const query = afterId === undefined ? '' : `?afterId=${afterId}`;
   const { body, status } = await apiClient.requestWithStatus(`/inventory/movements${query}`, {
     expectedStatus: 200,
