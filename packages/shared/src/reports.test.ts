@@ -15,10 +15,9 @@ function item(
     SnapshotItem,
     'productId' | 'productName' | 'productCategory' | 'quantity' | 'priceCents' | 'portion' | 'cut'
   >,
-  options: Partial<SnapshotItem> = {},
+  options: Partial<Omit<SnapshotItem, 'id'>> = {},
 ): SnapshotItem {
   return {
-    id,
     ...product,
     breastEighths: 0,
     legEighths: 0,
@@ -27,6 +26,7 @@ function item(
     components: [],
     status: 'sent',
     ...options,
+    id,
   };
 }
 
@@ -79,9 +79,9 @@ function payment(
   };
 }
 
-const chicken = (overrides: Partial<SnapshotItem> = {}) =>
+const chicken = (id = 1, overrides: Partial<Omit<SnapshotItem, 'id'>> = {}) =>
   item(
-    1,
+    id,
     {
       productId: 10,
       productName: 'Cuarto histórico',
@@ -102,6 +102,7 @@ describe('016: reporte diario de ventas', () => {
   it('AC-02: acepta fechas reales, consulta estricta y un día vacío con 24 horas y cuatro medios', () => {
     expect(salesDateSchema.safeParse('2026-02-28').success).toBe(true);
     expect(salesDateSchema.safeParse('2026-02-29').success).toBe(false);
+    expect(salesDateSchema.safeParse('0000-01-01').success).toBe(false);
     expect(dailySalesQuerySchema.safeParse({ date: '2026-10-18' }).success).toBe(true);
     expect(dailySalesQuerySchema.safeParse({ date: '2026-10-18', other: 'x' }).success).toBe(false);
 
@@ -138,9 +139,17 @@ describe('016: reporte diario de ventas', () => {
 
   it('AC-02/03/06: usa paidAt en el día Lima y concilia amountCents, medio y hora sin sumar vuelto', () => {
     const rows = [
-      payment(1, '2026-10-18T04:59:59.999Z', 'cash', [chicken()], 2500),
+      payment(1, '2026-10-18T06:00:00.000Z', 'cash', [chicken(1)], 2500),
       payment(2, '2026-10-18T05:00:00.000Z', 'yape', [
-        item(2, { ...chicken(), quantity: 2, priceCents: 300 }),
+        item(2, {
+          productId: 10,
+          productName: 'Cuarto histórico',
+          productCategory: 'chicken',
+          quantity: 2,
+          priceCents: 300,
+          portion: 'quarter',
+          cut: 'leg',
+        }),
       ]),
       payment(3, '2026-10-19T04:59:59.999Z', 'card', [
         item(3, {
@@ -166,23 +175,42 @@ describe('016: reporte diario de ventas', () => {
       itemAuthors: map,
     });
 
-    expect(report.totalCents).toBe(1000);
-    expect(report.paymentCount).toBe(2);
+    expect(report.totalCents).toBe(2700);
+    expect(report.paymentCount).toBe(3);
     expect(report.methods).toEqual([
-      { method: 'cash', totalCents: 0, paymentCount: 0 },
+      { method: 'cash', totalCents: 1700, paymentCount: 1 },
       { method: 'yape', totalCents: 600, paymentCount: 1 },
       { method: 'plin', totalCents: 0, paymentCount: 0 },
       { method: 'card', totalCents: 400, paymentCount: 1 },
     ]);
     expect(report.hours[23]).toMatchObject({ totalCents: 400, paymentCount: 1 });
     expect(report.hours[0]).toMatchObject({ totalCents: 600, paymentCount: 1 });
+    expect(report.hours[1]).toMatchObject({ totalCents: 1700, paymentCount: 1 });
     expect(report.products.reduce((sum, row) => sum + row.totalCents, 0)).toBe(report.totalCents);
     expect(report.authors.reduce((sum, row) => sum + row.totalCents, 0)).toBe(report.totalCents);
+    const beforeDay = payment(4, '2026-10-18T04:59:59.999Z', 'cash', [chicken(4)]);
+    expect(() =>
+      buildDailySalesReport({
+        date: '2026-10-18',
+        generatedAt,
+        payments: [beforeDay],
+        itemAuthors: authors([4, { id: 7, displayName: 'Ana' }]),
+      }),
+    ).toThrow(TypeError);
+    const afterDay = payment(5, '2026-10-19T05:00:00.000Z', 'cash', [chicken(5)]);
+    expect(() =>
+      buildDailySalesReport({
+        date: '2026-10-18',
+        generatedAt,
+        payments: [afterDay],
+        itemAuthors: authors([5, { id: 7, displayName: 'Ana' }]),
+      }),
+    ).toThrow(TypeError);
   });
 
   it('AC-03/06: suma pagos válidos por encima del límite int32 sin perder precisión', () => {
     const largeItems = (firstId: number) =>
-      Array.from({ length: 109 }, (_, index) =>
+      Array.from({ length: 80 }, (_, index) =>
         item(firstId + index, {
           productId: 10,
           productName: 'Cuarto histórico',
@@ -195,27 +223,31 @@ describe('016: reporte diario de ventas', () => {
       );
     const first = payment(20, '2026-10-18T15:00:00.000Z', 'cash', largeItems(1000));
     const second = payment(21, '2026-10-18T16:00:00.000Z', 'card', largeItems(2000));
+    const third = payment(22, '2026-10-18T17:00:00.000Z', 'yape', largeItems(3000));
     const itemAuthors = authors(
-      ...[...first.snapshot.bill.items, ...second.snapshot.bill.items].map(
-        (row) => [row.id, { id: 7, displayName: 'Ana' }] as [number, UserRef],
-      ),
+      ...[
+        ...first.snapshot.bill.items,
+        ...second.snapshot.bill.items,
+        ...third.snapshot.bill.items,
+      ].map((row) => [row.id, { id: 7, displayName: 'Ana' }] as [number, UserRef]),
     );
 
     expect(paymentSchema.safeParse(first).success).toBe(true);
     expect(paymentSchema.safeParse(second).success).toBe(true);
+    expect(paymentSchema.safeParse(third).success).toBe(true);
     const report = buildDailySalesReport({
       date: '2026-10-18',
       generatedAt,
-      payments: [first, second],
+      payments: [first, second, third],
       itemAuthors,
     });
-    expect(report.totalCents).toBe(2_158_178_418);
+    expect(report.totalCents).toBe(2_375_976_240);
     expect(report.totalCents).toBeGreaterThan(2_147_483_647);
-    expect(report.authors).toEqual([{ userId: 7, displayName: 'Ana', totalCents: 2_158_178_418 }]);
+    expect(report.authors).toEqual([{ userId: 7, displayName: 'Ana', totalCents: 2_375_976_240 }]);
   });
 
   it('AC-04: agrupa snapshot histórico, presentación, combo y crema ya resuelta sin multiplicar componentes', () => {
-    const quarter = chicken({ quantity: 2 });
+    const quarter = chicken(1, { quantity: 2 });
     const combo = item(
       2,
       {
@@ -286,7 +318,7 @@ describe('016: reporte diario de ventas', () => {
     const report = buildDailySalesReport({
       date: '2026-10-18',
       generatedAt,
-      payments: [payment(5, '2026-10-18T16:00:00.000Z', 'cash', [chicken()])],
+      payments: [payment(5, '2026-10-18T16:00:00.000Z', 'cash', [chicken(1)])],
       // En servicio, estas referencias pueden apuntar a usuarios admin o inactivos.
       itemAuthors: authors([1, { id: 31, displayName: 'Admin inactivo' }]),
     });
@@ -295,8 +327,8 @@ describe('016: reporte diario de ventas', () => {
     ]);
   });
 
-  it('AC-06: rechaza pagos fuera de fecha, ids repetidos, autores faltantes y etiquetas incoherentes', () => {
-    const valid = payment(6, '2026-10-18T16:00:00.000Z', 'cash', [chicken()]);
+  it('AC-06: rechaza ids repetidos, autores faltantes y etiquetas incoherentes', () => {
+    const valid = payment(6, '2026-10-18T16:00:00.000Z', 'cash', [chicken(1)]);
     const input = {
       date: '2026-10-18',
       generatedAt,
@@ -311,38 +343,19 @@ describe('016: reporte diario de ventas', () => {
         payments: [
           valid,
           payment(12, '2026-10-18T17:00:00.000Z', 'yape', [
-            item(1, { ...chicken(), quantity: 1, priceCents: 100 }),
+            chicken(1, { quantity: 1, priceCents: 100 }),
           ]),
         ],
         itemAuthors: authors([1, { id: 7, displayName: 'Ana' }]),
       }),
     ).toThrow(TypeError);
-    expect(() =>
-      buildDailySalesReport({
-        ...input,
-        payments: [
-          valid,
-          payment(7, '2026-10-18T17:00:00.000Z', 'yape', [
-            item(1, { ...chicken(), quantity: 1, priceCents: 100 }),
-          ]),
-        ],
-        itemAuthors: authors([1, { id: 7, displayName: 'Ana' }]),
-      }),
-    ).toThrow(TypeError);
-    expect(() =>
-      buildDailySalesReport({
-        ...input,
-        payments: [payment(8, '2026-10-19T05:00:00.000Z', 'cash', [chicken()])],
-      }),
-    ).toThrow(TypeError);
-
     expect(() =>
       buildDailySalesReport({
         ...input,
         payments: [
           valid,
           payment(11, '2026-10-18T17:00:00.000Z', 'yape', [
-            item(2, { ...chicken(), quantity: 1, priceCents: 100 }),
+            chicken(2, { quantity: 1, priceCents: 100 }),
           ]),
         ],
         itemAuthors: authors(
