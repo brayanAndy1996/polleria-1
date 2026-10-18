@@ -645,8 +645,11 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     };
     window.dispatchEvent(new Event('focus'));
     await waitFor(() => expect(availabilityReads).toBeGreaterThan(1));
+    const chickenCard = await screen.findByRole('button', { name: /Pollo a la brasa/ });
     expect(
-      await screen.findByText('Pecho disponible: 4 octavos · Pierna disponible: 6 octavos'),
+      await within(chickenCard).findByText(
+        'Pecho disponible: 4 octavos · Pierna disponible: 6 octavos',
+      ),
     ).toBeVisible();
     await openEditor(/Pollo a la brasa/);
     const portion = screen.getByRole('combobox', { name: 'Presentación' });
