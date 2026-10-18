@@ -483,12 +483,15 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
   });
 
   it('AC-17: tras un fallo de red "Reintentar envío" repite la MISMA clave', async () => {
-    const keys: (string | null)[] = [];
+    const requests: Array<{ key: string | null; body: string }> = [];
     let attempts = 0;
     server.use(
-      http.post('*/api/orders/41/items', ({ request }) => {
+      http.post('*/api/orders/41/items', async ({ request }) => {
         attempts += 1;
-        keys.push(request.headers.get('Idempotency-Key'));
+        requests.push({
+          key: request.headers.get('Idempotency-Key'),
+          body: await request.clone().text(),
+        });
         if (attempts === 1) return HttpResponse.error();
         return HttpResponse.json({ order: ORDER, ticket: TICKET_INICIAL }, { status: 201 });
       }),
@@ -505,10 +508,10 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     expect(screen.getByRole('button', { name: 'Enviar a cocina (1)' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reintentar envío' }));
     await waitFor(() => {
-      expect(keys).toHaveLength(2);
+      expect(requests).toHaveLength(2);
     });
-    expect(keys[0]).toMatch(/^[\x21-\x7E]{1,128}$/);
-    expect(keys[1]).toBe(keys[0]);
+    expect(requests[0]!.key).toMatch(/^[\x21-\x7E]{1,128}$/);
+    expect(requests[1]).toEqual(requests[0]);
   });
 
   it('AC-14: un 409 de stock conserva carrito, muestra faltantes y no reenvía automáticamente', async () => {
@@ -599,8 +602,8 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
   it('AC-17: "Enviando..." se muestra mientras sale el POST', async () => {
     server.use(
       http.post('*/api/orders/41/items', async () => {
-        await delay(50);
-        return HttpResponse.json({ order: ORDER, ticket: TICKET_INICIAL }, { status: 201 });
+        await delay(500);
+        return HttpResponse.error();
       }),
     );
     await renderAgregar();
@@ -608,11 +611,44 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     addToCart();
     fireEvent.click(await screen.findByRole('button', { name: 'Enviar a cocina (1)' }));
     expect(await screen.findByText('Enviando...')).toBeVisible();
-    await waitFor(() => {
-      expect(
-        mocks.replace.mock.calls.concat(mocks.push.mock.calls).map((c: unknown[]) => c[0]),
-      ).toContain('/mozo/mesas/3');
-    });
+    expect(within(cartLine(/^Chaufa/)).getByLabelText(/cantidad/i)).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Reintentar envío' })).toBeVisible();
+    expect(within(cartLine(/^Chaufa/)).getByLabelText(/cantidad/i)).toBeDisabled();
+  });
+
+  it('AC-14: el combo cuarto pierna usa solo pierna, limita el carrito y deja disponibles otras porciones con saldo', async () => {
+    let stock = {
+      ...INVENTORY_OFF,
+      chicken: { enabled: true, breastEighths: 0, legEighths: 2 },
+    };
+    let availabilityReads = 0;
+    server.use(
+      http.get('*/api/inventory/availability', () => {
+        availabilityReads += 1;
+        return HttpResponse.json(stock);
+      }),
+    );
+    await renderAgregar();
+
+    await openEditor('Mostrito');
+    expect(screen.getByRole('button', { name: 'Agregar al pedido' })).toBeEnabled();
+    addToCart();
+    const combo = cartLine('Mostrito');
+    const comboQuantity = within(combo).getByLabelText(/cantidad/i);
+    fireEvent.change(comboQuantity, { target: { value: '2' } });
+    expect(comboQuantity).toHaveValue(1);
+
+    fireEvent.click(within(combo).getByRole('button', { name: /quitar/i }));
+    stock = {
+      ...INVENTORY_OFF,
+      chicken: { enabled: true, breastEighths: 4, legEighths: 6 },
+    };
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() => expect(availabilityReads).toBeGreaterThan(1));
+    await openEditor(/Pollo a la brasa/);
+    const portion = screen.getByRole('combobox', { name: 'Presentación' });
+    fireEvent.change(portion, { target: { value: selectedValueOf(portion, 'Pollo entero') } });
+    expect(screen.getByRole('button', { name: 'Agregar al pedido' })).toBeEnabled();
   });
 
   it('AC-18: un 400 lleva los issues items.N.* a cada línea del carrito y los de raíz arriba', async () => {
