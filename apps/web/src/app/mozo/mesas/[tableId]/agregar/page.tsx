@@ -709,7 +709,7 @@ function OrderComposer({
         code === 'INSUFFICIENT_STOCK'
           ? 'No hay stock suficiente para enviar el pedido. Revisa la disponibilidad y reduce la cantidad.'
           : apiErrorMessage(error);
-      setSendErrors(issues.length > 0 ? [...uniqueMessages(split.root), message] : [message]);
+      setSendErrors(uniqueMessages([...split.root, message]));
       if (code === 'INSUFFICIENT_STOCK') refreshAvailability();
     },
     onSettled: () => {
