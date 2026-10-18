@@ -2,6 +2,8 @@
 
 Política reducida aprobada por el usuario el 2026-10-12. Sustituye la asignación anterior de siete roles y conserva los resultados y las pruebas anteriores. Actualización vigente del 2026-10-17: el usuario restableció Luna para los procesos sencillos, como se había planeado. El reemplazo temporal por GPT-6.1-sol low del 2026-10-16 se conserva como historia de la 014.
 
+Excepción explícita del2026-10-18 para completar016: tras agotar cuota Luna en T-02, el usuario autorizó GPT-6.1-sol low para test-writer y, si hace falta, interfaz funcional; implementación monetaria sigue GPT-6.1-sol medium en otro agente. No volver a pedir autorización del mismo reemplazo durante016. El usuario también pospuso el diseño al final: no exploración/pulido visual ni QA comparativa por funcionalidad; mantener controles accesibles y pruebas del flujo.
+
 | Función                                  | Ejecutor         | Modelo / razonamiento                                                          |
 | ---------------------------------------- | ---------------- | ------------------------------------------------------------------------------ |
 | Orquestación, specs, OpenAPI y revisión  | Agente principal | Modelo de la sesión; sin subagentes adicionales                                |

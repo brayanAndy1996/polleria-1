@@ -1,5 +1,13 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## Nueva prioridad y cuota — 2026-10-18
+
+El usuario pospuso el diseño hasta el final. Implementar solo pantallas funcionales con componentes existentes, controles utilizables y estados/permisos correctos; no pulido FigCraft, nuevas animaciones ni QA comparativa multiformato por entrega. No deshacer estilos existentes ni reducir pruebas de dinero/datos/acceso. AGENTS y spec/tasks016 actualizados; ui-plan016 queda como referencia futura.
+
+Luna agotó cuota durante T-02 y dejó `apps/api/tests/reports-api-016.test.ts` y `reports-service-016.test.ts` parciales. Usuario **autorizó GPT-6.1-sol low para completar pruebas y, si hace falta, interfaz funcional016**. Reemplazo asignado a `/root/test_writer_016_sol`; no repetir confirmación del mismo permiso ni reintentar Luna. Backend financiero sigue separado en `/root/implementer_016_backend` Sol medium, inactivo hasta T-02 fiable.
+
+Principal ejecutó los parciales sin editarlos:3 fallos API causales (ruta404 en dos casos, lectorJSON400 en otro), servicio0tests por módulo ausente,27,84s; log tmp/016-t02-partial-red.log. Fixtures por corregir: usuario inactivo HTTP401(auth), query inválida con admin activo (no waiter403), imports/formatos y cierre de casos; añadir límites SQL de día, errores históricos seguros y saldo sin mutación. Nuevo test-writer tiene slotDB exclusivo con polleria_test y wrapper; preservar archivos y no implementar contra expectativas falsas. I-01 conserva verde verificado.
+
 ## 016: dominio completado, pruebas API en escritura — 2026-10-18
 
 015 ya integrada y publicada en main: merge `2a6cf41`, registro `8aec23d`, árbol de producción igual al validado. Usuario aprobó el alcance de016 mediante pregunta de aprobación; no volver a preguntar ese alcance. Rama `feat/016-daily-sales-reports`, spec/contract/tasks016 y OpenAPI0.13 con una operación pending/700 referencias válidas.

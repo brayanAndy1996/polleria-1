@@ -4,6 +4,8 @@ Fecha: 2026-10-18. Fase 6 del prototipo; RF-25 y desglose por medio de pago de R
 
 **Estado: alcance aprobado por el usuario el 2026-10-18.** Confirmó implementar este reporte mediante la pregunta de alcance. Comienza S-01/T-01; todavía sin producción ni resultados verdes. No implica implementar caja avanzada ni volver a descontar inventario.
 
+**Prioridad posterior del usuario:** posponer diseño hasta el final. Para016 se entrega interfaz funcional con componentes existentes; no rediseño, animaciones nuevas ni comparación visual360/768/1440. Se conservan acceso, labels/foco, estados y E2E funcional. Esta decisión sustituye el pulido visual previsto debajo y en ui-plan.md; no deshace la interfaz015 ya integrada.
+
 ## Resultado
 
 El administrador consulta cuánto se cobró en una fecha del local, por qué medios, a qué horas, qué presentaciones se vendieron y quién registró esos ítems. La pantalla se titula «Ventas cobradas» y expresa importes en soles. Consultar un reporte no modifica pagos, pedidos, inventario ni comandas.
@@ -35,17 +37,17 @@ Fuera: rangos de fechas, exportación Excel/PDF, ticket fiscal, caja/apertura/ci
 
 ## Criterios de aceptación
 
-| AC    | Evidencia útil                                                                                                                                                                                                         |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AC-01 | Autenticación, roles actuales/revocación y no-store en éxito y error; sin exposición a otros roles.                                                                                                                    |
-| AC-02 | Día y24 horas de Lima: límites05:00Z/04:59:59.999Z actuales, pedido abierto antes y pagado después, fecha válida/vacía y calendario inválido; independiente de zona del equipo.                                        |
-| AC-03 | Totales enteros y conteos por cuatro medios; efectivo recibido/vuelto no inflan ventas, replay no duplica; sin ventas da ceros coherentes.                                                                             |
-| AC-04 | Snapshot conserva precios/nombres/categorías; cantidades mayores a1, presentaciones distintas, combo con componentes y cremas resueltas sin doble suma.                                                                |
-| AC-05 | Atribución por creador de línea con dos mozos y pedidos movidos/unidos/separados; usuarios inactivos incluidos, sin adjudicar todo al cajero o autor del pedido.                                                       |
-| AC-06 | Las cuatro descomposiciones concilian con el total y el conteo de horas/medios con el número de pagos; no truncar ni perder precisión; rechazo explícito de datos inconsistentes.                                      |
-| AC-07 | Cobro concurrente y lectura consistente; consultar repetidamente no muta pagos/pedidos/stock/impresión. Regresión dirigida014/015 solo pertinente.                                                                     |
-| AC-08 | UI carga/vacío/error, fecha y respuestas tardías, cantidades/unidades y acceso admin; foco, labels y responsive.                                                                                                       |
-| AC-09 | E2E crítico: venta real con efectivo/vuelto y otra digital, consulta admin y conciliación de totales; segunda fecha vacía. QA visual móvil/tablet/desktop con fixtures, sin repetir el mismo E2E en todos los tamaños. |
+| AC    | Evidencia útil                                                                                                                                                                                                                                          |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-01 | Autenticación, roles actuales/revocación y no-store en éxito y error; sin exposición a otros roles.                                                                                                                                                     |
+| AC-02 | Día y24 horas de Lima: límites05:00Z/04:59:59.999Z actuales, pedido abierto antes y pagado después, fecha válida/vacía y calendario inválido; independiente de zona del equipo.                                                                         |
+| AC-03 | Totales enteros y conteos por cuatro medios; efectivo recibido/vuelto no inflan ventas, replay no duplica; sin ventas da ceros coherentes.                                                                                                              |
+| AC-04 | Snapshot conserva precios/nombres/categorías; cantidades mayores a1, presentaciones distintas, combo con componentes y cremas resueltas sin doble suma.                                                                                                 |
+| AC-05 | Atribución por creador de línea con dos mozos y pedidos movidos/unidos/separados; usuarios inactivos incluidos, sin adjudicar todo al cajero o autor del pedido.                                                                                        |
+| AC-06 | Las cuatro descomposiciones concilian con el total y el conteo de horas/medios con el número de pagos; no truncar ni perder precisión; rechazo explícito de datos inconsistentes.                                                                       |
+| AC-07 | Cobro concurrente y lectura consistente; consultar repetidamente no muta pagos/pedidos/stock/impresión. Regresión dirigida014/015 solo pertinente.                                                                                                      |
+| AC-08 | UI carga/vacío/error, fecha y respuestas tardías, cantidades/unidades y acceso admin; foco, labels y responsive.                                                                                                                                        |
+| AC-09 | E2E crítico: venta real con efectivo/vuelto y otra digital, consulta admin y conciliación de totales; segunda fecha vacía. Una ejecución funcional pertinente. Comparación/pulido visual móvil/tablet/desktop pospuestos por el usuario hasta el final. |
 
 ## Metodología
 

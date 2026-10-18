@@ -1,5 +1,7 @@
 # Interfaz 016 — Ventas cobradas
 
+**Pospuesto por el usuario el 2026-10-18:** el diseño se hará al final del desarrollo funcional. Este documento conserva la exploración anterior como referencia futura, no como trabajo obligatorio de016. Ahora usar controles/componentes existentes y tablas legibles, sin pulido FigCraft, nuevas animaciones ni capturas comparativas360/768/1440. Mantener permisos, labels/foco y estados/fechas correctos; T-03/E2E verifican el flujo funcional.
+
 Plan previo a UI, 2026-10-18. Spec aprobada; no constituye implementación ni QA. Skills leídas: frontend-design, web-design-guidelines y ui-ux-pro-max del proyecto. Mantener la dirección FigCraft de las pantallas015/014; design-taste-frontend no aplica a este panel operativo.
 
 ## Dirección y jerarquía

@@ -16,4 +16,8 @@
 
 ## Pendiente
 
+Decisión posterior del usuario: diseño/pulido visual diferido hasta el final del desarrollo funcional. Se conserva la interfaz necesaria y sus pruebas de permisos/fecha/errores; no se exigen capturas comparativas por esta entrega. Luna agotó cuota durante T-02 y dejó dos archivos parciales. Usuario autorizó reemplazo por Sol6.1 low para pruebas/interfaz funcional016; backend financiero conserva Sol medium separado. No hubo sustitución automática.
+
+Principal verificó esos parciales sin editar tests:3 fallos de assertions API (dos404 por ruta ausente y400 por lectorJSON aún no exceptuado), servicio0tests por módulo ausente,27,84s. No constituye validación final de fixtures: inactivoHTTP401 y query inválida con admin son expectativas pendientes de corrección por test-writer. Este retoma y completa pruebas críticas antes de I-02. Sin DBdev ni bases/roles nuevos.
+
 T-02 escribe servicio/API real con guardias de polleria_test. Todavía sin rojo/verde de backend016, UI, QA visual, cobertura global/build ni E2E016. No atribuir evidencia015 a016. Main contiene015; integrar016 requerirá autorización posterior.
