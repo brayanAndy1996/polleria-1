@@ -330,9 +330,9 @@ export function InventoryAdmin() {
                     <strong className="wrap-anywhere">{drink.productName}</strong>
                     <p>{drink.enabled ? `${drink.quantity} unidades` : 'Sin control de stock'}</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="inventory-drink-actions flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                     <Button
-                      className="min-h-12"
+                      className="min-h-12 max-w-full whitespace-normal"
                       isDisabled={busy}
                       onPress={() => {
                         setDraft({ ...draft, productId: String(drink.productId) });
@@ -342,7 +342,7 @@ export function InventoryAdmin() {
                       Registrar entrada
                     </Button>
                     <Button
-                      className="min-h-12"
+                      className="min-h-12 max-w-full whitespace-normal"
                       variant="secondary"
                       isDisabled={busy || !drink.enabled}
                       onPress={() => {
@@ -359,7 +359,7 @@ export function InventoryAdmin() {
                       Desactivar
                     </Button>
                     <Button
-                      className="min-h-12"
+                      className="min-h-12 max-w-full whitespace-normal"
                       variant="secondary"
                       isDisabled={busy || drink.enabled}
                       onPress={() => {
