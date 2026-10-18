@@ -1,12 +1,12 @@
-# Contrato propuesto — 016
+# Contrato implementado — 016
 
-Alcance aprobado el 2026-10-18. Dominio y endpoint implementados en T/I-01 y T/I-02. OpenAPI0.13 mantiene la operación pending hasta validar interfaz y cierre completo.
+Alcance aprobado el 2026-10-18. Dominio, endpoint e interfaz implementados y verificados. OpenAPI0.13 registra la operación implemented; evidencia en verification.md.
 
 ## Consulta
 
 `GET /reports/daily-sales`, query estricta `{date?: YYYY-MM-DD}` de fecha real, año0001…9999 (PostgreSQL no admite año0). Ausencia significa día actual de America/Lima según reloj inyectado del servidor. No permitir arrays, query repetida u otras claves. Sin cuerpo relevante. Admin actual y activo, no-store antes de auth/validación.401/403/400 usan los errores existentes.
 
-Respuesta directa propuesta, sin envelope adicional:
+Respuesta directa, sin envelope adicional:
 
 ```ts
 {

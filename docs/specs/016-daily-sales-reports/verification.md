@@ -3,7 +3,7 @@
 ## Alcance y base
 
 - Usuario autorizó fusionar015 y continuar; main publicada en `8aec23d`, merge `2a6cf41`, árbol idéntico al cierre015. No se repitieron pruebas por ese merge.
-- Aprobó después la propuesta concreta016: reporte diario solo admin, fecha de cobro Lima, total/medios/horas/productos/autores. Sin caja avanzada ni merma automática. Spec/contrato y OpenAPI0.13 son la referencia; una operación permanece pending hasta el cierre completo. YAML y700 referencias locales verificadas.
+- Aprobó después la propuesta concreta016: reporte diario solo admin, fecha de cobro Lima, total/medios/horas/productos/autores. Sin caja avanzada ni merma automática. Spec/contrato y OpenAPI0.13 son la referencia; operación016 implemented tras el cierre completo. YAML y700 referencias locales verificadas.
 - Test-writer Luna medium separado del implementer Sol6.1 medium para agregación monetaria/permisos/consistencia. Principal revisa y mantiene docs, no escribe producción ni tests. No hay reviewer ni ronda adversarial independientes.
 
 ## T-01 / I-01
@@ -21,8 +21,16 @@
 - Implementación `4db6efb`: transacción readOnly REPEATABLE_READ, rango SQL por America/Lima, validación de snapshot contra columnas del pago, asociación del ítem al pedido y autores actuales por lote. No hay migraciones ni escrituras; GET exacto omite lector de cuerpo y aplica no-store antes de autenticación.
 - Verde dirigido:4 archivos/21 pruebas,19,45s, con regresiones API014/015. Tipos API/shared, lint/formato aprobados. Writer corrigió únicamente el estrechamiento de un error unknown en `35d3b45`; lint aprobado sin repetir DB por ese cambio tipado. Revisión del principal sin bloqueos, reutilizando evidencia válida del implementer. Solo polleria_test mediante wrapper protegido.
 
-## T-03 / I-03 en curso
+## T-03 / I-03 completados
 
-- `0db44c4`: dos casos cliente y cuatro RTL (fecha del servidor, precisión, vacío/error/reintento, respuestas tardías y acceso). Rojo por imports de producción ausentes:2 suites/0 assertions; no se atribuye rojo causal del algoritmo. `09256df`: un E2E desktop escrito con cobros reales/contextos separados, todavía sin ejecutar. Formato y lint E2E aprobados.
-- Implementer Sol6.1 low prepara cliente y pantalla funcional con componentes existentes. El usuario pospuso diseño/pulido visual hasta el final; no se exigen nuevas animaciones ni capturas comparativas en016. Se conservan controles accesibles, estados y validación funcional.
-- Pendientes: verde/revisión UI, E2E real, cobertura global, tipos/lint/build finales y operación implemented. Main contiene015;016 requiere autorización posterior para integración. Sin reviewer independiente, sin cambios en polleria_dev ni creación de bases/roles.
+- `0db44c4`: dos casos cliente y cuatro RTL (fecha del servidor, precisión, vacío/error/reintento, respuestas tardías y acceso). Rojo por imports de producción ausentes:2 suites/0 assertions; no se atribuye rojo causal del algoritmo. `09256df`: un E2E desktop escrito con cobros reales/contextos separados, aprobado posteriormente en Chrome local:1/1,53,4s incluyendo arranque. Formato y lint E2E aprobados.
+- Implementer Sol6.1 low completó cliente y pantalla funcional con componentes existentes en `0c83576`. Verde dirigido:2 suites/6 pruebas,24,42s; primer intento sandbox ENOENT no ejecutó UI y se repitió con permisos de proceso. Lint/formato del alcance aprobados. Writer corrigió dos opciones RTL incompatibles con tipos mediante regex de nombre exacto (`033cafb`), sin alterar comportamiento; tipos web aprobados sin repetir suite por ese cambio tipado. El usuario pospuso diseño/pulido visual hasta el final; no se exigen nuevas animaciones ni capturas comparativas en016. Se conservan controles accesibles, estados y validación funcional.
+- Principal revisó cliente, guardia admin, consulta por fecha, aislamiento de respuestas tardías y ocultación de datos durante carga/error/cambio de selección. Sin bloqueos funcionales. E2E real crea dos cobros separados de efectivo2100 con vuelto900 y Yape400, comprueba delta2500 y autor, consulta la pantalla y luego día vacío. No repite formularios completos ya cubiertos en014.
+
+## C-01: cierre
+
+- Código final `0c83576`, tests tipados finales `033cafb`. Una sola ejecución global: `node ../run-local-test.cjs node_modules/vitest/vitest.mjs run --coverage --coverage.reportOnFailure --maxWorkers=2`;163 archivos,3013 pruebas aprobadas y5 fallos esperados previos separados,658,44s. Exit0. No se borraron pruebas ni redujeron umbrales.
+- Cobertura de líneas95,34% (4649/4876); shared97,80% (489/500), servicios API agregados95,91% (1571/1638). Umbrales configurados80% general y90% shared/servicios cumplidos. Servicio nuevo reports86% y helper reports92,43%; no se presenta el umbral agregado como90% por archivo. Permanecen guardias defensivas y overflow sin dataset masivo, conforme al límite declarado.
+- Tipos: raíz/configuración/E2E aprobados al cierre; se reutilizan tipos API/shared del mismo código final y web tras `033cafb`; Next también verifica TypeScript durante build. Build único Turbopack aprobado, ruta /admin/reportes incluida. ESLint global sin warnings y Prettier global aprobados; formato documental explícito y OpenAPI validados al cierre.
+- E2E exclusivo sobre polleria_test, serializado antes de cobertura; ambos usan wrapper externo que exige esa base y elimina DATABASE_URL. Sin cambios en polleria_dev, checkout Desktop, dependencias o migraciones; sin creación de bases/roles ni prueba física.
+- Sin reviewer independiente ni revisión visual multiformato: diseño/pulido diferido por decisión del usuario. Main contiene015;016 requiere autorización posterior para integración. No repetir suites por actualización documental o publicación.

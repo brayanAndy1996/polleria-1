@@ -1,5 +1,15 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## 016 completada y validada — 2026-10-18
+
+Reporte diario solo admin implementado: fecha de cobro Lima, totales exactos, medios,24 horas, productos/presentaciones y usuario que registró los ítems. UI funcional /admin/reportes, sin nuevas dependencias ni migraciones. Código `0c83576`, tests finales `033cafb`; OpenAPI0.13 con operación implemented y700 referencias válidas.
+
+Una sola cobertura global:163 archivos/3013 pruebas aprobadas y5 fallos esperados previos;95,34% líneas, shared97,80%, servicios API agregados95,91%. Un E2E real desktop aprobado; tipos, lint/formato y build único Turbopack aprobados. Evidencia y límites en docs/specs/016-daily-sales-reports/verification.md. No repetir checks por docs/push o integración de árbol idéntico.
+
+Usuario autorizó Sol6.1 low para reemplazar Luna agotada en pruebas/UI016; lógica monetaria Sol medium separada. Sin reviewer independiente. Diseño/pulido visual y revisión multiformato quedan diferidos por decisión del usuario; no confundir cierre funcional con cierre visual. Solo polleria_test, sin tocar Desktop ni polleria_dev.
+
+Main ya contiene015 (8aec23d). Rama feat/016-daily-sales-reports lista para revisión; no fusionar016 sin autorización posterior. Siguiente desarrollo requiere concretar la próxima spec y aprobar su comportamiento; no ampliar016 a cierre de caja/pagos mixtos por iniciativa propia. Los cortes inferiores son históricos.
+
 ## 016: backend validado e interfaz funcional en curso — 2026-10-18
 
 Dominio `e721a2d` y backend `4db6efb` completados. Verde dirigido backend:4 archivos/21 pruebas, con regresiones de cobros014 e inventario015; tipos/lint/formato aprobados. El principal revisó y reutiliza esta evidencia, sin repetir DB. Detalles y límites en docs/specs/016-daily-sales-reports/verification.md.

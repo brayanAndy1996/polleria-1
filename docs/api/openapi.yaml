@@ -140,7 +140,7 @@ servers:
     description: API directa. Solo accesible desde la misma PC (HOST=127.0.0.1 por defecto).
 tags:
   - name: reports
-    description: Reporte diario de ventas cobradas (016); operación pending hasta completar su verificación.
+    description: Reporte diario de ventas cobradas (016), verificado mediante integración y E2E real.
   - name: inventory
     description: Inventario básico 015; saldos permanentes, sin reposición automática al anular.
   - name: cashier
@@ -168,7 +168,7 @@ paths:
       tags: [reports]
       summary: Reporte de ventas cobradas de un día de America/Lima, solo admin
       x-spec: 016-daily-sales-reports
-      x-implementation-status: pending
+      x-implementation-status: implemented
       description: |
         Consulta consistente y sin escrituras. Roles actuales y usuario activo verificados también
         en el servicio. Omisión de date usa hoy según el reloj del servidor en America/Lima.
