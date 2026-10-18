@@ -1,6 +1,6 @@
 # Tareas — 016 Reporte diario
 
-Estado: spec/contrato propuestos; esperando aprobación del comportamiento. Todavía sin tests, producción ni agentes ejecutores asignados.
+Estado: alcance aprobado el 2026-10-18. S-01 en curso; T-01 se asigna a Luna medium con puertos concretos del contrato. Todavía sin implementación ni resultados atribuidos.
 
 | ID   | Responsable               | Bloque y evidencia                                                                                                                          |
 | ---- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |

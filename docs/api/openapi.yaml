@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sistema Pollería API
-  version: 0.12.0
+  version: 0.13.0
   summary: Contrato entre la web (apps/web) y la API (apps/api) del Sistema Pollería.
   description: |
     Fuente de verdad entre frontend y backend. Cada spec en docs/specs/ agrega aquí sus endpoints.
@@ -139,6 +139,8 @@ servers:
   - url: http://127.0.0.1:4000/api
     description: API directa. Solo accesible desde la misma PC (HOST=127.0.0.1 por defecto).
 tags:
+  - name: reports
+    description: Reporte diario de ventas cobradas (016); operación pending hasta completar su verificación.
   - name: inventory
     description: Inventario básico 015; saldos permanentes, sin reposición automática al anular.
   - name: cashier
@@ -160,6 +162,77 @@ tags:
   - name: kitchen-ticket-prints
     description: Generación file, atención de fallos y copias de comandas (spec 013 aprobada; operaciones implementadas).
 paths:
+  /reports/daily-sales:
+    get:
+      operationId: getDailySalesReport
+      tags: [reports]
+      summary: Reporte de ventas cobradas de un día de America/Lima, solo admin
+      x-spec: 016-daily-sales-reports
+      x-implementation-status: pending
+      description: |
+        Consulta consistente y sin escrituras. Roles actuales y usuario activo verificados también
+        en el servicio. Omisión de date usa hoy según el reloj del servidor en America/Lima.
+        Query extra, repetida, arrays y fechas imposibles se rechazan. El cuerpo GET se ignora.
+        paidAt define el día y la hora; amountCents define el ingreso, nunca recibido más vuelto.
+        Snapshot014 conserva producto, cantidad, presentación y precio. Autor es quien registró
+        cada ítem, no el cajero ni quien abrió la mesa; su etiqueta usa el nombre actual.
+        Todas las descomposiciones concilian con el total. No trunca grupos ni redondea dinero.
+        Pedidos abiertos/anulados sin pago no generan ventas. Replays no crean pagos adicionales.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: date
+          in: query
+          required: false
+          description: Fecha real de calendario YYYY-MM-DD; ausente significa hoy en Lima.
+          schema:
+            $ref: '#/components/schemas/SalesDate'
+      responses:
+        '200':
+          description: Reporte completo consistente; día sin ventas devuelve ceros y listas vacías.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailySalesReport'
+        '400':
+          description: VALIDATION_ERROR; fecha o query inválida.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: UNAUTHENTICATED; sin sesión válida.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: FORBIDDEN; no es administrador activo.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: REPORT_DATA_INVALID, REPORT_TOTAL_OUT_OF_RANGE o INTERNAL_ERROR; sin datos parciales ni detalles privados.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControlNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /inventory:
     get:
       operationId: getInventory
@@ -3243,6 +3316,123 @@ components:
         Token de sesión aleatorio de 43 caracteres (base64url) que crea POST /auth/login. Cookie
         HttpOnly, SameSite=Strict, Path=/, Max-Age=57600, sin Secure (el local usa HTTP en la red).
   schemas:
+    SalesDate:
+      type: string
+      format: date
+      pattern: '^\d{4}-\d{2}-\d{2}$'
+      description: Fecha real de calendario, año0001..9999; no basta coincidir con el patrón.
+    ReportSafeInteger:
+      type: integer
+      minimum: 0
+      maximum: 9007199254740991
+      description: Entero no negativo exacto; las acumulaciones se comprueban antes de convertir.
+    DailySalesMethodRow:
+      type: object
+      additionalProperties: false
+      required: [method, totalCents, paymentCount]
+      properties:
+        method:
+          $ref: '#/components/schemas/PaymentMethod'
+        totalCents:
+          $ref: '#/components/schemas/ReportSafeInteger'
+        paymentCount:
+          $ref: '#/components/schemas/ReportSafeInteger'
+    DailySalesHourRow:
+      type: object
+      additionalProperties: false
+      required: [hour, totalCents, paymentCount]
+      properties:
+        hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+        totalCents:
+          $ref: '#/components/schemas/ReportSafeInteger'
+        paymentCount:
+          $ref: '#/components/schemas/ReportSafeInteger'
+    DailySalesProductRow:
+      type: object
+      additionalProperties: false
+      required: [productId, productName, productCategory, portion, cut, quantity, totalCents]
+      properties:
+        productId:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        productName:
+          type: string
+        productCategory:
+          $ref: '#/components/schemas/ProductCategory'
+        portion:
+          anyOf:
+            - $ref: '#/components/schemas/Portion'
+            - type: 'null'
+        cut:
+          anyOf:
+            - $ref: '#/components/schemas/Cut'
+            - type: 'null'
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        totalCents:
+          $ref: '#/components/schemas/ReportSafeInteger'
+    DailySalesAuthorRow:
+      type: object
+      additionalProperties: false
+      required: [userId, displayName, totalCents]
+      properties:
+        userId:
+          $ref: '#/components/schemas/UserRef/properties/id'
+        displayName:
+          $ref: '#/components/schemas/UserRef/properties/displayName'
+        totalCents:
+          $ref: '#/components/schemas/ReportSafeInteger'
+    DailySalesReport:
+      type: object
+      additionalProperties: false
+      required: [date, timeZone, generatedAt, totalCents, paymentCount, methods, hours, products, authors]
+      description: |
+        methods contiene cash/yape/plin/card en ese orden; hours contiene 0..23 en ese orden.
+        Ambas sumas de conteos coinciden con paymentCount. Los totales de methods, hours,
+        products y authors coinciden con totalCents sin perder precisión. No hay claves
+        de grupo repetidas. Productos por importe/cantidad descendentes y desempate estable;
+        autores por importe descendente/userId ascendente. Día vacío conserva cuatro medios
+        y veinticuatro horas con ceros; products/authors quedan vacíos. Combo y sus cremas
+        cobradas se atribuyen a su línea, sin duplicar ingresos por componentes.
+      properties:
+        date:
+          $ref: '#/components/schemas/SalesDate'
+        timeZone:
+          type: string
+          const: America/Lima
+        generatedAt:
+          type: string
+          format: date-time
+        totalCents:
+          $ref: '#/components/schemas/ReportSafeInteger'
+        paymentCount:
+          $ref: '#/components/schemas/ReportSafeInteger'
+        methods:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items:
+            $ref: '#/components/schemas/DailySalesMethodRow'
+        hours:
+          type: array
+          minItems: 24
+          maxItems: 24
+          items:
+            $ref: '#/components/schemas/DailySalesHourRow'
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailySalesProductRow'
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailySalesAuthorRow'
     InventoryKind:
       type: string
       enum:
@@ -5154,6 +5344,8 @@ components:
         - PAYLOAD_TOO_LARGE (413): el cuerpo supera 100 KB (medido después de descomprimir).
         - UNSUPPORTED_MEDIA_TYPE (415): Content-Encoding distinto de identity, gzip, deflate y br, o charset no soportado.
         - INTERNAL_ERROR (500): error no controlado; nunca incluye detalles internos.
+        - REPORT_DATA_INVALID (500, spec 016): datos históricos o asociaciones incoherentes; no devuelve un reporte parcial.
+        - REPORT_TOTAL_OUT_OF_RANGE (500, spec 016): una suma del reporte no cabe en el entero seguro; no redondea ni trunca.
         - INVALID_CREDENTIALS (401, spec 003): usuario inexistente, inactivo o PIN incorrecto (siempre el mismo mensaje).
         - UNAUTHENTICATED (401, spec 003): la ruta exige sesión y no hay una válida (sin cookie, token inválido, sesión vencida o usuario desactivado).
         - FORBIDDEN (403, spec 003): la sesión es válida pero ninguno de los roles del usuario tiene permiso.

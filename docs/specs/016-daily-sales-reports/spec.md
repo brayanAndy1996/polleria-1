@@ -2,7 +2,7 @@
 
 Fecha: 2026-10-18. Fase 6 del prototipo; RF-25 y desglose por medio de pago de RF-26.
 
-**Estado: propuesta concreta, pendiente de aprobación del comportamiento antes de tests o producción.** El usuario autorizó integrar la015 y continuar; esta spec concreta el siguiente requisito de la demostración. No implica implementar caja avanzada ni volver a descontar inventario.
+**Estado: alcance aprobado por el usuario el 2026-10-18.** Confirmó implementar este reporte mediante la pregunta de alcance. Comienza S-01/T-01; todavía sin producción ni resultados verdes. No implica implementar caja avanzada ni volver a descontar inventario.
 
 ## Resultado
 
