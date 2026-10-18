@@ -161,6 +161,15 @@ const TICKET_INICIAL = {
   createdBy: JUAN,
   createdAt: '2026-10-11T15:05:00.000Z',
 };
+const INVENTORY_OFF = {
+  chicken: { enabled: false, breastEighths: 0, legEighths: 0 },
+  drinks: [{ productId: 4, productName: 'Inca Kola', enabled: false, quantity: 0 }],
+  generatedAt: '2026-10-17T15:00:00.000Z',
+};
+const INVENTORY_AVAILABLE = {
+  ...INVENTORY_OFF,
+  drinks: [{ productId: 4, productName: 'Inca Kola', enabled: true, quantity: 2 }],
+};
 
 function show(node: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
@@ -220,6 +229,8 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
       http.get('*/api/tables', () => HttpResponse.json({ tables: [MESA3] })),
       http.get('*/api/orders/41', () => HttpResponse.json(ORDER)),
       http.get('*/api/orders/41/tickets', () => HttpResponse.json({ tickets: [] })),
+      // Inventario opt-in por prueba: las regresiones anteriores conservan el estado apagado.
+      http.get('*/api/inventory/availability', () => HttpResponse.json(INVENTORY_OFF)),
     );
     mockMenu();
   });
@@ -498,6 +509,91 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     });
     expect(keys[0]).toMatch(/^[\x21-\x7E]{1,128}$/);
     expect(keys[1]).toBe(keys[0]);
+  });
+
+  it('AC-14: un 409 de stock conserva carrito, muestra faltantes y no reenvía automáticamente', async () => {
+    let stockReads = 0;
+    const posts: unknown[] = [];
+    server.use(
+      http.get('*/api/inventory/availability', () => {
+        stockReads += 1;
+        return HttpResponse.json(INVENTORY_AVAILABLE);
+      }),
+      http.post('*/api/orders/41/items', async ({ request }) => {
+        posts.push(await request.json());
+        return HttpResponse.json(
+          errorBody('INSUFFICIENT_STOCK', 'No hay stock suficiente para enviar el pedido.', {
+            shortages: [{ kind: 'drink', productId: 4, available: 0, required: 2 }],
+          }),
+          { status: 409 },
+        );
+      }),
+    );
+    await renderAgregar();
+    await openEditor(/Inca Kola/);
+    addToCart();
+    const line = cartLine(/Inca Kola/);
+    fireEvent.change(within(line).getByLabelText(/cantidad/i), { target: { value: '2' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Enviar a cocina (1)' }));
+
+    expect(await screen.findByText(/no hay stock suficiente/i)).toBeVisible();
+    await waitFor(() => expect(stockReads).toBeGreaterThan(1));
+    expect(cartLine(/Inca Kola/)).toBeInTheDocument();
+    expect(within(cartLine(/Inca Kola/)).getByLabelText(/cantidad/i)).toHaveValue(2);
+    expect(posts).toHaveLength(1);
+  });
+
+  it('AC-14: error de disponibilidad se anuncia como desconocido y no como saldo cero', async () => {
+    server.use(
+      http.get('*/api/inventory/availability', () =>
+        HttpResponse.json(errorBody('INTERNAL_ERROR'), { status: 500 }),
+      ),
+    );
+    await renderAgregar();
+    expect(await screen.findByText(/disponibilidad sin confirmar/i)).toBeVisible();
+    expect(screen.queryByText(/disponible: 0/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Pollo a la brasa/ })).toBeEnabled();
+  });
+
+  it('AC-14/15: respuesta incierta congela cuerpo y clave y el replay se permite con stock agotado', async () => {
+    let stock = INVENTORY_AVAILABLE;
+    let availabilityReads = 0;
+    const observed: Array<{ key: string | null; body: string }> = [];
+    let attempts = 0;
+    server.use(
+      http.get('*/api/inventory/availability', () => {
+        availabilityReads += 1;
+        return HttpResponse.json(stock);
+      }),
+      http.post('*/api/orders/41/items', async ({ request }) => {
+        observed.push({
+          key: request.headers.get('Idempotency-Key'),
+          body: await request.clone().text(),
+        });
+        attempts += 1;
+        if (attempts === 1) {
+          stock = {
+            ...INVENTORY_AVAILABLE,
+            drinks: [{ productId: 4, productName: 'Inca Kola', enabled: true, quantity: 0 }],
+          };
+          return HttpResponse.error();
+        }
+        return HttpResponse.json({ order: ORDER, ticket: TICKET_INICIAL }, { status: 201 });
+      }),
+    );
+    await renderAgregar();
+    await openEditor(/Inca Kola/);
+    addToCart();
+    fireEvent.click(await screen.findByRole('button', { name: 'Enviar a cocina (1)' }));
+    expect(await screen.findByRole('button', { name: 'Reintentar envío' })).toBeVisible();
+    expect(within(cartLine(/Inca Kola/)).getByLabelText(/cantidad/i)).toBeDisabled();
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() => expect(availabilityReads).toBeGreaterThan(1));
+    expect(stock.drinks[0]!.quantity).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar envío' }));
+    await waitFor(() => expect(observed).toHaveLength(2));
+    expect(observed[1]).toEqual(observed[0]);
+    await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/mozo/mesas/3'));
   });
 
   it('AC-17: "Enviando..." se muestra mientras sale el POST', async () => {
