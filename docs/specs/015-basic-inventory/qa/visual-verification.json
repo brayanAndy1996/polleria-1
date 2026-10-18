@@ -1,0 +1,48 @@
+{
+  "mockedAPI": true,
+  "noDatabase": true,
+  "captures": [
+    {
+      "name": "admin-desktop",
+      "width": 1440,
+      "scrollWidth": 1440
+    },
+    {
+      "name": "admin-tablet",
+      "width": 768,
+      "scrollWidth": 768
+    },
+    {
+      "name": "admin-mobile",
+      "width": 360,
+      "scrollWidth": 360
+    },
+    {
+      "name": "tanda-form-mobile",
+      "width": 360,
+      "scrollWidth": 360
+    },
+    {
+      "name": "tanda-review-mobile",
+      "width": 360,
+      "scrollWidth": 360
+    },
+    {
+      "name": "mozo-mobile",
+      "width": 360,
+      "scrollWidth": 360
+    },
+    {
+      "name": "mozo-tablet",
+      "width": 768,
+      "scrollWidth": 768
+    },
+    {
+      "name": "mozo-desktop",
+      "width": 1440,
+      "scrollWidth": 1440
+    }
+  ],
+  "pageErrors": [],
+  "unknownRequests": []
+}

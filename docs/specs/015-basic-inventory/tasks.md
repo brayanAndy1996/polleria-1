@@ -1,5 +1,7 @@
 # Tareas — 015 Inventario básico
 
+Estado vigente 2026-10-18: S-01 y T/I-01…04 completados; cliente/helper `93124c9`, UI `4480696` y corrección visual `66c84a4`. Cliente/helper8/8, admin3/3 y mozo19/19 aprobados. QA visual final8 capturas, build único Turbopack, tipos y formato globales aprobados. R-01/C-01 en curso: corregir fixtures/lint encontrados por cierre, completar cobertura y dos E2E reales. OpenAPI0.12 conserva8 operaciones pending hasta cierre.015 permanece separada de main. El estado siguiente es histórico.
+
 Estado 2026-10-17: alcance aprobado, saldos permanentes sin reset diario y sin reposición automática al anular. S-01 y bloques T/I-01…03 completados. Shared:1100 aprobadas +3 fallos esperados anteriores. Backend administrativo `c002e11` y consumo `37bb96e`: principal verificó17 archivos/182 aprobadas tras I-02 y10 archivos/147 aprobadas tras I-03, con solapamiento entre ejecuciones. Test-writer verificó5 suites de inventario/47 aprobadas tras `9ec9653`. T-04 en escritura por Luna; implementer UI Luna espera rojo. Falta UI, QA visual, cobertura/globales/build y E2E. OpenAPI0.12 conserva8 operaciones pending hasta cierre. La014 ya está en main;015 permanece separada.
 
 T-00 completado: rojo `b490fb3`, fix `88c1b0c`, 6 archivos/88 pruebas aprobadas por el principal, tipos API y lint aprobados. Ver verification.md. La corrección de esa regresión no implica aprobar ni implementar el inventario.

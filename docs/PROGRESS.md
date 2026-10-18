@@ -1,6 +1,12 @@
 # Progreso del proyecto — Sistema Pollería
 
-## Metodología ajustada por consumo — 2026-10-18
+## 015: interfaz implementada y cierre en verificación — 2026-10-18
+
+- Cliente/helper `93124c9`, interfaz `4480696`, ajuste móvil `66c84a4`. Administrador dispone de saldos permanentes, tandas, entradas, ajustes auditados y controles; mozo valida disponibilidad y conserva el intento ante respuesta perdida. Paleta FigCraft azul/Nunito y Motion existente.
+- Test-writer e implementer Luna medium separados. Verde dirigido reutilizado: cliente/helper8/8, admin3/3 y mozo19/19. QA visual:8 capturas360/768/1440, cero pageerrors y sin scroll horizontal; inspección manual corrigió botones comprimidos. Build único Turbopack, tipos y formato globales aprobados.
+- Cierre en curso: cobertura global encontró fixtures antiguas de mozo por la nueva lectura de disponibilidad; lint detectó errores en tests. Se corrige y repite solo lo afectado. Faltan resultados completos y dos E2E015 reales. Ocho operaciones OpenAPI siguen pending. Evidencia en docs/specs/015-basic-inventory/verification.md;015 todavía no integrada en main.
+
+## Metodología ajustada por consumo — 2026-10-18 (corte anterior)
 
 - Usuario pidió identificar pruebas secundarias y reducir consumo. Auditoría estática y política en docs/agents/pruebas-por-riesgo.md: ejecución dirigida por riesgo, reutilización del verde entre roles y una sola suite global con cobertura al cierre. Sin borrar pruebas ni ocultar fallos; stock, cobros, permisos, concurrencia y reintentos siguen protegidos.
 - Candidatos concretos: repetición de navegación en admin, encabezado/conexión de inicio entre RTL/E2E y una aserción tautológica sobre un número local. Se omiten del ciclo habitual si no están afectados; no se marcan aprobados. Migraciones antiguas no se repiten durante UI sin cambio de esquema.

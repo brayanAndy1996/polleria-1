@@ -1,6 +1,10 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
-## Actualización vigente — 2026-10-18
+## 015: cierre en curso — 2026-10-18
+
+Backend y UI implementados en `feat/015-basic-inventory`; pruebas cliente/helper8/8, admin3/3 y mozo19/19 reportadas verdes por implementer. Luna retomó con cuota y roles separados. QA visual final:8 capturas360/768/1440, sin desbordamiento ni pageerrors; corrección móvil `66c84a4`. Build único Turbopack, tipos y formato globales aprobados. C-01 sigue en curso: cobertura global detectó fixtures web antiguas y lint encontró errores en tests, corregidos por test-writer; repetir solo casos afectados y completar los dos E2E015 reales antes de marcar OpenAPI implemented. Ver verification.md. No integrar015 a main sin autorización posterior. Los cortes inferiores son históricos salvo las reglas de dominio y entorno.
+
+## Ajuste de metodología — 2026-10-18 (corte anterior)
 
 Aplicar docs/agents/pruebas-por-riesgo.md y AGENTS.md: menos pruebas no pertinentes durante cada bloque, reutilizar evidencia del mismo código entre roles, una sola ejecución global con cobertura al cierre y no crear agentes ociosos. No borrar pruebas ni ocultar errores críticos. Auditoría y cambio de metodología solo documentales; no ejecutar suites para este cambio.
 
