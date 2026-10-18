@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '../../../../tests/msw-server.ts';
 import InventoryPage from './page.tsx';
 
+const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+vi.mock('../../../lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));
+
 const SNAPSHOT = {
   chicken: { enabled: true, breastEighths: 8, legEighths: 12 },
   drinks: [{ productId: 8, productName: 'Inca Kola', enabled: true, quantity: 5 }],
@@ -48,6 +52,7 @@ function defaultReads() {
 
 describe('015: administración de inventario', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     localStorage.clear();
     window.history.replaceState({}, '', '/admin/inventario');
     defaultReads();
