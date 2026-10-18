@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -85,11 +85,14 @@ describe('015: administración de inventario', () => {
       );
       show();
       await screen.findByRole('heading', { name: 'Inventario', level: 1 });
-      fireEvent.click(screen.getByRole('button', { name: /registrar tanda/i }));
+      fireEvent.click(await screen.findByRole('button', { name: /registrar tanda/i }));
       fireEvent.change(screen.getByLabelText(/pollos/i), { target: { value: '2' } });
       fireEvent.change(screen.getByLabelText(/motivo/i), { target: { value: 'Tanda de prueba' } });
       fireEvent.click(screen.getByRole('button', { name: /revisar/i }));
-      fireEvent.click(screen.getByRole('button', { name: /confirmar.*tanda|registrar.*tanda/i }));
+      const reviewDialog = await screen.findByRole('dialog');
+      fireEvent.click(
+        within(reviewDialog).getByRole('button', { name: /confirmar.*tanda|registrar.*tanda/i }),
+      );
 
       const retry = await screen.findByRole('button', { name: /reintentar/i });
       expect(screen.getByLabelText(/pollos/i)).toBeDisabled();
