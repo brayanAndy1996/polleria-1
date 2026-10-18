@@ -1,10 +1,10 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
-## 016 aprobada y en I-01 — 2026-10-18
+## 016: dominio completado, pruebas API en escritura — 2026-10-18
 
 015 ya integrada y publicada en main: merge `2a6cf41`, registro `8aec23d`, árbol de producción igual al validado. Usuario aprobó el alcance de016 mediante pregunta de aprobación; no volver a preguntar ese alcance. Rama `feat/016-daily-sales-reports`, spec/contract/tasks016 y OpenAPI0.13 con una operación pending/700 referencias válidas.
 
-T-01 Luna (`874555a`, fixes `7cce042`) entregó6 casos compartidos, rojo por módulo ausente con0 assertions. I-01 Sol6.1 medium `/root/implementer_016_backend` implementa solo reports.ts/index shared (posibles códigos errors.ts); no API/UI todavía. Test-writer `/root/test_writer_016` completó su bloque y está inactivo; asignar T-02 solo cuando haya verde I-01, sin otro escritor simultáneo. Principal mantiene docs/contrato/revisión, no producción/tests. No repetir checks del mismo código sin razón.
+T-01 Luna (`874555a`, fixes `7cce042`) entregó6 casos compartidos, rojo por módulo ausente con0 assertions. I-01 Sol6.1 medium completado en `e721a2d`, solo reports.ts/index;4 archivos/69 pruebas y tipos/lint/formato shared aprobados,6/6 repetidos tras ajuste de era0001. Principal revisó y reutiliza evidencia. Test-writer `/root/test_writer_016` está escribiendo T-02 API/servicio con slotDB exclusivo; todavía sin resultados ni código API/UI. Implementer `/root/implementer_016_backend` terminó su turno; reutilizarlo para I-02 solo tras rojo T-02, sin iniciar otro implementer ni agente para esperar. Principal mantiene docs/contrato/revisión, no producción/tests. No repetir checks del mismo código sin razón.
 
 Reglas: fecha de cobro Lima, amountCents exacto, snapshots014, autor por OrderItem.createdByUserId (nombre actual), productos por presentación/nombre histórico, cremas resueltas y combos sin doble suma; totales conciliados. Año0000 inválido por PostgreSQL. No crear millones de pagos para forzar MAX_SAFE: schemas rechazan inseguros y prueba de3 pagos válidos supera int32; límite de cobertura a documentar. Solo polleria_test con wrapper protegido; no tocar Desktop/polleria_dev. Main015 ya publicada;016 no se integra sin autorización posterior. Los cortes inferiores son históricos.
 

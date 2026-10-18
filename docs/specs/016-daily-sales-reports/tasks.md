@@ -1,6 +1,6 @@
 # Tareas — 016 Reporte diario
 
-Estado: alcance aprobado el 2026-10-18. S-01 completado (OpenAPI0.13 pending,700refs). T-01: seis casos Luna en874555a/7cce042, rojo por módulo ausente con0 assertions; fixtures corregidas antes de producción. I-01 asignado a Sol6.1 medium; sin verde todavía. API/UI y cierre pendientes.
+Estado: alcance aprobado el 2026-10-18. S-01 y T/I-01 completados (OpenAPI0.13 pending,700refs). Dominio `e721a2d`, verde dirigido4 archivos/69 pruebas, tipos/lint/formato shared aprobados. T-02 Luna en escritura; I-02 todavía no iniciado. API/UI y cierre pendientes. Evidencia y límites en verification.md.
 
 | ID   | Responsable               | Bloque y evidencia                                                                                                                          |
 | ---- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |

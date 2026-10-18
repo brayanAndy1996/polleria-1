@@ -4,7 +4,7 @@
 
 - Usuario aprobó reporte diario de ventas cobradas, solo admin, por fecha de cobro en America/Lima: total, medios, horas, presentaciones y autor de cada ítem. Spec/contrato/tareas en docs/specs/016-daily-sales-reports; no incluye caja avanzada, pagos mixtos ni merma deducida del saldo permanente.
 - Rama `feat/016-daily-sales-reports` desde main `8aec23d`. S-01: OpenAPI0.13, una operación pending y700 referencias verificadas; no hay nueva migración prevista. T-01 Luna: seis casos en `874555a` y fixtures corregidas `7cce042`. Rojo por reports.ts ausente,0 assertions ejecutadas; no se atribuye fallo causal del algoritmo.
-- I-01 asignado a implementer distinto Sol6.1 medium por agregación monetaria/precisión. Solo shared; API/UI siguen pendientes. Reutilizar resultados dirigidos fiables y no iniciar agentes para esperar. Integración016 requerirá autorización posterior.
+- I-01 Sol6.1 medium completado en `e721a2d`: solo shared,4 archivos/69 pruebas aprobadas y tipos/lint/formato. Revisión principal sin bloqueos; evidencia reutilizada. T-02 Luna escribe pruebas de API/servicio, todavía sin resultado atribuido. API/UI siguen pendientes. Integración016 requerirá autorización posterior; detalle en verification.md.
 
 ## 015 integrada en main — 2026-10-18
 
