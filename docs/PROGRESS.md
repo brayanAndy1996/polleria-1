@@ -1,10 +1,11 @@
 # Progreso del proyecto — Sistema Pollería
 
-## 015: interfaz implementada y cierre en verificación — 2026-10-18
+## 015: inventario implementado y validado — 2026-10-18
 
 - Cliente/helper `93124c9`, interfaz `4480696`, ajuste móvil `66c84a4`. Administrador dispone de saldos permanentes, tandas, entradas, ajustes auditados y controles; mozo valida disponibilidad y conserva el intento ante respuesta perdida. Paleta FigCraft azul/Nunito y Motion existente.
-- Test-writer e implementer Luna medium separados. Verde dirigido reutilizado: cliente/helper8/8, admin3/3 y mozo19/19. QA visual:8 capturas360/768/1440, cero pageerrors y sin scroll horizontal; inspección manual corrigió botones comprimidos. Build único Turbopack, tipos y formato globales aprobados.
-- Cierre en curso: cobertura global encontró fixtures antiguas de mozo por la nueva lectura de disponibilidad; lint detectó errores en tests. Se corrige y repite solo lo afectado. Faltan resultados completos y dos E2E015 reales. Ocho operaciones OpenAPI siguen pending. Evidencia en docs/specs/015-basic-inventory/verification.md;015 todavía no integrada en main.
+- Test-writer e implementer Luna medium separados. Verde dirigido reutilizado: cliente/helper8/8, admin3/3 y mozo19/19. QA visual:8 capturas360/768/1440, cero pageerrors y sin scroll horizontal; inspección manual corrigió botones comprimidos. Build inicial Turbopack, tipos y formato globales aprobados.
+- Cierre completado sobre `b4bfe27`: 158 archivos, 2992 pruebas aprobadas y 5 fallos esperados previos; cobertura de líneas 95,49%, shared 99,21% y servicio de inventario 97,74%. Umbrales originales cumplidos. Dos E2E reales aplicables aprobados: administración→mozo→caja y recuperación móvil tras un201 confirmado. Tipos/lint/formato y build final Turbopack aprobados. Las correcciones y repeticiones justificadas por fallos están documentadas; no se borraron pruebas ni se rebajaron umbrales.
+- OpenAPI 0.12: ocho operaciones implemented y referencias verificadas. Evidencia y límites en docs/specs/015-basic-inventory/verification.md; sin reviewer independiente ni impresión física. Solo polleria_test; copia Desktop y polleria_dev intactas. Pendiente de revisión del usuario: no integrar015 en main sin autorización posterior.
 
 ## Metodología ajustada por consumo — 2026-10-18 (corte anterior)
 

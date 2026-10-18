@@ -167,7 +167,7 @@ paths:
       - inventory
       summary: Roles admin
       x-spec: 015-basic-inventory
-      x-implementation-status: pending
+      x-implementation-status: implemented
       description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Lectura consistente sin crear
         ni modificar saldos. No admite query extra; el cuerpo se ignora.'
       security:
@@ -195,7 +195,7 @@ paths:
       - inventory
       summary: Roles waiter/admin
       x-spec: 015-basic-inventory
-      x-implementation-status: pending
+      x-implementation-status: implemented
       description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Lectura consistente sin crear
         ni modificar saldos. No admite query extra; el cuerpo se ignora.'
       security:
@@ -223,7 +223,7 @@ paths:
       - inventory
       summary: Roles admin
       x-spec: 015-basic-inventory
-      x-implementation-status: pending
+      x-implementation-status: implemented
       description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Lectura consistente sin crear
         ni modificar saldos. No admite query extra; el cuerpo se ignora.'
       security:
@@ -260,7 +260,7 @@ paths:
       - inventory
       summary: Roles admin
       x-spec: 015-basic-inventory
-      x-implementation-status: pending
+      x-implementation-status: implemented
       description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Escritura atómica, auditada
         e idempotente; saldos permanentes. Recurso activado para entradas/ajustes. Misma ruta/cuerpo/clave devuelve
         status y body originales; incompatible409 IDEMPOTENCY_CONFLICT. No borra historial.'
@@ -307,7 +307,7 @@ paths:
       - inventory
       summary: Roles admin
       x-spec: 015-basic-inventory
-      x-implementation-status: pending
+      x-implementation-status: implemented
       description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Escritura atómica, auditada
         e idempotente; saldos permanentes. Recurso activado para entradas/ajustes. Misma ruta/cuerpo/clave devuelve
         status y body originales; incompatible409 IDEMPOTENCY_CONFLICT. No borra historial.'
@@ -370,7 +370,7 @@ paths:
       - inventory
       summary: Roles admin
       x-spec: 015-basic-inventory
-      x-implementation-status: pending
+      x-implementation-status: implemented
       description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Escritura atómica, auditada
         e idempotente; saldos permanentes. Recurso activado para entradas/ajustes. Misma ruta/cuerpo/clave devuelve
         status y body originales; incompatible409 IDEMPOTENCY_CONFLICT. No borra historial.'
@@ -417,7 +417,7 @@ paths:
       - inventory
       summary: Roles admin
       x-spec: 015-basic-inventory
-      x-implementation-status: pending
+      x-implementation-status: implemented
       description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Escritura atómica, auditada
         e idempotente; saldos permanentes. Recurso activado para entradas/ajustes. Misma ruta/cuerpo/clave devuelve
         status y body originales; incompatible409 IDEMPOTENCY_CONFLICT. No borra historial.'
@@ -480,7 +480,7 @@ paths:
       - inventory
       summary: Roles admin
       x-spec: 015-basic-inventory
-      x-implementation-status: pending
+      x-implementation-status: implemented
       description: 'Sesión y roles actuales. Cache-Control: no-store también en errores. Escritura atómica, auditada
         e idempotente; saldos permanentes. Recurso activado para entradas/ajustes. Misma ruta/cuerpo/clave devuelve
         status y body originales; incompatible409 IDEMPOTENCY_CONFLICT. No borra historial.'

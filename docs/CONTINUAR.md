@@ -1,8 +1,8 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
-## 015: cierre en curso — 2026-10-18
+## 015: implementada y validada — 2026-10-18
 
-Backend y UI implementados en `feat/015-basic-inventory`; pruebas cliente/helper8/8, admin3/3 y mozo19/19 reportadas verdes por implementer. Luna retomó con cuota y roles separados. QA visual final:8 capturas360/768/1440, sin desbordamiento ni pageerrors; corrección móvil `66c84a4`. Build único Turbopack, tipos y formato globales aprobados. C-01 sigue en curso: cobertura global detectó fixtures web antiguas y lint encontró errores en tests, corregidos por test-writer; repetir solo casos afectados y completar los dos E2E015 reales antes de marcar OpenAPI implemented. Ver verification.md. No integrar015 a main sin autorización posterior. Los cortes inferiores son históricos salvo las reglas de dominio y entorno.
+Backend y UI de `feat/015-basic-inventory` validados sobre `b4bfe27`: 158 archivos/2992 pruebas aprobadas, 5 fallos esperados previos y 95,49% de líneas; umbrales originales cumplidos. Dos E2E reales aplicables aprobados, ocho capturas a360/768/1440 sin desbordamiento ni pageerrors, tipos/lint/formato y build final Turbopack aprobados. OpenAPI0.12: ocho operaciones implemented. Luna cubrió pruebas e implementación sencilla, Sol6.1 medium el backend complejo; roles separados. Evidencia y límites en verification.md. Siguiente paso: revisión del usuario; no integrar015 a main sin autorización posterior ni iniciar otro alcance no aprobado. Los cortes inferiores son históricos salvo reglas de dominio y entorno.
 
 ## Ajuste de metodología — 2026-10-18 (corte anterior)
 

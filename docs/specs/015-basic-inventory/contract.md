@@ -1,6 +1,6 @@
 # Contrato técnico 015 — S-01, 2026-10-17
 
-Spec aprobada con saldos permanentes P-03 y sin reposición automática P-02. OpenAPI 0.12.0 es el contrato HTTP; este documento concreta persistencia, locks y puertos compartidos. Todos los endpoints nuevos empiezan pending.
+Spec aprobada con saldos permanentes P-03 y sin reposición automática P-02. OpenAPI 0.12.0 es el contrato HTTP; este documento concreta persistencia, locks y puertos compartidos. Sus ocho operaciones se marcaron implemented al cerrar la verificación el 2026-10-18; evidencia en verification.md.
 
 ## Shared y cálculos puros
 

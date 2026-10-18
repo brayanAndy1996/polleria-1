@@ -2,7 +2,7 @@
 
 Fecha: 2026-10-17. Fase 5; primer bloque de RF-19/20/21/22/23 y auditoría mínima RF-27.
 
-**Estado: alcance aprobado para desarrollo el 2026-10-17.** El usuario autorizó continuar con inventario, confirmó P-02 (sin reposición automática al anular) y resolvió la última decisión P-03: «conserva su saldo hasta un ajuste manual». Ambos saldos son permanentes; no hay corte ni reinicio diario. Se inicia contrato y TDD; no se presenta aún como funcionalidad terminada.
+**Estado: implementada y validada el 2026-10-18; pendiente de revisión del usuario e integración autorizada a main.** Alcance aprobado el 2026-10-17: P-02 sin reposición automática al anular y P-03 saldos permanentes hasta movimientos o ajustes manuales. Sin corte ni reinicio diario. Evidencias y límites en verification.md.
 
 ## 1. Resultado esperado
 
@@ -51,7 +51,7 @@ Leer configuración y saldos relevantes en una vista consistente para disponibil
 
 ## 5. API y compatibilidad propuestas
 
-OpenAPI 0.12.0 y contract.md fijan las operaciones pendientes de implementación:
+OpenAPI 0.12.0 y contract.md fijan las ocho operaciones implementadas y verificadas:
 
 | Ruta | Roles | Función |
 | --- | --- | --- |
