@@ -1,5 +1,12 @@
 # Progreso del proyecto — Sistema Pollería
 
+## Metodología ajustada por consumo — 2026-10-18
+
+- Usuario pidió identificar pruebas secundarias y reducir consumo. Auditoría estática y política en docs/agents/pruebas-por-riesgo.md: ejecución dirigida por riesgo, reutilización del verde entre roles y una sola suite global con cobertura al cierre. Sin borrar pruebas ni ocultar fallos; stock, cobros, permisos, concurrencia y reintentos siguen protegidos.
+- Candidatos concretos: repetición de navegación en admin, encabezado/conexión de inicio entre RTL/E2E y una aserción tautológica sobre un número local. Se omiten del ciclo habitual si no están afectados; no se marcan aprobados. Migraciones antiguas no se repiten durante UI sin cambio de esquema.
+- Menos coordinación y documentación repetida: no iniciar agentes para esperar, revisar solo contexto/diff relevante y actualizar evidencia por hito. Esta modificación solo documental no requiere Vitest, DB ni build.
+- Se conservan los dos archivos parciales de tests web015 sin implementar. El test-writer Luna agotó cuota en el turno anterior; no se sustituyó el modelo. La interfaz015 continúa pendiente después de este ajuste de metodología.
+
 ## 015: backend verificado e interfaz en desarrollo — 2026-10-17
 
 - Regla aprobada: pollo y bebidas conservan saldo entre días, sin reinicio automático. Anular no repone; una devolución física se registra como ajuste positivo de administrador con motivo. Controles desactivados por defecto y sin backfill de pedidos antiguos.

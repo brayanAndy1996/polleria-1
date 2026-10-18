@@ -1,5 +1,11 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## Actualización vigente — 2026-10-18
+
+Aplicar docs/agents/pruebas-por-riesgo.md y AGENTS.md: menos pruebas no pertinentes durante cada bloque, reutilizar evidencia del mismo código entre roles, una sola ejecución global con cobertura al cierre y no crear agentes ociosos. No borrar pruebas ni ocultar errores críticos. Auditoría y cambio de metodología solo documentales; no ejecutar suites para este cambio.
+
+015 conserva backend verificado y UI pendiente. Siguen sin versionar `apps/web/src/lib/api/inventory.test.ts` y `apps/web/src/lib/inventory-demand.test.ts`, trabajo parcial del test-writer Luna antes de agotar cuota; no borrar ni atribuirles ejecución aprobada. Confirmar disponibilidad del modelo al retomar, sin sustituciones silenciosas ni bucles de reintentos. Los agentes UI estaban esperando rojo; no presumir que siguen trabajando. Los cortes inferiores son históricos salvo el estado técnico del backend.
+
 ## Reanudación exacta de 015 — 2026-10-17
 
 - Rama `feat/015-basic-inventory`;014 ya está en main. Backend015 terminado: shared `7f63a89`, administración `c002e11`, consumo `37bb96e`; testsT03/B `a359052`/`4304dd8` y fixtures corregidas `9ec9653`. Principal verificó10 archivos/147 aprobadas tras I-03; evidencia y límites completos en verification.md. No sumar ejecuciones solapadas ni presentar fallos esperados como aprobados.
