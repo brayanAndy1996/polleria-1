@@ -646,7 +646,7 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     window.dispatchEvent(new Event('focus'));
     await waitFor(() => expect(availabilityReads).toBeGreaterThan(1));
     const chickenCard = (
-      await screen.findByRole('button', { name: 'Pollo a la brasa', exact: true })
+      await screen.findByRole('button', { name: 'Pollo a la brasa' })
     ).closest('li')!;
     expect(
       await within(chickenCard).findByText(
