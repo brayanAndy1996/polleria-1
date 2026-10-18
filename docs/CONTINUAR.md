@@ -1,5 +1,39 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## 016 completada y validada — 2026-10-18
+
+Reporte diario solo admin implementado: fecha de cobro Lima, totales exactos, medios,24 horas, productos/presentaciones y usuario que registró los ítems. UI funcional /admin/reportes, sin nuevas dependencias ni migraciones. Código `0c83576`, tests finales `033cafb`; OpenAPI0.13 con operación implemented y700 referencias válidas.
+
+Una sola cobertura global:163 archivos/3013 pruebas aprobadas y5 fallos esperados previos;95,34% líneas, shared97,80%, servicios API agregados95,91%. Un E2E real desktop aprobado; tipos, lint/formato y build único Turbopack aprobados. Evidencia y límites en docs/specs/016-daily-sales-reports/verification.md. No repetir checks por docs/push o integración de árbol idéntico.
+
+Usuario autorizó Sol6.1 low para reemplazar Luna agotada en pruebas/UI016; lógica monetaria Sol medium separada. Sin reviewer independiente. Diseño/pulido visual y revisión multiformato quedan diferidos por decisión del usuario; no confundir cierre funcional con cierre visual. Solo polleria_test, sin tocar Desktop ni polleria_dev.
+
+Main ya contiene015 (8aec23d). Rama feat/016-daily-sales-reports lista para revisión; no fusionar016 sin autorización posterior. Siguiente desarrollo requiere concretar la próxima spec y aprobar su comportamiento; no ampliar016 a cierre de caja/pagos mixtos por iniciativa propia. Los cortes inferiores son históricos.
+
+## 016: backend validado e interfaz funcional en curso — 2026-10-18
+
+Dominio `e721a2d` y backend `4db6efb` completados. Verde dirigido backend:4 archivos/21 pruebas, con regresiones de cobros014 e inventario015; tipos/lint/formato aprobados. El principal revisó y reutiliza esta evidencia, sin repetir DB. Detalles y límites en docs/specs/016-daily-sales-reports/verification.md.
+
+Usuario autorizó reemplazar Luna agotada por GPT-6.1-sol low para pruebas e interfaz016. Test-writer terminó T-03 (`0db44c4`, `09256df`):6 casos web en rojo por módulos ausentes y un E2E real escrito, todavía sin ejecutar. Implementer UI Sol low activo, separado del backend Sol medium ya terminado. No iniciar otro implementer ni ejecutar DB simultánea. Siguiente paso: verde/revisión funcional UI, E2E serializado y una sola cobertura global de cierre.
+
+Diseño/pulido diferido por el usuario: usar componentes existentes, sin nuevas animaciones ni capturas comparativas. OpenAPI0.13 conserva una operación pending hasta cierre. Rama feat/016-daily-sales-reports;015 ya publicada en main8aec23d. No integrar016 sin autorización posterior. Los cortes inferiores son históricos.
+
+## Nueva prioridad y cuota — 2026-10-18
+
+El usuario pospuso el diseño hasta el final. Implementar solo pantallas funcionales con componentes existentes, controles utilizables y estados/permisos correctos; no pulido FigCraft, nuevas animaciones ni QA comparativa multiformato por entrega. No deshacer estilos existentes ni reducir pruebas de dinero/datos/acceso. AGENTS y spec/tasks016 actualizados; ui-plan016 queda como referencia futura.
+
+Luna agotó cuota durante T-02 y dejó `apps/api/tests/reports-api-016.test.ts` y `reports-service-016.test.ts` parciales. Usuario **autorizó GPT-6.1-sol low para completar pruebas y, si hace falta, interfaz funcional016**. Reemplazo asignado a `/root/test_writer_016_sol`; no repetir confirmación del mismo permiso ni reintentar Luna. Backend financiero sigue separado en `/root/implementer_016_backend` Sol medium, inactivo hasta T-02 fiable.
+
+Principal ejecutó los parciales sin editarlos:3 fallos API causales (ruta404 en dos casos, lectorJSON400 en otro), servicio0tests por módulo ausente,27,84s; log tmp/016-t02-partial-red.log. Fixtures por corregir: usuario inactivo HTTP401(auth), query inválida con admin activo (no waiter403), imports/formatos y cierre de casos; añadir límites SQL de día, errores históricos seguros y saldo sin mutación. Nuevo test-writer tiene slotDB exclusivo con polleria_test y wrapper; preservar archivos y no implementar contra expectativas falsas. I-01 conserva verde verificado.
+
+## 016: dominio completado, pruebas API en escritura — 2026-10-18
+
+015 ya integrada y publicada en main: merge `2a6cf41`, registro `8aec23d`, árbol de producción igual al validado. Usuario aprobó el alcance de016 mediante pregunta de aprobación; no volver a preguntar ese alcance. Rama `feat/016-daily-sales-reports`, spec/contract/tasks016 y OpenAPI0.13 con una operación pending/700 referencias válidas.
+
+T-01 Luna (`874555a`, fixes `7cce042`) entregó6 casos compartidos, rojo por módulo ausente con0 assertions. I-01 Sol6.1 medium completado en `e721a2d`, solo reports.ts/index;4 archivos/69 pruebas y tipos/lint/formato shared aprobados,6/6 repetidos tras ajuste de era0001. Principal revisó y reutiliza evidencia. Test-writer `/root/test_writer_016` está escribiendo T-02 API/servicio con slotDB exclusivo; todavía sin resultados ni código API/UI. Implementer `/root/implementer_016_backend` terminó su turno; reutilizarlo para I-02 solo tras rojo T-02, sin iniciar otro implementer ni agente para esperar. Principal mantiene docs/contrato/revisión, no producción/tests. No repetir checks del mismo código sin razón.
+
+Reglas: fecha de cobro Lima, amountCents exacto, snapshots014, autor por OrderItem.createdByUserId (nombre actual), productos por presentación/nombre histórico, cremas resueltas y combos sin doble suma; totales conciliados. Año0000 inválido por PostgreSQL. No crear millones de pagos para forzar MAX_SAFE: schemas rechazan inseguros y prueba de3 pagos válidos supera int32; límite de cobertura a documentar. Solo polleria_test con wrapper protegido; no tocar Desktop/polleria_dev. Main015 ya publicada;016 no se integra sin autorización posterior. Los cortes inferiores son históricos.
+
 ## 015 integrada; preparación de 016 — 2026-10-18
 
 Usuario autorizó integrar la 015 y continuar. Merge `2a6cf41` en main, sin conflictos y con árbol idéntico a `8e9d83e`, ya validado. No repetir pruebas por esa integración. Continuar con la spec016 del reporte de ventas del día, siguiente requisito del prototipo. Concretar fecha de cobro en America/Lima, importes históricos y atribución de cada ítem al usuario que lo envió; obtener aprobación del nuevo comportamiento antes de tests/producción. Mantener Luna para pruebas/trabajo sencillo y Sol6.1 medium para dinero/transacciones, sin agentes ociosos. Los cortes inferiores son históricos.
@@ -95,6 +129,7 @@ Material para esa sesión, **en dev**: [brief de diseño y flujos](https://githu
 Verificación de esta actualización: revisión del diff, enlaces locales y formato de Markdown; sin cambios de producción ni nuevas pruebas de aplicación. Los resultados de suites indicados más abajo son evidencia histórica de sus entregas, no de una implementación de 014.
 
 ## Validación de 013 y flujo reducido — 2026-10-13 (histórico)
+
 ## Rediseño de interfaz — dev, 2026-10-13
 
 - Prioridad solicitada por el usuario tras probar dev. Instalados y versionados frontend-design, web-design-guidelines y ui-ux-pro-max en .agents/skills/ con skills-lock.json. Alcance: docs/specs/dev-ui-redesign/spec.md; comparación visual: docs/ui-redesign/README.md.
@@ -206,12 +241,14 @@ El resto de este documento conserva el traspaso original como referencia histór
 ## 3. Estado exacto y siguiente acción
 
 Funcionalidad 003-users-pin-login, paso 4 de 9 del ciclo. Documentos:
+
 - Spec: docs/specs/003-users-pin-login/spec.md (Aprobada; 44 AC; sección 19 resume la revisión 1).
 - Tareas: docs/specs/003-users-pin-login/tasks.md (T-01 a T-28).
 - Contrato: docs/api/openapi.yaml versión 0.3.1 (rutas /auth/users, /auth/login, /auth/me, /auth/logout).
 - ADR: docs/decisions/0002-sesion-pin-y-limite-de-intentos.md (Aceptado).
 
 Orden de trabajo que falta (ver "Orden y por qué" en tasks.md):
+
 1. T-01 (backend-dev, solo configuración): `pnpm --filter @polleria/api add bcrypt@6.0.0` y `add -D @types/bcrypt@6.0.0`; en pnpm-workspace.yaml agregar `ignoredBuiltDependencies: [bcrypt]` (no onlyBuiltDependencies; bcrypt trae binario para win32-x64). Verificar que carga con un script en el scratchpad. Commit `feat(003): instala bcrypt para el PIN`. El orquestador verifica después: install --frozen-lockfile, lint, typecheck, test.
 2. T-02 a T-14 y T-27 (test-writer): tests en rojo de los 44 AC. Incluye ajustar el helper de limpieza de la base (users y sessions; sección 12 de la spec). Cada archivo con `describe('003: ...')`.
 3. T-15 (backend-dev) primero: esquemas Zod de usuarios, roles y sesión en packages/shared (frontend-dev los necesita y no puede tocar shared).
@@ -222,6 +259,7 @@ Orden de trabajo que falta (ver "Orden y por qué" en tasks.md):
 8. Después de integrar la 003, el usuario crea su administrador con `pnpm db:migrate` y `pnpm users:create-admin` (en PowerShell, para que el PIN no se vea).
 
 Decisiones aprobadas de la 003 (detalle en la spec y en PROGRESS.md):
+
 - Sesión: token aleatorio de 32 bytes en la cookie `polleria_session` (HttpOnly, SameSite=Strict, Path=/, sin Secure porque el local usa http://IP), y la base guarda solo su SHA-256 en la tabla sessions. Sin JWT y sin variables de entorno nuevas. Duración fija de 16 h. Logout borra la fila.
 - PIN de 4 a 6 dígitos, bcrypt costo 10. Límite: 5 intentos fallidos bloquean al usuario 15 min (por usuario y en memoria, no por IP: el rewrite de Next no pasa la IP del celular).
 - /login muestra una lista de usuarios activos (nombre, sin rol) y un teclado numérico; el equipo recuerda el último usuario.
@@ -259,7 +297,7 @@ Decisiones aprobadas de la 003 (detalle en la spec y en PROGRESS.md):
 - Ciclo por funcionalidad: rama feat/NNN → spec-writer → aprobación del usuario → test-writer (rojo) → backend-dev/frontend-dev (verde) → adversarial-tester → reviewer → definición de terminado → PROGRESS.md → permiso para integrar.
 - Los subagentes no ven la conversación: cada encargo lleva ruta de la spec, IDs de tareas, AC, rama, decisiones del usuario, avisos técnicos conocidos y el reporte esperado.
 - Si una funcionalidad trae dependencias nuevas o es la base, primero una tarea de instalación o andamiaje (solo configuración) y después los tests en rojo, para que fallen por la razón correcta.
-- Los AC se numeran desde AC-01 en cada spec; cada archivo de prueba usa `describe('NNN: ...')` para distinguirlos. Los adversariales usan IDs ADV-NNN-xx en */tests/adversarial/*.adversarial.test.ts.
+- Los AC se numeran desde AC-01 en cada spec; cada archivo de prueba usa `describe('NNN: ...')` para distinguirlos. Los adversariales usan IDs ADV-NNN-xx en _/tests/adversarial/_.adversarial.test.ts.
 - Agentes en paralelo: solo si tocan carpetas distintas; commits con rutas explícitas (nunca `git add -A`); nunca dos instalaciones de paquetes a la vez (lockfile).
 - Arbitraje: si un implementador dice que un test está mal, el orquestador lo verifica y lo corrige el dueño del test (test-writer o adversarial-tester). Ya pasó una vez (glob sin barra en la 001).
 - Hallazgos adversariales medios y bajos: se pregunta al usuario. "Corregir ahora" → enmienda corta de la spec (AC nuevos), tests en rojo, corrección (así se hizo en la 001). "Dejar como deuda" → el adversarial-tester marca sus tests con it.fails y comentario (así se hizo en la 002).

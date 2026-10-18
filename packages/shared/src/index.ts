@@ -212,3 +212,4 @@ export {
 export * from './kitchen-ticket-prints.ts';
 export * from './payments.ts';
 export * from './inventory.ts';
+export * from './reports.ts';

@@ -1,4 +1,6 @@
 import express from 'express';
+import { createReportsService } from './services/reports/reports.service.ts';
+import { createReportsController } from './controllers/reports.controller.ts';
 import { createInventoryService } from './services/inventory/inventory.service.ts';
 import { createInventoryController } from './controllers/inventory.controller.ts';
 import { createPaymentService } from './services/payments/payment.service.ts';
@@ -94,6 +96,8 @@ export function createApp({
 
   const healthService = createHealthService({ sequelize, timeoutMs: healthTimeoutMs });
   const models = defineModels(sequelize);
+  const reportsService = createReportsService({ models, now });
+  const reportsController = createReportsController({ reportsService });
   const inventoryService = createInventoryService({ models, now });
   const inventoryController = createInventoryController({ inventoryService });
   const sessionService = createSessionService({ models, now });
@@ -163,7 +167,10 @@ export function createApp({
     // Express enruta sin distinguir mayúsculas: la comparación se hace en minúsculas
     // para que /api/USERS o /api/Auth/... también lleven la cabecera (ADV-004-25).
     const path = req.path.toLowerCase();
-    if (NO_STORE_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`)))
+    if (
+      NO_STORE_PATH_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`)) ||
+      /^\/api\/reports\/daily-sales\/?$/i.test(req.path)
+    )
       res.set('Cache-Control', 'no-store');
     next();
   });
@@ -180,7 +187,8 @@ export function createApp({
     if (
       BODILESS_PATH_PATTERN.test(req.path) ||
       (req.method === 'GET' &&
-        /^\/api\/inventory(?:\/(?:availability|movements))?\/?$/i.test(req.path))
+        (/^\/api\/inventory(?:\/(?:availability|movements))?\/?$/i.test(req.path) ||
+          /^\/api\/reports\/daily-sales\/?$/i.test(req.path)))
     ) {
       next();
       return;
@@ -190,6 +198,7 @@ export function createApp({
   app.use(
     '/api',
     createApiRouter({
+      reportsController,
       inventoryController,
       paymentsController,
       healthService,

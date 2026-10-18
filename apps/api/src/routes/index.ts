@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { createReportsRoutes } from './reports.routes.ts';
+import type { ReportsController } from '../controllers/reports.controller.ts';
 import { createInventoryRoutes } from './inventory.routes.ts';
 import type { InventoryController } from '../controllers/inventory.controller.ts';
 import { createPaymentsRoutes } from './payments.routes.ts';
@@ -28,6 +30,7 @@ import { createKitchenTicketPrintsRoutes } from './kitchen-ticket-prints.routes.
 import type { KitchenTicketPrintsController } from '../controllers/kitchen-ticket-prints.controller.ts';
 
 export interface ApiRouterDependencies {
+  reportsController: ReportsController;
   inventoryController: InventoryController;
   paymentsController: PaymentsController;
   healthService: HealthService;
@@ -46,6 +49,7 @@ export interface ApiRouterDependencies {
 
 /** Router de la API. createApp lo monta en /api. */
 export function createApiRouter({
+  reportsController,
   inventoryController,
   paymentsController,
   healthService,
@@ -62,6 +66,7 @@ export function createApiRouter({
   requireAuth,
 }: ApiRouterDependencies): Router {
   const router = Router();
+  router.use(createReportsRoutes(reportsController, requireAuth));
   router.use('/inventory', createInventoryRoutes(inventoryController, requireAuth));
 
   router.use(createHealthRoutes(createHealthController({ healthService })));
