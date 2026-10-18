@@ -255,7 +255,7 @@ describe('016: servicio de reporte diario contra polleria_test', () => {
       await Promise.race([
         paymentReadReached,
         settled.then(({ error }) => {
-          throw error ?? new Error('No se alcanzo la lectura de pagos.');
+          throw error instanceof Error ? error : new Error('No se alcanzo la lectura de pagos.');
         }),
       ]);
       await sequelize.transaction(
