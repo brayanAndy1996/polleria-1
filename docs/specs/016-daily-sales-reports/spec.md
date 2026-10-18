@@ -2,7 +2,7 @@
 
 Fecha: 2026-10-18. Fase 6 del prototipo; RF-25 y desglose por medio de pago de RF-26.
 
-**Estado: alcance aprobado por el usuario el 2026-10-18.** Confirmó implementar este reporte mediante la pregunta de alcance. Comienza S-01/T-01; todavía sin producción ni resultados verdes. No implica implementar caja avanzada ni volver a descontar inventario.
+**Estado: alcance aprobado por el usuario el 2026-10-18.** Confirmó implementar este reporte mediante la pregunta de alcance. Dominio y backend implementados y validados con pruebas dirigidas; interfaz y cierre en curso. No implica implementar caja avanzada ni volver a descontar inventario.
 
 **Prioridad posterior del usuario:** posponer diseño hasta el final. Para016 se entrega interfaz funcional con componentes existentes; no rediseño, animaciones nuevas ni comparación visual360/768/1440. Se conservan acceso, labels/foco, estados y E2E funcional. Esta decisión sustituye el pulido visual previsto debajo y en ui-plan.md; no deshace la interfaz015 ya integrada.
 

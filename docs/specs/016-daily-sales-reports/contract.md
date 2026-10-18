@@ -1,6 +1,6 @@
 # Contrato propuesto — 016
 
-Alcance aprobado el 2026-10-18. Todavía no hay endpoints ni schemas implementados de016. S-01 añade OpenAPI0.13 con la nueva operación pending.
+Alcance aprobado el 2026-10-18. Dominio y endpoint implementados en T/I-01 y T/I-02. OpenAPI0.13 mantiene la operación pending hasta validar interfaz y cierre completo.
 
 ## Consulta
 

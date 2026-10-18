@@ -1,8 +1,8 @@
 # Tareas — 016 Reporte diario
 
-Estado: alcance aprobado el 2026-10-18. S-01 y T/I-01 completados (OpenAPI0.13 pending,700refs). Dominio `e721a2d`, verde dirigido4 archivos/69 pruebas, tipos/lint/formato shared aprobados. T-02 Luna en escritura; I-02 todavía no iniciado. API/UI y cierre pendientes. Evidencia y límites en verification.md.
+Estado: alcance aprobado el 2026-10-18. S-01 y T/I-01 completados. T/I-02 completados: backend `4db6efb`, 4 archivos/21 pruebas dirigidas aprobadas con regresiones de cobros e inventario. Tipos API/shared y lint/formato aprobados. T-03 escrito (`0db44c4`, `09256df`); I-03 en implementación. Cierre global y E2E pendientes. OpenAPI0.13 conserva la operación pending hasta C-01.
 
-Decisiones posteriores del usuario: posponer diseño/pulido visual hasta el final, conservar interfaz funcional. Luna agotó cuota en T-02; autorizó reemplazo Sol6.1 low para pruebas y UI sencilla016, separado de Sol medium financiero. Esa excepción prevalece sobre modelos de la tabla anterior al cambio. Test-writer reemplazo completa los dos archivos parciales y corrige fixtures; no se atribuye verde todavía.
+Decisiones posteriores del usuario: posponer diseño/pulido visual hasta el final y conservar interfaz funcional. Luna agotó cuota; autorizó Sol6.1 low para pruebas e interfaz016, separado del implementer financiero Sol6.1 medium. Esta excepción sustituye los modelos históricos de la tabla. No atribuir verde al E2E todavía.
 
 | ID   | Responsable               | Bloque y evidencia                                                                                                                           |
 | ---- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
