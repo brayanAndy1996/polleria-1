@@ -450,7 +450,10 @@ describe('015 inventory pure domain', () => {
           ],
         },
       ];
-      const before = structuredClone(items);
+      const before: InventoryConsumptionItem[] = items.map((item) => ({
+        ...item,
+        components: item.components?.map((component) => ({ ...component })) ?? null,
+      }));
       calculateInventoryDemand(items);
       expect(items).toEqual(before);
     });
