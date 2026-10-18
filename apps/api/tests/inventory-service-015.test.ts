@@ -55,7 +55,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await closeTestDatabase(sequelize);
 });
-afterEach(async () => {
+afterEach(() => {
   models.InventoryMovement.removeHook('afterCreate', 'inventoryTestMovementFailure');
   models.InventoryCommand.removeHook('beforeUpdate', 'inventoryTestCommandFailure');
 });
@@ -324,7 +324,7 @@ describe('015: servicio administrativo de inventario sobre polleria_test', () =>
     await expect(
       service.addChickenBatch({ chickens: 2, reason: 'Tanda' }, 'rollback-batch-001', admin),
     ).rejects.toThrow('injected movement write failure');
-    await models.InventoryMovement.removeHook('afterCreate', 'inventoryTestMovementFailure');
+    models.InventoryMovement.removeHook('afterCreate', 'inventoryTestMovementFailure');
 
     expect((await service.getInventory(admin)).chicken).toEqual({
       enabled: true,
@@ -349,7 +349,7 @@ describe('015: servicio administrativo de inventario sobre polleria_test', () =>
     await expect(
       service.addChickenBatch({ chickens: 2, reason: 'Tanda' }, 'rollback-response-001', admin),
     ).rejects.toThrow('injected command response failure');
-    await models.InventoryCommand.removeHook('beforeUpdate', 'inventoryTestCommandFailure');
+    models.InventoryCommand.removeHook('beforeUpdate', 'inventoryTestCommandFailure');
 
     expect((await service.getInventory(admin)).chicken).toEqual({
       enabled: true,

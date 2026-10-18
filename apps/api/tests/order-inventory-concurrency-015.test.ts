@@ -468,7 +468,7 @@ describe('015: concurrencia de envíos y comandos administrativos', () => {
       'SELECT product_id, enabled FROM inventory_drinks WHERE product_id = $1',
       [drinkId],
     );
-    if (results[0]!.ok) {
+    if (results[0].ok) {
       expect(product!.category).toBe('drink');
       expect(drink).toMatchObject({ product_id: drinkId, enabled: true });
     } else {

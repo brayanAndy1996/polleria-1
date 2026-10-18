@@ -707,11 +707,11 @@ describe('015: consumo de inventario en envío a cocina', () => {
       .set('Idempotency-Key', 'ack-client-disconnect-015')
       .send({ items: [{ productId: drinkId }] });
     expect(replay.status).toBe(201);
-    expect(replay.body.ticket.id).toBe(
-      (
-        await rows<{ id: number }>(`SELECT id FROM kitchen_tickets WHERE order_id = ${apiOrder.id}`)
-      )[0]!.id,
+    const replayBody: unknown = replay.body;
+    const [expectedTicket] = await rows<{ id: number }>(
+      `SELECT id FROM kitchen_tickets WHERE order_id = ${apiOrder.id}`,
     );
+    expect(replayBody).toMatchObject({ ticket: { id: expectedTicket!.id } });
     expect(await count('order_items', `WHERE order_id = ${apiOrder.id}`)).toBe(1);
     expect(await count('inventory_movements', "WHERE type = 'consumption'")).toBe(1);
   });
