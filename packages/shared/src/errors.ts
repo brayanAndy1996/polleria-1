@@ -6,6 +6,8 @@ import { z } from 'zod';
  * suyos; los clientes deben tolerar códigos desconocidos.
  */
 export const ERROR_CODES = {
+  REPORT_DATA_INVALID: 'REPORT_DATA_INVALID',
+  REPORT_TOTAL_OUT_OF_RANGE: 'REPORT_TOTAL_OUT_OF_RANGE',
   BILL_CHANGED: 'BILL_CHANGED',
   PENDING_VOIDS: 'PENDING_VOIDS',
   ORDER_NOT_PAYABLE: 'ORDER_NOT_PAYABLE',
