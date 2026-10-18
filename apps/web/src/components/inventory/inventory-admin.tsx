@@ -249,17 +249,24 @@ export function InventoryAdmin() {
         )}
       </header>
 
-      <section className="grid gap-4 lg:grid-cols-2" aria-label="Saldos de inventario">
+      <section
+        className="inventory-balance-grid grid gap-4 lg:grid-cols-2"
+        aria-label="Saldos de inventario"
+      >
         <article className="rounded-2xl border border-separator bg-surface p-5 space-y-3">
           <h2 className="text-xl font-bold">Pollo</h2>
           <p className="tabular-nums">{formatBalance(snapshot)}</p>
           <p>{snapshot?.chicken.enabled ? 'Control de stock activo' : 'Sin control de stock'}</p>
-          <div className="flex flex-wrap gap-2">
-            <Button className="min-h-12" isDisabled={busy} onPress={() => openForm('batch')}>
+          <div className="inventory-chicken-actions flex flex-wrap gap-2">
+            <Button
+              className="inventory-mobile-button min-h-12"
+              isDisabled={busy}
+              onPress={() => openForm('batch')}
+            >
               Registrar tanda
             </Button>
             <Button
-              className="min-h-12"
+              className="inventory-mobile-button min-h-12"
               variant="secondary"
               isDisabled={busy || snapshot === undefined}
               onPress={() => {
@@ -332,7 +339,7 @@ export function InventoryAdmin() {
                   </div>
                   <div className="inventory-drink-actions flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                     <Button
-                      className="min-h-12 max-w-full whitespace-normal"
+                      className="inventory-mobile-button min-h-12 max-w-full whitespace-normal"
                       isDisabled={busy}
                       onPress={() => {
                         setDraft({ ...draft, productId: String(drink.productId) });
@@ -342,7 +349,7 @@ export function InventoryAdmin() {
                       Registrar entrada
                     </Button>
                     <Button
-                      className="min-h-12 max-w-full whitespace-normal"
+                      className="inventory-mobile-button min-h-12 max-w-full whitespace-normal"
                       variant="secondary"
                       isDisabled={busy || !drink.enabled}
                       onPress={() => {
@@ -359,7 +366,7 @@ export function InventoryAdmin() {
                       Desactivar
                     </Button>
                     <Button
-                      className="min-h-12 max-w-full whitespace-normal"
+                      className="inventory-mobile-button min-h-12 max-w-full whitespace-normal"
                       variant="secondary"
                       isDisabled={busy || drink.enabled}
                       onPress={() => {
@@ -601,7 +608,7 @@ export function InventoryAdmin() {
                     />
                   </label>
                 )}
-                <div className="mt-5 flex flex-wrap gap-3">
+                <div className="inventory-review-actions mt-5 flex flex-wrap gap-3">
                   <Button
                     className="min-h-12"
                     isDisabled={
