@@ -1,5 +1,13 @@
 # Progreso del proyecto — Sistema Pollería
 
+## 016 integrada en main y pendientes — 2026-10-18
+
+El usuario autorizó fusionar la016. Merge5c052f4 desde1a8dc38, sin conflictos; diff entre árbol del merge y rama016 vacío. Se reutiliza evidencia del mismo código:3013 pruebas aprobadas,5 fallos esperados previos,95,34% líneas, un E2E real y tipos/lint/build aprobados. No repetir suites por esta integración. Main contiene015 y016; no se modificó checkout Desktop ni base de desarrollo.
+
+El núcleo del prototipo está implementado: usuarios/carta, mesas/pedidos, comandas file, cobros completos, inventario básico y reporte diario. Impresión file no acredita impresión física. Quedan diseño/pulido final, integración y prueba de impresora real (requiere modelo/conexión), y preparación operativa del local con respaldo/restauración y validación en sus dispositivos.
+
+Agrupación de pendientes del alcance ampliado de docs/planificacion.md en cuatro bloques funcionales, sin afirmar que sean cuatro specs ya aprobadas:1) caja avanzada (división/pagos mixtos, apertura/cierre/cuadre y ticket de venta);2) inventario avanzado (insumos/recetas/refrescos y mínimos/alertas);3) merma de pollo y su reporte, con registro explícito y sin deducirla automáticamente del saldo permanente;4) para llevar/delivery. SUNAT es fase posterior al prototipo y requiere alcance separado. No iniciar estos bloques ni cambiar reglas sin spec/aprobación correspondiente. Los cortes inferiores son históricos.
+
 ## 016 completada y validada — 2026-10-18
 
 Reporte diario solo admin implementado: fecha de cobro Lima, totales exactos, medios,24 horas, productos/presentaciones y usuario que registró los ítems. UI funcional /admin/reportes, sin nuevas dependencias ni migraciones. Código `0c83576`, tests finales `033cafb`; OpenAPI0.13 con operación implemented y700 referencias válidas.

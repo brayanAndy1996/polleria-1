@@ -34,3 +34,7 @@
 - Tipos: raíz/configuración/E2E aprobados al cierre; se reutilizan tipos API/shared del mismo código final y web tras `033cafb`; Next también verifica TypeScript durante build. Build único Turbopack aprobado, ruta /admin/reportes incluida. ESLint global sin warnings y Prettier global aprobados; formato documental explícito y OpenAPI validados al cierre.
 - E2E exclusivo sobre polleria_test, serializado antes de cobertura; ambos usan wrapper externo que exige esa base y elimina DATABASE_URL. Sin cambios en polleria_dev, checkout Desktop, dependencias o migraciones; sin creación de bases/roles ni prueba física.
 - Sin reviewer independiente ni revisión visual multiformato: diseño/pulido diferido por decisión del usuario. Main contiene015;016 requiere autorización posterior para integración. No repetir suites por actualización documental o publicación.
+
+## Integración autorizada
+
+Usuario autorizó integrar016 el2026-10-18. Merge `5c052f4` desde `1a8dc38`, sin conflictos; árbol idéntico a la rama validada mediante git diff --exit-code. Se conserva la evidencia anterior sin repetir suites. Registro de integración documental separado; publicación en main como parte de la misma autorización.
