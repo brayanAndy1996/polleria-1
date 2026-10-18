@@ -60,7 +60,7 @@ async function enterStockThroughAdminUi(page: Page, chickens: number, drinks: nu
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await dialog.getByRole('button', { name: /confirmar.*tanda|registrar.*tanda/i }).click();
-    await expect(page.getByText(/tanda registrada/i)).toBeVisible();
+    await expect(page.getByText(/Pecho 4 octavos · Pierna 4 octavos/i)).toBeVisible();
   }
   await page.getByRole('button', { name: /registrar entrada/i }).click();
   await page.getByLabel(/unidades/i).fill(String(drinks));
@@ -68,8 +68,8 @@ async function enterStockThroughAdminUi(page: Page, chickens: number, drinks: nu
   await page.getByRole('button', { name: /revisar/i }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: /confirmar.*entrada|registrar.*entrada/i }).click();
-  await expect(page.getByText(/entrada registrada/i)).toBeVisible();
+  await dialog.getByRole('button', { name: /confirmar movimiento/i }).click();
+  await expect(page.getByText(/E2E Gaseosa · \+1 unidades · saldo 1/i)).toBeVisible();
 }
 
 async function closeInventoryControls(
@@ -193,7 +193,7 @@ test.describe('015: inventario en operación real', () => {
       await openOrder(page.request, nextTable);
       await page.goto(`/mozo/mesas/${nextTable}/agregar`);
       await expect(page.getByRole('heading', { name: 'Agregar ítems' })).toBeVisible();
-      await expect(page.getByText(/agota|sin stock/i)).toBeVisible();
+      await expect(page.getByText('Agotado', { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: /E2E Gaseosa/ })).toBeDisabled();
       expect(await consumptionMovements(adminPage.request, ticketId)).toHaveLength(2);
     } finally {
@@ -253,12 +253,11 @@ test.describe('015: inventario en operación real', () => {
       expect(attempts[0]?.key).toBeTruthy();
       expect(attempts[1]).toEqual(attempts[0]);
 
-      await login(page, 'admin');
-      const order = await page.request.get(`/api/orders/${orderId}`);
+      const order = await adminPage.request.get(`/api/orders/${orderId}`);
       expect(order.status()).toBe(200);
       expect(((await order.json()) as { items: unknown[] }).items).toHaveLength(1);
-      const ticketId = await firstTicketId(page.request, orderId);
-      const consumed = await consumptionMovements(page.request, ticketId);
+      const ticketId = await firstTicketId(adminPage.request, orderId);
+      const consumed = await consumptionMovements(adminPage.request, ticketId);
       expect(consumed).toHaveLength(1);
     } finally {
       if (drinkId !== undefined)
