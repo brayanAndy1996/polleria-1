@@ -1,5 +1,10 @@
 # Progreso del proyecto — Sistema Pollería
 
+## 015 integrada en main — 2026-10-18
+
+- Usuario autorizó fusionar la 015 y continuar. Merge `2a6cf41`, sin conflictos, desde `8e9d83e`; árbol idéntico a la rama validada. Se conserva su evidencia de 2992 pruebas aprobadas, 5 fallos esperados previos, 95,49% de líneas y dos E2E reales, sin repetir suites por un merge sin cambios.
+- Siguiente bloque del prototipo: preparar la 016, reporte de ventas del día (RF-25 y medios de pago de RF-26). El comportamiento nuevo se concreta en una spec antes de implementación, conforme a la metodología vigente. Caja avanzada, recetas/insumos, delivery y SUNAT conservan entregas posteriores.
+
 ## 015: inventario implementado y validado — 2026-10-18
 
 - Cliente/helper `93124c9`, interfaz `4480696`, ajuste móvil `66c84a4`. Administrador dispone de saldos permanentes, tandas, entradas, ajustes auditados y controles; mozo valida disponibilidad y conserva el intento ante respuesta perdida. Paleta FigCraft azul/Nunito y Motion existente.

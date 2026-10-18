@@ -1,5 +1,9 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## 015 integrada; preparación de 016 — 2026-10-18
+
+Usuario autorizó integrar la 015 y continuar. Merge `2a6cf41` en main, sin conflictos y con árbol idéntico a `8e9d83e`, ya validado. No repetir pruebas por esa integración. Continuar con la spec016 del reporte de ventas del día, siguiente requisito del prototipo. Concretar fecha de cobro en America/Lima, importes históricos y atribución de cada ítem al usuario que lo envió; obtener aprobación del nuevo comportamiento antes de tests/producción. Mantener Luna para pruebas/trabajo sencillo y Sol6.1 medium para dinero/transacciones, sin agentes ociosos. Los cortes inferiores son históricos.
+
 ## 015: implementada y validada — 2026-10-18
 
 Backend y UI de `feat/015-basic-inventory` validados sobre `b4bfe27`: 158 archivos/2992 pruebas aprobadas, 5 fallos esperados previos y 95,49% de líneas; umbrales originales cumplidos. Dos E2E reales aplicables aprobados, ocho capturas a360/768/1440 sin desbordamiento ni pageerrors, tipos/lint/formato y build final Turbopack aprobados. OpenAPI0.12: ocho operaciones implemented. Luna cubrió pruebas e implementación sencilla, Sol6.1 medium el backend complejo; roles separados. Evidencia y límites en verification.md. Siguiente paso: revisión del usuario; no integrar015 a main sin autorización posterior ni iniciar otro alcance no aprobado. Los cortes inferiores son históricos salvo reglas de dominio y entorno.
