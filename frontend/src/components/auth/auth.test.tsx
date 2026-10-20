@@ -14,9 +14,13 @@ import AdminPage from '../../app/admin/page.tsx';
 import AreasPage from '../../app/areas/page.tsx';
 import HomePage from '../../app/page.tsx';
 import { hardNavigate } from '../../lib/navigation.ts';
+import { RoleGuard } from './role-guard.tsx';
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace }),
+  usePathname: () => window.location.pathname,
+}));
 vi.mock('../../lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));
 const USERS = [
   { username: 'mozo.juan', displayName: 'Juan' },
@@ -613,5 +617,65 @@ describe('003: guardias, páginas y cambio de área', () => {
     show(<CajaPage />);
     expect(await screen.findByRole('heading', { name: 'Caja' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Cambiar de área' })).toBeVisible();
+  });
+});
+
+describe('AC-P05: chrome POS opt-in del RoleGuard', () => {
+  function renderGuard(pos = false) {
+    return show(
+      pos ? (
+        <RoleGuard area="/mozo" appearance="pos">
+          <p>Contenido de mesas</p>
+        </RoleGuard>
+      ) : (
+        <RoleGuard area="/mozo">
+          <p>Contenido de mesas</p>
+        </RoleGuard>
+      ),
+    );
+  }
+
+  function expectOperationalActions() {
+    const navigation = screen.getByRole('navigation', { name: 'Navegación principal' });
+    expect(within(navigation).getByRole('link', { name: 'Mesas' })).toHaveAttribute(
+      'href',
+      '/mozo',
+    );
+    expect(within(navigation).getByRole('link', { name: 'Caja' })).toHaveAttribute('href', '/caja');
+    expect(screen.getByRole('link', { name: 'Cambiar de área' })).toHaveAttribute('href', '/areas');
+    expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Saltar al contenido' })).toHaveAttribute(
+      'href',
+      '#main-content',
+    );
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
+  }
+
+  it('AC-P05: conserva el acceso y la navegación compartida sin appearance="pos"', async () => {
+    mockSession(['waiter', 'cashier']);
+    renderGuard();
+
+    expect(await screen.findByText('Contenido de mesas')).toBeVisible();
+    expectOperationalActions();
+  });
+
+  it('AC-P05: activa el chrome POS y conserva áreas, cambio de área, salida y salto accesible', async () => {
+    mockSession(['waiter', 'cashier']);
+    renderGuard(true);
+
+    expect(await screen.findByText('Contenido de mesas')).toBeVisible();
+    expectOperationalActions();
+  });
+
+  it('AC-P05: la apariencia POS sigue siendo opt-in para el contenedor del contenido', async () => {
+    mockSession(['waiter', 'cashier']);
+    const defaultView = renderGuard();
+    expect(await screen.findByText('Contenido de mesas')).toBeVisible();
+    const defaultMainClass = screen.getByRole('main').className;
+    defaultView.unmount();
+
+    renderGuard(true);
+    expect(await screen.findByText('Contenido de mesas')).toBeVisible();
+    expect(screen.getByRole('main').className).not.toBe(defaultMainClass);
   });
 });

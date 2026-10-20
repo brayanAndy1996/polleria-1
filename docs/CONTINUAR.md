@@ -1,5 +1,99 @@
 # Cómo continuar el desarrollo — Sistema Pollería
 
+## Flujo de mesa a catálogo terminado — 2026-10-19
+
+Actual: seleccionar mesa en `/mozo` abre un popup de acciones. Confirmar
+«Abrir mesa» usa la API existente y navega directo al catálogo. Mesas ocupadas
+ofrecen «Agregar productos» o «Ver pedido» (detalle avanzado conservado).
+Catálogo con búsqueda, filtros no modales, categorías horizontales/conteos y
+cards blancas; personalización en modal. Pedido lateral >=1024px; móvil con
+barra de unidades/total y panel inferior desplazable, sin perder tanda al
+cerrar o redimensionar. No hay guardado nuevo al recargar/abandonar la ruta.
+
+Principal verificó 764/764 pruebas web en 45 archivos, tipos, lint y build.
+Chromium de producción 9/9 escenarios, API simulada, sin overflow/pageerrors;
+foco/Escape, filtros, 13 líneas desplazables, cantidades/totales, resize y
+reintento idempotente comprobados. Sin DB ni escrituras operativas reales,
+suites API/DB/cobertura global ni auditoría independiente.
+[Spec](specs/pos-order-flow/spec.md) y [evidencia](specs/pos-order-flow/tasks.md).
+
+Siguiente: revisión visual del usuario en `http://localhost:3000/mozo` antes
+de ampliar otro bloque. Conservar Next.js/CSS Modules, permisos y lógica;
+no incorporar pagos, reservas, descuentos, delivery ni infraestructura por
+estar dibujados en la referencia. Backend/shared intactos. Rama local
+`feat/pos-figma-v1`, sin commit/merge/push. Dev del usuario 3000 permanece;
+preview propio 3200 detenido. Conservar todo el trabajo y referencias previas.
+
+## Nueva referencia: sidebar implementada — 2026-10-19
+
+El usuario rechazó el diseño anterior después de verlo implementado y eligió
+`frontend/references/original-c26bfacac66444e44e4a120777feca92.webp` por su
+estructura. Esa imagen muestra una mesa seleccionada y su catálogo/pedido.
+Se aprobó avanzar por bloques: primero la barra izquierda, no copiar todo.
+
+Terminado: navegación compartida en RoleGuard (todas sus rutas), 216px desde
+1024px y drawer accesible en móvil; permisos/rutas conservados. Administración
+anida Carta, Configurar mesas y Usuarios; ya no duplica los chips de Carta.
+Login y selector de áreas sin rediseño. Categorías y tarjetas mantienen su
+apariencia; solo cambia su reflow por el nuevo espacio disponible.
+
+754/754 pruebas web/45 archivos, tipos, lint y build aprobados. Chromium con
+API simulada en nueve escenarios, sin overflow/pageerrors; foco/inert/Escape,
+resize sin perder tanda, totales/reintento y sidebar con poca altura verificados.
+Sin DB/migraciones/seeds ni suites API/DB/cobertura global. Revisión principal,
+no independiente. [Tareas y evidencia](specs/pos-sidebar/tasks.md).
+
+Siguiente paso: que el usuario revise esta base; luego categorías horizontales
+arriba del catálogo y composición del pedido. No añadir aún pagos/reservas/
+delivery ni usar POS v1 como aprobación visual vigente. No mezclar otro repo.
+Rama local `feat/pos-figma-v1`, cambios sin commit/merge/push. Conservar todas
+las referencias y cambios previos. Next dev del usuario en 3000 se mantuvo
+activo; solo se detiene el preview propio 3200 al cerrar la revisión.
+
+## Propuesta Figma POS v1 implementada — 2026-10-19
+
+El usuario aprobó implementar la propuesta editable. Terminado localmente en
+`feat/pos-figma-v1`: Mesas `/mozo`, toma de pedidos
+`/mozo/mesas/[tableId]/agregar` y lista `/admin/carta`. Next.js y funciones
+existentes conservados, CSS Modules por vista y chrome opt-in en RoleGuard.
+No se tocaron backend/shared/contratos/dependencias ni se añadieron cobros,
+gestión de fotos, KDS, descuentos, hardware o inventario.
+
+Verificación final: 749 pruebas web/45 archivos, tipos, lint y build aprobados.
+Chromium de producción con API simulada: seis escenarios (360/390/768/1024/
+1440px y movimiento reducido), sin overflow ni errores de página. Cantidades,
+quitar, totales, teclado y reintento idempotente comprobados. No se ejecutaron
+suites API/DB, cobertura global ni E2E oficiales. Revisión principal, sin
+auditoría independiente. [Tareas y evidencia](specs/pos-figma-v1/tasks.md).
+
+Para revisarlo con datos reales: `npm run dev` desde `/home/jeremy/polleria-1`.
+Los previews propios de esta revisión están detenidos. Siguiente paso:
+revisión del usuario y elegir siguiente pantalla (login/PIN, detalle u otra)
+antes de extender el rediseño. Las funciones futuras requieren su alcance
+propio; no asumirlas implementadas por aparecer en Figma. Sin commit, merge
+ni push; no integrar automáticamente. Conservar el video sin seguimiento en
+`frontend/references/` y el trabajo previo. Las notas inferiores del refactor
+sin cambio visual son históricas: POS v1 sí rediseña esas tres superficies.
+
+## CSS Modules en Mesas — 2026-10-19
+
+El usuario aprobó comenzar con CSS Modules, sin migrar de framework. Primer
+bloque terminado en `refactor/css-modules-mesas`, sin commit/merge/push:
+`frontend/src/app/mozo/page.module.css`, conexión en `page.tsx` y eliminación
+de estilos `salon-board` en `globals.css`. La apariencia y la lógica no cambian.
+
+Pruebas web: 742 aprobadas en 43 archivos; tipos, lint y build aprobados.
+Chromium con API simulada verificó desarrollo y producción a 360/390/768/1440px,
+foco, hover y movimiento reducido, sin overflow ni errores de página. Backend,
+shared y dependencias intactos; no se arrancó DB ni se escribieron datos.
+Detalle: [tareas](specs/css-modules-mesas/tasks.md) y
+[guía de estilos](../frontend/docs/styles.md).
+
+Siguiente bloque visual según prioridad del usuario: acceso/PIN, toma de
+pedidos o administración. No dar por migrado el frontend completo. No integrar
+automáticamente esta rama a main. Hay un video ajeno a la tarea sin seguimiento
+en `frontend/references/`; conservarlo y no incluirlo por accidente.
+
 ## Entorno de trabajo operativo — 2026-10-16
 
 El usuario autorizó resolver el entorno completo. Esta copia WSL ya dispone

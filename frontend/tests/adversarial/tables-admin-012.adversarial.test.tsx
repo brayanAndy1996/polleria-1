@@ -50,6 +50,7 @@ import { hardNavigate } from '../../src/lib/navigation.ts';
 const mocks = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mocks.push, replace: mocks.replace }),
+  usePathname: () => window.location.pathname,
 }));
 vi.mock('../../src/lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));
 

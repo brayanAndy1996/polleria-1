@@ -1,5 +1,90 @@
 # Progreso del proyecto — Sistema Pollería
 
+## Popup de mesa, catálogo y carrito adaptable — 2026-10-19
+
+- Implementado en `feat/pos-figma-v1`, sobre la sidebar de la nueva referencia:
+  seleccionar mesa abre acciones, no un detalle intermedio. Libre confirma
+  apertura existente y lleva al catálogo; ocupada ofrece agregar/ver pedido.
+  Doble toque bloqueado, errores visibles, 409/polling actualizan el estado.
+- Categorías horizontales con conteos, búsqueda/filtros efectivos, cards
+  blancas y personalización modal. Pedido sin enviar a derecha >=1024px;
+  móvil con barra de unidades/total y panel inferior desplazable hasta enviar.
+  Un solo carrito, conservación al cerrar/redimensionar, cantidades/quitar y
+  reintento idempotente actuales. No incluye cobros ni funciones de la imagen
+  que la API no soporta. CSS Modules locales, sin dependencias ni backend.
+- Test-writer e implementer Luna medium; rojos causales antes de producir.
+  Principal verificó **764/764 web en 45 archivos**, tipos, lint y build final.
+  Chromium producción **9/9** tamaños/estados, incluido paisaje, poca altura
+  y movimiento reducido: sin overflow/pageerrors, foco/filtros, pedido largo,
+  resize, totales y reintentos con API simulada, sin datos reales.
+- Sin suites API/DB/cobertura global ni auditoría independiente. Sin commit,
+  merge o push. Dev del usuario en 3000 conservado; preview propio retirado.
+  [Alcance y evidencia](specs/pos-order-flow/tasks.md). Los siguientes bloques
+  requieren revisión del usuario; las notas inferiores son historial.
+
+## Barra izquierda según nueva referencia — 2026-10-19
+
+- El usuario rechazó el resultado visual POS v1 y aprobó comenzar por la
+  estructura de la referencia WebP local. Aclaró que corresponde a una mesa
+  ya escogida, antes de seleccionar productos. No se revierte trabajo ajeno.
+- Sidebar común a RoleGuard: 216px desktop, marca/nav arriba y sesión/salir
+  abajo; panel modal bajo 1024px. Mesas conserva `/mozo`, permisos actuales
+  y subnav administrativa real. Contenido sin rediseño adicional; categorías
+  horizontales y composición del pedido quedan para el siguiente bloque.
+- Implementer y test-writer Luna medium, rojo causal y nueva regresión inert
+  detectada por revisión principal y cleanup ante caída/recuperación de sesión.
+  Principal verificó 754/754 web, tipos,
+  lint y build; Chromium desarrollo/producción nueve escenarios, teclado,
+  resize sin perder tanda, error/reintento idempotente y footer accesible en
+  altura reducida. Sin overflow/pageerrors en el recorrido con API simulada.
+- Backend/shared/dependencias y datos intactos; sin suites API/DB/cobertura
+  global ni auditoría independiente. Rama local `feat/pos-figma-v1`, sin
+  commit/merge/push. Preview propio retirado; dev del usuario en 3000 intacto.
+  [Alcance y evidencia](specs/pos-sidebar/tasks.md).
+
+## Diseño Figma POS v1 implementado — 2026-10-19
+
+- Aprobación del usuario: implementada la propuesta en Mesas, toma de pedidos
+  desktop/móvil y lista de Carta. Se conserva Next.js; estilos en CSS Modules
+  y chrome POS opt-in, sin rediseñar otras rutas ni mezclar proyectos.
+- Tarjetas blancas con estados, catálogo con imágenes locales/fallback,
+  búsqueda, categorías, tanda y lista administrativa alineada. Datos y
+  acciones reales existentes conservados, incluidos permisos, personalización,
+  cantidades, totales y reintento idempotente. Backend/shared intactos.
+- Test-writer e implementer Luna medium; rojo causal y regresiones verdes.
+  Principal verificó 749 pruebas web/45 archivos, tipos, lint y build.
+  Chromium en desarrollo/producción a 360/390/768/1024/1440px y movimiento
+  reducido: sin overflow ni pageerrors; teclado, imágenes y envío con error
+  simulado/reintento comprobados. API interceptada, sin DB ni datos reales.
+- Skills de Figma y UI guiaron fidelidad, aislamiento de estilos y revisión
+  responsive/accesible. No hay auditoría independiente ni nueva cobertura
+  global/API/DB; las integraciones de Next steps permanecen pendientes.
+- Rama local `feat/pos-figma-v1`, sin commit/merge/push. Trabajo previo y
+  video del usuario conservados. Preview propio detenido; iniciar
+  `npm run dev` para trabajar. [Alcance](specs/pos-figma-v1/spec.md),
+  [evidencia](specs/pos-figma-v1/tasks.md) y [estilos](../frontend/docs/styles.md).
+
+## CSS Modules: primer bloque Mesas — 2026-10-19
+
+- Autorizado comenzar la mejora de estilos con CSS Modules, manteniendo
+  Next.js, Tailwind y HeroUI. Tablero y tarjetas de `/mozo` extraídos a
+  `frontend/src/app/mozo/page.module.css`, sin rediseño ni cambios de lógica.
+- Consolidadas las reglas globales duplicadas de `salon-board`; la excepción
+  del estilo genérico de listas ahora usa `data-layout="table-board"`.
+  Tokens, chrome y colores semánticos compartidos permanecen globales.
+- Test-writer Luna medium: rojo causal, cuatro regresiones estructurales y
+  revalidación 10/10 con las anteriores. Implementer Luna medium: extracción
+  y corrección de la prioridad del fondo de estado detectada por Chromium.
+- Principal verificó 742 pruebas web/43 archivos, tipos frontend, lint y build
+  de producción; comparación Chromium en 360/390/768/1440px y movimiento
+  reducido, más control de Usuarios, sin desbordamiento ni errores de página.
+- Sin cambios en backend/shared/contratos/dependencias, sin DB ni sesiones
+  reales. No se ejecutaron suites DB ni cobertura global. Revisión principal,
+  sin auditoría independiente. Rama local `refactor/css-modules-mesas`, sin
+  commit, merge ni push. [Tareas y evidencia](specs/css-modules-mesas/tasks.md).
+- Continuar por superficies según prioridad del usuario: acceso/PIN, pedidos
+  y administración. [Convenciones de estilos](../frontend/docs/styles.md).
+
 ## UI editable en Figma — 2026-10-16
 
 - Exportadas 23 pantallas y estados al archivo Figma indicado por el usuario,

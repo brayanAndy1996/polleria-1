@@ -16,7 +16,10 @@ import { server } from '../msw-server.ts';
 import type { UserRole } from '@polleria/shared';
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace }),
+  usePathname: () => window.location.pathname,
+}));
 vi.mock('../../src/lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));
 
 const clients: QueryClient[] = [];

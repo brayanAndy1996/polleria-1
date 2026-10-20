@@ -11,6 +11,7 @@ import { hardNavigate } from '../src/lib/navigation.ts';
 const navigation = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 vi.mock('next/navigation', () => ({
   useRouter: () => navigation,
+  usePathname: () => window.location.pathname,
   useParams: () => ({ tableId: '3' }),
 }));
 vi.mock('../src/lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));

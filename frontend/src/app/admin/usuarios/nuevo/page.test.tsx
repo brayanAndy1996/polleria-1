@@ -10,6 +10,7 @@ import NuevoPage from './page.tsx';
 const mocks = vi.hoisted(() => ({ replace: vi.fn(), params: { id: '2' } }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mocks.replace }),
+  usePathname: () => window.location.pathname,
   useParams: () => mocks.params,
 }));
 vi.mock('../../../../lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));

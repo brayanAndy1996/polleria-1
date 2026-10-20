@@ -72,6 +72,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mocks.push, replace: mocks.replace }),
+  usePathname: () => window.location.pathname,
   useParams: () => mocks.params,
 }));
 vi.mock('../../src/lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));
@@ -299,6 +300,9 @@ async function openEditor(name: string | RegExp) {
 /** 'Agregar al pedido' del editor abierto (el último si hubiera varios). */
 function addToCart() {
   fireEvent.click(screen.getAllByRole('button', { name: 'Agregar al pedido' }).at(-1)!);
+}
+function closeEditor() {
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar personalización' }));
 }
 /** Línea del carrito: el <li> que contiene el nombre y su 'Quitar'. */
 function cartLine(name: RegExp | string) {
@@ -550,10 +554,14 @@ describe('ADV-011-07: el aviso de tope de envío se limpia al quitar una línea'
 
   it('tras quitar una línea del carrito lleno, "Un envío admite hasta 20 ítems." desaparece', async () => {
     await renderAgregar();
+    for (let i = 0; i < 20; i += 1) {
+      await openEditor('Chaufa');
+      addToCart();
+    }
     await openEditor('Chaufa');
-    for (let i = 0; i < 20; i += 1) addToCart();
     addToCart(); // ítem 21: no entra y deja el aviso
-    expect(screen.getByText('Un envío admite hasta 20 ítems.')).toBeVisible();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Un envío admite hasta 20 ítems.');
+    closeEditor();
     fireEvent.click(within(cartLine('Chaufa')).getByRole('button', { name: 'Quitar' }));
     expect(screen.queryByText('Un envío admite hasta 20 ítems.')).toBeNull();
   });
@@ -769,6 +777,7 @@ describe('ADV-011-13 (resuelto): la clave del envío es estable por intento', ()
     addToCart();
     fireEvent.click(screen.getByRole('button', { name: /Enviar a cocina/ }));
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/mozo/mesas/3'));
+    await openEditor('Chaufa');
     addToCart();
     fireEvent.click(screen.getByRole('button', { name: /Enviar a cocina/ }));
     await waitFor(() => expect(keys).toHaveLength(2));

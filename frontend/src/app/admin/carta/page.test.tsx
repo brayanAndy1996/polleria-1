@@ -10,6 +10,7 @@ import CartaPage from './page.tsx';
 const mocks = vi.hoisted(() => ({ replace: vi.fn(), params: { id: '1' } }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mocks.replace }),
+  usePathname: () => window.location.pathname,
   useParams: () => mocks.params,
 }));
 vi.mock('../../../lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));
@@ -121,12 +122,31 @@ describe('008: lista de la carta (/admin/carta)', () => {
     expect(await screen.findByRole('heading', { name: 'Carta', level: 1 })).toBeVisible();
     const pollo = productRow('Pollo a la brasa');
     expect(within(pollo).getByText('S/ 65.00')).toBeInTheDocument();
+    expect(within(pollo).getByText('Pollo')).toBeVisible();
+    expect(within(pollo).getByText('Activo')).toBeVisible();
     expect(within(pollo).queryByText('Desactivado')).not.toBeInTheDocument();
     expect(within(pollo).getByRole('link', { name: 'Editar' })).toHaveAttribute(
       'href',
       '/admin/carta/1',
     );
     expect(within(pollo).getByRole('button', { name: 'Desactivar' })).toBeInTheDocument();
+    const adminSections = screen.getByRole('navigation', { name: 'Administración' });
+    expect(within(adminSections).getByRole('link', { name: 'Carta' })).toHaveAttribute(
+      'href',
+      '/admin/carta',
+    );
+    expect(within(adminSections).getByRole('link', { name: 'Carta' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(adminSections).getByRole('link', { name: 'Configurar mesas' })).toHaveAttribute(
+      'href',
+      '/admin/mesas',
+    );
+    expect(within(adminSections).getByRole('link', { name: 'Usuarios' })).toHaveAttribute(
+      'href',
+      '/admin/usuarios',
+    );
     expect(within(productRow('Aj\u00ED')).getByText('S/ 0.00')).toBeInTheDocument();
     const tresLeches = productRow('Tres Leches');
     expect(within(tresLeches).getByText('S/ 5.00')).toBeInTheDocument();
@@ -138,6 +158,34 @@ describe('008: lista de la carta (/admin/carta)', () => {
     );
     // Solo Tres Leches lleva la marca.
     expect(screen.getAllByText('Desactivado')).toHaveLength(1);
+  });
+
+  it('AC-P04/P08: muestra fotos locales asociadas y conserva fallback, precio, estado y acciones', async () => {
+    mockProducts([
+      ...PRODUCTS,
+      { id: 7, name: 'Demo Pollo', category: 'chicken', priceCents: 3200, isActive: true },
+      { id: 8, name: 'Chicha morada', category: 'drink', priceCents: 500, isActive: true },
+    ]);
+    show(<CartaPage />);
+    await screen.findByRole('heading', { name: 'Carta', level: 1 });
+
+    const demoPollo = productRow('Demo Pollo');
+    expect(demoPollo.querySelector('img')?.getAttribute('src')).toContain('pollo-demo.png');
+    const chaufa = productRow('Chaufa');
+    expect(chaufa.querySelector('img')?.getAttribute('src')).toContain('chaufa-demo.png');
+    const chicha = productRow('Chicha morada');
+    expect(chicha.querySelector('img')?.getAttribute('src')).toContain('chicha-demo.png');
+
+    const incaKola = productRow('Inca Kola');
+    expect(incaKola.querySelector('img')).toBeNull();
+    expect(within(incaKola).getByText('S/ 4.00')).toBeVisible();
+    expect(within(incaKola).getByRole('link', { name: 'Editar' })).toHaveAttribute(
+      'href',
+      '/admin/carta/4',
+    );
+    const inactive = productRow('Tres Leches');
+    expect(within(inactive).getByText('Desactivado')).toBeVisible();
+    expect(within(inactive).getByRole('button', { name: 'Activar' })).toBeVisible();
   });
 
   it('AC-06: con la lista vacía muestra el estado vacío y mantiene el alta', async () => {

@@ -22,6 +22,7 @@ import { hardNavigate } from '../../src/lib/navigation.ts';
 const mocks = vi.hoisted(() => ({ params: { id: '1' }, replace: vi.fn() }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mocks.replace }),
+  usePathname: () => window.location.pathname,
   useParams: () => mocks.params,
 }));
 vi.mock('../../src/lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));

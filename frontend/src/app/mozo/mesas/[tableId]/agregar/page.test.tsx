@@ -5,7 +5,7 @@
 // El transporte del aviso nuevo queda fijado por estos tests:
 // sessionStorage['polleria:orderNotice'] con el texto literal aprobado en 013.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, delay, http } from 'msw';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mocks.replace, push: mocks.push }),
+  usePathname: () => window.location.pathname,
   useParams: () => mocks.params,
 }));
 vi.mock('../../../../../lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));
@@ -198,6 +199,9 @@ function cartLine(name: RegExp | string) {
 function addToCart() {
   fireEvent.click(screen.getAllByRole('button', { name: 'Agregar al pedido' }).at(-1)!);
 }
+function closeEditor() {
+  fireEvent.click(screen.getByRole('button', { name: 'Cerrar personalización' }));
+}
 function selectedOptionText(select: HTMLElement) {
   const el = select as HTMLSelectElement;
   return el.options[el.selectedIndex]?.textContent;
@@ -208,9 +212,43 @@ function optionNames(select: HTMLElement) {
     .map((o) => o.textContent);
 }
 
+let desktopViewport = true;
+const mediaListeners = new Set<(event: MediaQueryListEvent) => void>();
+function setDesktopViewport(desktop: boolean, notify = false) {
+  desktopViewport = desktop;
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: vi.fn((media: string) => ({
+      matches: media === '(min-width: 1024px)' && desktopViewport,
+      media,
+      onchange: null,
+      addListener: vi.fn((listener: (event: MediaQueryListEvent) => void) =>
+        mediaListeners.add(listener),
+      ),
+      removeListener: vi.fn((listener: (event: MediaQueryListEvent) => void) =>
+        mediaListeners.delete(listener),
+      ),
+      addEventListener: vi.fn((_event: string, listener: (event: MediaQueryListEvent) => void) =>
+        mediaListeners.add(listener),
+      ),
+      removeEventListener: vi.fn((_event: string, listener: (event: MediaQueryListEvent) => void) =>
+        mediaListeners.delete(listener),
+      ),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+  if (notify) {
+    for (const listener of mediaListeners) {
+      listener({ matches: desktop, media: '(min-width: 1024px)' } as MediaQueryListEvent);
+    }
+  }
+}
+
 describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mediaListeners.clear();
+    setDesktopViewport(true);
     localStorage.clear();
     sessionStorage.clear();
     window.history.replaceState({}, '', '/mozo/mesas/3/agregar');
@@ -245,6 +283,21 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     expect(within(card).getByText('S/ 65.00')).toBeVisible();
   });
 
+  it('AC-P02/P08: foto solo para el producto asociado; el fallback mantiene precio y edición', async () => {
+    mockMenu([...MENU, { ...POLLO, id: 11, name: 'Demo Pollo' }]);
+    await renderAgregar();
+
+    const demo = screen.getByRole('button', { name: /Demo Pollo/ });
+    expect(demo.querySelector('img')?.getAttribute('src')).toContain('pollo-demo.png');
+    const polloFrito = screen.getByRole('button', { name: /Pollo frito/ });
+    expect(polloFrito.querySelector('img')).toBeNull();
+    expect(within(polloFrito).getByText('Sin fotografía')).toBeVisible();
+    expect(within(polloFrito).getByText('Desde S/ 15.00')).toBeVisible();
+
+    fireEvent.click(polloFrito);
+    expect(await screen.findByRole('button', { name: 'Agregar al pedido' })).toBeVisible();
+  });
+
   it('AC-02/04: buscar y filtrar la carta conserva el carrito al actualizar productos', async () => {
     const view = await renderAgregar();
     await openEditor(/^Chaufa/);
@@ -272,6 +325,90 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     expect(await screen.findByRole('button', { name: 'Inca Kola sin azúcar' })).toBeVisible();
     expect(screen.getByText('Sin cebolla')).toBeVisible();
     expect(screen.getByRole('button', { name: /Enviar a cocina \(1\)/ })).toBeEnabled();
+  });
+
+  it('AC-O04: filtros son efectivos y se pueden limpiar sin perder la tanda', async () => {
+    await renderAgregar();
+    await openEditor(/^Chaufa/);
+    addToCart();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }));
+    const filters = await screen.findByRole('dialog', { name: 'Filtros del catálogo' });
+    const drinks = within(filters).getByRole('button', { name: 'Bebidas' });
+    fireEvent.click(drinks);
+    expect(drinks).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Inca Kola' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Pollo a la brasa' })).not.toBeInTheDocument();
+    expect(screen.getByText('Chaufa')).toBeVisible();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Filtros del catálogo' }),
+      ).not.toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Filtros' }));
+    const reopenedFilters = await screen.findByRole('dialog', { name: 'Filtros del catálogo' });
+    expect(within(reopenedFilters).getByRole('button', { name: 'Bebidas' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    fireEvent.click(within(reopenedFilters).getByRole('button', { name: 'Limpiar filtros' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Filtros del catálogo' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: 'Pollo a la brasa' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Inca Kola' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Enviar a cocina (1)' })).toBeEnabled();
+  });
+
+  it('AC-O04: personalizar un producto abre un diálogo y agregar confirma la línea', async () => {
+    await renderAgregar();
+    await openEditor(/^Chaufa/);
+    const editor = await screen.findByRole('dialog', { name: 'Personalizar Chaufa' });
+    expect(within(editor).getByLabelText('Cantidad')).toBeVisible();
+    expect(within(editor).getByLabelText('Observación')).toBeVisible();
+    fireEvent.change(within(editor).getByLabelText('Cantidad'), { target: { value: '2' } });
+    fireEvent.click(within(editor).getByRole('button', { name: 'Agregar al pedido' }));
+    expect(screen.queryByRole('dialog', { name: 'Personalizar Chaufa' })).not.toBeInTheDocument();
+    const line = cartLine('Chaufa');
+    expect(within(line).getByLabelText(/cantidad/i)).toHaveValue('2');
+    expect(within(line).getByText('S/ 28.00')).toBeVisible();
+  });
+
+  it('AC-O05: el carrito móvil resume unidades/total y cerrar el panel conserva la tanda', async () => {
+    setDesktopViewport(false);
+    await renderAgregar();
+    await openEditor(/^Chaufa/);
+    fireEvent.change(screen.getByLabelText('Cantidad'), { target: { value: '2' } });
+    addToCart();
+
+    const openCart = screen.getByRole('button', { name: /Ver pedido.*2.*S\/ 28\.00/i });
+    expect(openCart).toBeVisible();
+    fireEvent.click(openCart);
+    const panel = await screen.findByRole('dialog', { name: 'Pedido por enviar' });
+    const line = cartLine('Chaufa');
+    expect(within(line).getByLabelText(/cantidad/i)).toHaveValue('2');
+    const total = within(panel).getByText('Total de tanda').parentElement!;
+    expect(within(total).getByText('S/ 28.00')).toBeVisible();
+    expect(within(panel).getByRole('button', { name: 'Enviar a cocina (1)' })).toBeEnabled();
+
+    fireEvent.click(within(panel).getByRole('button', { name: 'Volver al catálogo' }));
+    expect(screen.queryByRole('dialog', { name: 'Pedido por enviar' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ver pedido.*2.*S\/ 28\.00/i })).toBeVisible();
+    expect(screen.getByText('Agregar ítems')).toBeVisible();
+
+    act(() => setDesktopViewport(true, true));
+    expect(screen.queryByRole('button', { name: /Ver pedido/i })).not.toBeInTheDocument();
+    const desktopCart = screen.getByRole('complementary', { name: 'Pedido por enviar' });
+    const desktopLine = cartLine('Chaufa');
+    expect(within(desktopLine).getByLabelText(/cantidad/i)).toHaveValue('2');
+    const desktopTotal = within(desktopCart).getByText('Total de tanda').parentElement!;
+    expect(within(desktopTotal).getByText('S/ 28.00')).toBeVisible();
+    act(() => setDesktopViewport(false, true));
+    expect(screen.getByRole('button', { name: /Ver pedido.*2.*S\/ 28\.00/i })).toBeVisible();
   });
 
   it('AC-15: Cargando carta..., No se pudo cargar la carta. con Reintentar y La carta está vacía.', async () => {
@@ -314,6 +451,7 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     expect(screen.queryByRole('combobox', { name: 'Parte' })).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Distribución' })).not.toBeInTheDocument();
 
+    closeEditor();
     await openEditor(/Pollo a la brasa/);
     const presentacion = screen.getByRole('combobox', { name: 'Presentación' });
     expect(optionNames(presentacion)).toEqual(['Octavo', 'Cuarto', 'Medio pollo', 'Pollo entero']);
@@ -353,6 +491,7 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     expect(cantidades.length).toBe(2);
     expect(cantidades.some((c) => (c as HTMLInputElement).value === '1')).toBe(true);
     // Bebida: Cantidad y Observación, pero no Cremas.
+    closeEditor();
     await openEditor(/Inca Kola/);
     expect(screen.getByLabelText('Cantidad')).toBeInTheDocument();
     expect(screen.getByLabelText('Observación')).toBeInTheDocument();
@@ -361,6 +500,7 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     // Combo: componentes listados (además de la tarjeta del producto); el de
     // pollo lleva el selector de parte con el defecto de la carta; el
     // componente inactivo se muestra ' (desactivado)'.
+    closeEditor();
     await openEditor('Mostrito');
     expect(screen.getAllByText(/Pollo a la brasa/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('Chaufa').length).toBeGreaterThanOrEqual(2);
@@ -415,6 +555,8 @@ describe('011: toma de pedido y carrito (/mozo/mesas/[tableId]/agregar)', () => 
     if (!screen.queryByRole('button', { name: 'Agregar al pedido' })) await openEditor(/^Chaufa/);
     fireEvent.click(screen.getAllByRole('button', { name: 'Agregar al pedido' }).at(-1)!);
     expect(await screen.findByText('Un envío admite hasta 20 ítems.')).toBeVisible();
+    closeEditor();
+    expect(screen.getByRole('alert')).toHaveTextContent('Un envío admite hasta 20 ítems.');
     expect(screen.getByRole('button', { name: 'Enviar a cocina (20)' })).toBeInTheDocument();
   });
 

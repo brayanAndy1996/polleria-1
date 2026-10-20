@@ -13,6 +13,7 @@ import { server } from '../msw-server.ts';
 const mocks = vi.hoisted(() => ({ replace: vi.fn(), params: { id: '2' } }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mocks.replace }),
+  usePathname: () => window.location.pathname,
   useParams: () => mocks.params,
 }));
 vi.mock('../../src/lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));

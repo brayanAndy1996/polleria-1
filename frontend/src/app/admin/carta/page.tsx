@@ -4,27 +4,39 @@ import { Button } from '@heroui/react';
 import { useQuery } from '@tanstack/react-query';
 import { PRODUCT_CATEGORIES, formatSoles } from '@polleria/shared';
 import type { Product } from '@polleria/shared';
+import Image from 'next/image';
 import Link from 'next/link';
 import { RoleGuard } from '../../../components/auth/role-guard.tsx';
 import { ProductStateControl } from '../../../components/menu/product-state-control.tsx';
 import { getProducts } from '../../../lib/api/products.ts';
 import { PRODUCT_CATEGORY_LABELS } from '../../../lib/menu-labels.ts';
 import { usePrimaryInstance } from '../../../lib/primary-instance.ts';
+import { getProductImage } from '../../../lib/product-image.ts';
+import styles from './page.module.css';
 
 /** Fila de la lista: nombre, precio en soles, marca de estado, Editar y activar/desactivar. */
 function ProductRow({ product }: { product: Product }) {
+  const image = getProductImage(product);
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-separator bg-surface px-5 py-4">
-      <div className="min-w-0 space-y-1">
-        <p className="text-xl font-semibold wrap-anywhere">{product.name}</p>
-        <p className="text-sm">{formatSoles(product.priceCents)}</p>
-        {!product.isActive && <p className="text-sm font-semibold text-danger">Desactivado</p>}
+    <li className={styles.row}>
+      <div className={styles.productInfo}>
+        <div className={styles.thumbnail} aria-hidden={image === null}>
+          {image !== null && <Image src={image} alt={product.name} width={96} height={72} />}
+        </div>
+        <div className={styles.productText}>
+          <p className={styles.productName}>{product.name}</p>
+          <p className={styles.category}>{PRODUCT_CATEGORY_LABELS[product.category]}</p>
+        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href={`/admin/carta/${product.id}`}
-          className="inline-flex min-h-12 items-center text-accent underline underline-offset-4"
-        >
+      <p className={styles.productPrice}>{formatSoles(product.priceCents)}</p>
+      <span
+        className={product.isActive ? styles.activeState : styles.inactive}
+        data-state={product.isActive ? 'active' : 'inactive'}
+      >
+        {product.isActive ? 'Activo' : 'Desactivado'}
+      </span>
+      <div className={styles.actions}>
+        <Link href={`/admin/carta/${product.id}`} className={styles.editLink}>
           Editar
         </Link>
         <ProductStateControl product={product} />
@@ -62,37 +74,49 @@ function CartaList() {
   const list = products.data ?? [];
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Carta</h1>
-        <Link
-          href="/admin/carta/nuevo"
-          className="inline-flex min-h-12 items-center rounded-xl bg-accent px-5 font-semibold text-accent-foreground"
-        >
+      <div className={styles.listHeader}>
+        <div>
+          <h1 className={styles.heading}>Carta</h1>
+          <p className={styles.description}>Productos y precios del salón.</p>
+        </div>
+        <Link href="/admin/carta/nuevo" className={styles.addLink}>
           Agregar producto
         </Link>
       </div>
       {list.length === 0 && <p>La carta está vacía.</p>}
       {/* Una sección por categoría presente, en el orden fijo de la carta (RN-008-03);
           dentro de cada sección las filas van en el orden que devuelve la API. */}
-      {PRODUCT_CATEGORIES.map((category) => {
-        const items = list.filter((product) => product.category === category);
-        if (items.length === 0) return null;
-        return (
-          <section key={category} className="space-y-3">
-            <h2 className="text-xl font-semibold">{PRODUCT_CATEGORY_LABELS[category]}</h2>
-            <ul className="space-y-3">
-              {items.map((product) => (
-                <ProductRow key={product.id} product={product} />
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+      <section className={styles.panel} aria-label="Productos de la carta">
+        <div className={styles.columnHeadings} aria-hidden="true">
+          <span>Producto</span>
+          <span>Precio</span>
+          <span>Estado</span>
+          <span>Acciones</span>
+        </div>
+        {PRODUCT_CATEGORIES.map((category) => {
+          const items = list.filter((product) => product.category === category);
+          if (items.length === 0) return null;
+          return (
+            <section key={category} className={styles.categorySection}>
+              <h2 className="sr-only">{PRODUCT_CATEGORY_LABELS[category]}</h2>
+              <ul className={styles.productList}>
+                {items.map((product) => (
+                  <ProductRow key={product.id} product={product} />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </section>
     </>
   );
 }
 
 export default function Page() {
   const primary = usePrimaryInstance();
-  return <RoleGuard area="/admin">{primary ? <CartaList /> : null}</RoleGuard>;
+  return (
+    <RoleGuard area="/admin" appearance="pos">
+      {primary ? <CartaList /> : null}
+    </RoleGuard>
+  );
 }

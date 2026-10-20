@@ -3,6 +3,7 @@
 import { Button } from '@heroui/react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
+import { Dialog, Modal, ModalOverlay } from 'react-aria-components';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import {
@@ -23,7 +24,7 @@ import type {
 } from '@polleria/shared';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Label } from '@heroui/react';
 import { RoleGuard } from '../../../../../components/auth/role-guard.tsx';
 import { ScreenState } from '../../../../../components/auth/screen-state.tsx';
@@ -38,6 +39,8 @@ import {
 } from '../../../../../lib/api/issues.ts';
 import { getMenu } from '../../../../../lib/api/menu.ts';
 import { createIdempotencyKey } from '../../../../../lib/idempotency.ts';
+import { getProductImage } from '../../../../../lib/product-image.ts';
+import styles from './page.module.css';
 import {
   CUT_LABELS,
   PORTION_LABELS,
@@ -57,6 +60,22 @@ const DISTRIBUTIONS: readonly { label: string; breast: number; leg: number }[] =
   { label: '0 pecho y 4 pierna', breast: 0, leg: 4 },
 ];
 const DEFAULT_DISTRIBUTION = DISTRIBUTIONS[0]!;
+const DESKTOP_QUERY = '(min-width: 1024px)';
+
+function subscribeDesktop(onChange: () => void) {
+  if (typeof window.matchMedia !== 'function') return () => {};
+  const media = window.matchMedia(DESKTOP_QUERY);
+  media.addEventListener('change', onChange);
+  return () => media.removeEventListener('change', onChange);
+}
+
+function getDesktopSnapshot() {
+  return typeof window.matchMedia !== 'function' || window.matchMedia(DESKTOP_QUERY).matches;
+}
+
+function useDesktopLayout() {
+  return useSyncExternalStore(subscribeDesktop, getDesktopSnapshot, () => false);
+}
 
 /** Presentaciones deduplicadas en el orden de la carta. */
 function offeredPortions(product: MenuProduct): Portion[] {
@@ -95,14 +114,6 @@ function unitPrice(product: MenuProduct, portion: Portion | null, cut: Cut | nul
 }
 
 /** Fotos locales de demostración: solo se asocian por nombre a su producto real. */
-function productImage(product: MenuProduct): string | null {
-  const name = product.name.toLocaleLowerCase('es-PE');
-  if (name.includes('chaufa')) return '/images/chaufa-demo.png';
-  if (name.includes('chicha morada')) return '/images/chicha-demo.png';
-  if (name.startsWith('pollo a la brasa')) return '/images/pollo-demo.png';
-  return null;
-}
-
 function productCardPrice(product: MenuProduct): string {
   if (product.category === 'chicken' && product.portions.length > 0) {
     const startingCents = Math.min(...product.portions.map((portion) => portion.priceCents));
@@ -443,19 +454,19 @@ function CartSection({
 }) {
   if (lines.length === 0) return null;
   return (
-    <ul className="space-y-3">
+    <ul className={styles.cartLines}>
       {lines.map((line, index) => {
         const portionLabel =
           line.portion !== null ? ` — ${formatPortionCutLabel(line.portion, line.cut)}` : '';
         const errors = lineErrors.get(index) ?? [];
         return (
-          <li
-            key={line.key}
-            className="space-y-2 rounded-2xl border border-separator bg-surface px-4 py-3"
-          >
-            <p>
-              {line.quantity} × <span>{line.productName}</span>
-              {portionLabel} · {formatSoles(linePrice(line))}
+          <li key={line.key} className={styles.cartLine}>
+            <p className={styles.lineHeading}>
+              <span>
+                {line.quantity} × <span>{line.productName}</span>
+                {portionLabel}
+              </span>
+              <strong>{formatSoles(linePrice(line))}</strong>
             </p>
             {line.sauces.map((sauce) => (
               <p key={sauce.productId} className="text-sm text-muted">
@@ -470,8 +481,8 @@ function CartSection({
                 {message}
               </p>
             ))}
-            <div className="flex items-end gap-3">
-              <div className="w-28">
+            <div className={styles.lineActions}>
+              <div className={styles.quantityField}>
                 <LabeledInput
                   id={`cart-qty-${line.key}`}
                   label="Cantidad"
@@ -480,7 +491,11 @@ function CartSection({
                   onChange={(event) => onQuantity(line.key, event.target.value)}
                 />
               </div>
-              <Button className="min-h-12" onPress={() => onRemove(line.key)}>
+              <Button
+                variant="secondary"
+                className={`min-h-12 ${styles.removeButton}`}
+                onPress={() => onRemove(line.key)}
+              >
                 Quitar
               </Button>
             </div>
@@ -535,8 +550,19 @@ function OrderComposer({
   const queryClient = useQueryClient();
   const router = useRouter();
   const orderId = table?.order?.id;
+  const isDesktop = useDesktopLayout();
   const [editorProductId, setEditorProductId] = useState<number | null>(null);
   const [editor, setEditor] = useState<EditorState | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersPosition, setFiltersPosition] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    maxHeight: number;
+  }>();
+  const filtersTriggerRef = useRef<HTMLButtonElement>(null);
+  const filtersRootRef = useRef<HTMLDivElement>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [cartError, setCartError] = useState<string>();
   const [sendErrors, setSendErrors] = useState<string[]>([]);
@@ -547,10 +573,77 @@ function OrderComposer({
   const pendingSend = useRef<{ body: unknown; key: string } | null>(null);
   const sending = useRef(false);
   const nextKey = useRef(1);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia(DESKTOP_QUERY);
+    const closeMobileCart = () => setCartOpen(false);
+    media.addEventListener('change', closeMobileCart);
+    return () => media.removeEventListener('change', closeMobileCart);
+  }, []);
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const positionPopover = () => {
+      const anchor = filtersTriggerRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const margin = 12;
+      const width = Math.min(340, window.innerWidth - margin * 2);
+      const spaceAbove = Math.max(0, anchor.top - margin - 8);
+      const spaceBelow = Math.max(0, window.innerHeight - anchor.bottom - margin - 8);
+      const placeAbove = spaceBelow < 360 && spaceAbove > spaceBelow;
+      setFiltersPosition({
+        ...(placeAbove
+          ? { bottom: window.innerHeight - anchor.top + 8 }
+          : { top: anchor.bottom + 8 }),
+        left: Math.max(margin, Math.min(anchor.right - width, window.innerWidth - width - margin)),
+        maxHeight: Math.max(120, Math.min(600, placeAbove ? spaceAbove : spaceBelow)),
+      });
+    };
+    positionPopover();
+    window.addEventListener('resize', positionPopover);
+    const focusFirstControl = () => {
+      filtersRootRef.current?.querySelector<HTMLElement>('[role="dialog"] button')?.focus();
+    };
+    const focusFrame = requestAnimationFrame(focusFirstControl);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setFiltersOpen(false);
+        filtersTriggerRef.current?.focus();
+      } else if (event.key === 'Tab') {
+        const controls = Array.from(
+          filtersRootRef.current?.querySelectorAll<HTMLElement>(
+            '[role="dialog"] button:not([disabled])',
+          ) ?? [],
+        );
+        const first = controls[0];
+        const last = controls.at(-1);
+        if (
+          (event.shiftKey && document.activeElement === first) ||
+          (!event.shiftKey && document.activeElement === last)
+        ) {
+          setFiltersOpen(false);
+        }
+      }
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (!filtersRootRef.current?.contains(event.target as Node)) {
+        setFiltersOpen(false);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      window.removeEventListener('resize', positionPopover);
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('pointerdown', onPointerDown);
+    };
+  }, [filtersOpen]);
 
   const openEditor = (product: MenuProduct) => {
     setEditorProductId(product.id);
     setEditor(defaultEditorState(product));
+    setCartError(undefined);
   };
 
   const touchCart = (next: CartLine[]) => {
@@ -628,6 +721,8 @@ function OrderComposer({
       components,
     };
     touchCart([...cart, line]);
+    setEditorProductId(null);
+    setEditor(null);
   };
 
   const send = useMutation({
@@ -693,110 +788,249 @@ function OrderComposer({
   const shownCategories = PRODUCT_CATEGORIES.filter((category) =>
     filteredProducts.some((product) => product.category === category),
   );
+  const availableCategories = PRODUCT_CATEGORIES.filter((category) =>
+    products.some((product) => product.category === category),
+  );
+  const editorProduct = products.find((product) => product.id === editorProductId);
+  const unitCount = cart.reduce((total, line) => total + line.quantity, 0);
+  const totalCents = cart.reduce((total, line) => total + linePrice(line), 0);
+  const cartContent = (
+    <div className={styles.cartContent}>
+      <header className={styles.cartHeading}>
+        <p className={styles.cartTitle}>Tanda sin enviar</p>
+        <p className={styles.cartContext}>
+          {table?.name ?? 'Mesa'}
+          {orderId !== undefined ? ` · Pedido #${orderId}` : ''}
+        </p>
+      </header>
+      <section className="space-y-3">
+        <CartSection
+          lines={cart}
+          lineErrors={lineErrors}
+          onQuantity={(key, value) => {
+            touchCart(
+              cart.map((line) =>
+                line.key === key
+                  ? { ...line, quantity: Math.max(1, Math.floor(Number(value) || 1)) }
+                  : line,
+              ),
+            );
+          }}
+          onRemove={(key) => touchCart(cart.filter((line) => line.key !== key))}
+        />
+        {cart.length === 0 && <p className={styles.cartEmpty}>Agrega productos de la carta.</p>}
+        <div className={styles.cartTotal}>
+          <span>Total de tanda</span>
+          <strong>{formatSoles(totalCents)}</strong>
+        </div>
+        {cartError !== undefined && editor === null && <p role="alert">{cartError}</p>}
+        {sendFailed && (
+          <div className="space-y-2">
+            <p role="alert">No se pudo enviar el pedido.</p>
+            {sendErrors.map((message) => (
+              <p key={message}>{message}</p>
+            ))}
+          </div>
+        )}
+        {!sendFailed &&
+          sendErrors.map((message) => (
+            <p key={message} role="alert">
+              {message}
+            </p>
+          ))}
+        <div className="flex flex-wrap gap-3">
+          <Button
+            className="min-h-12"
+            isDisabled={cart.length === 0 || send.isPending || orderId === undefined}
+            onPress={doSend}
+          >
+            {send.isPending ? 'Enviando...' : `Enviar a cocina (${cart.length})`}
+          </Button>
+          {sendFailed && (
+            <Button className="min-h-12" isDisabled={send.isPending} onPress={doSend}>
+              Reintentar envío
+            </Button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
   return (
     <>
-      <h1 className="text-3xl font-bold">Agregar ítems</h1>
-      {table !== undefined && <p>{table.name}</p>}
-      <p>
-        <Link href={`/mozo/mesas/${tableId}`} className="text-accent underline underline-offset-4">
+      <header className={styles.pageHeader}>
+        <div>
+          <h1 className={styles.pageTitle}>Agregar ítems</h1>
+          {table !== undefined && <p className={styles.tableContext}>{table.name}</p>}
+        </div>
+        <Link href={`/mozo/mesas/${tableId}`} className={styles.backLink}>
           Volver al pedido
         </Link>
-      </p>
-      <div className="composer-layout">
-        <nav className="composer-categories" aria-label="Categorías de la carta">
-          <p>Carta</p>
+      </header>
+      <nav className={styles.categories} aria-label="Categorías de la carta">
+        <button
+          type="button"
+          aria-pressed={selectedCategory === 'all'}
+          onClick={() => setSelectedCategory('all')}
+        >
+          Todo
+        </button>
+        {availableCategories.map((category) => (
           <button
+            key={category}
             type="button"
-            aria-pressed={selectedCategory === 'all'}
-            onClick={() => setSelectedCategory('all')}
+            aria-label={PRODUCT_CATEGORY_LABELS[category]}
+            aria-pressed={selectedCategory === category}
+            onClick={() => setSelectedCategory(category)}
           >
-            Todo
+            {PRODUCT_CATEGORY_LABELS[category]}
+            <span aria-hidden="true">
+              {products.filter((product) => product.category === category).length}
+            </span>
           </button>
-          {PRODUCT_CATEGORIES.filter((category) =>
-            products.some((product) => product.category === category),
-          ).map((category) => (
-            <button
-              key={category}
-              type="button"
-              aria-pressed={selectedCategory === category}
-              onClick={() => setSelectedCategory(category)}
-            >
-              {PRODUCT_CATEGORY_LABELS[category]}
-            </button>
-          ))}
-        </nav>
-        <div className="composer-catalog">
+        ))}
+      </nav>
+      <div className={styles.layout}>
+        <div className={styles.catalog}>
           {products.length === 0 ? (
-            <p>La carta está vacía.</p>
+            <p className={styles.empty}>La carta está vacía.</p>
           ) : (
             <>
-              <label className="composer-search">
-                <span className="sr-only">Buscar producto</span>
-                <input
-                  type="search"
-                  name="search"
-                  role="searchbox"
-                  aria-label="Buscar producto"
-                  placeholder="Buscar producto…"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </label>
+              <div ref={filtersRootRef} className={styles.catalogTools}>
+                <label className={styles.search}>
+                  <span className="sr-only">Buscar producto</span>
+                  <input
+                    type="search"
+                    name="search"
+                    role="searchbox"
+                    aria-label="Buscar producto"
+                    placeholder="Buscar producto…"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                  />
+                </label>
+                <Button
+                  ref={filtersTriggerRef}
+                  id="catalog-filters-trigger"
+                  className={styles.filtersButton}
+                  variant="secondary"
+                  onPress={() => setFiltersOpen((isOpen) => !isOpen)}
+                  aria-expanded={filtersOpen}
+                  aria-haspopup="dialog"
+                  aria-controls="catalog-filters-popover"
+                >
+                  Filtros
+                </Button>
+                {filtersOpen && (
+                  <div
+                    id="catalog-filters-popover"
+                    aria-labelledby="catalog-filters-title"
+                    className={styles.filtersPopover}
+                    role="dialog"
+                    style={{
+                      position: 'fixed',
+                      top: filtersPosition?.top,
+                      bottom: filtersPosition?.bottom,
+                      left: filtersPosition?.left,
+                      maxHeight: filtersPosition?.maxHeight,
+                    }}
+                  >
+                    <div className={styles.filterHeading}>
+                      <h2 id="catalog-filters-title" className={styles.dialogTitle}>
+                        Filtros del catálogo
+                      </h2>
+                      <Button
+                        variant="secondary"
+                        onPress={() => {
+                          setFiltersOpen(false);
+                          filtersTriggerRef.current?.focus();
+                        }}
+                      >
+                        Cerrar filtros
+                      </Button>
+                    </div>
+                    <div className={styles.filterOptions}>
+                      <Button
+                        variant="secondary"
+                        aria-pressed={selectedCategory === 'all'}
+                        onPress={() => setSelectedCategory('all')}
+                      >
+                        Todo
+                      </Button>
+                      {availableCategories.map((category) => (
+                        <Button
+                          key={category}
+                          variant="secondary"
+                          aria-pressed={selectedCategory === category}
+                          onPress={() => setSelectedCategory(category)}
+                        >
+                          {PRODUCT_CATEGORY_LABELS[category]}
+                        </Button>
+                      ))}
+                    </div>
+                    <Button
+                      variant="secondary"
+                      onPress={() => {
+                        setSelectedCategory('all');
+                        setSearch('');
+                        setFiltersOpen(false);
+                        filtersTriggerRef.current?.focus();
+                      }}
+                    >
+                      Limpiar filtros
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <p className={styles.catalogTitle}>Todos los productos</p>
               {filteredProducts.length === 0 ? (
-                <p className="composer-empty">No hay productos que coincidan con la búsqueda.</p>
+                <p className={styles.empty}>No hay productos que coincidan con la búsqueda.</p>
               ) : null}
               {shownCategories.map((category) => {
                 const section = filteredProducts.filter((product) => product.category === category);
                 if (section.length === 0) return null;
                 return (
-                  <section key={category} className="composer-category-section space-y-3">
+                  <section key={category} className={styles.categorySection}>
                     <h2 className="sr-only">{PRODUCT_CATEGORY_LABELS[category]}</h2>
-                    <ul className="composer-product-grid" role="list">
+                    <ul className={styles.productGrid} role="list">
                       {section.map((product) => (
                         <li key={product.id}>
                           <motion.button
                             type="button"
                             aria-label={product.name}
-                            className="composer-product-card"
+                            className={styles.productCard}
+                            data-category={product.category}
                             whileTap={{ scale: 0.985 }}
                             transition={{ duration: 0.12 }}
                             onClick={() => openEditor(product)}
                           >
-                            {productImage(product) !== null && (
-                              <span className="composer-product-image">
+                            <span className={styles.productImage}>
+                              {getProductImage(product) !== null ? (
                                 <Image
-                                  src={productImage(product)!}
+                                  src={getProductImage(product)!}
                                   alt={product.name}
                                   width={724}
                                   height={543}
                                   sizes="(max-width: 640px) 45vw, (max-width: 1199px) 32vw, 22vw"
                                 />
-                              </span>
-                            )}
-                            <span className="composer-product-name">{product.name}</span>
-                            <span className="composer-product-price">
-                              {product.category === 'chicken' ? (
-                                <>
-                                  <span>{formatSoles(product.priceCents)}</span>
-                                  <small>{productCardPrice(product)}</small>
-                                </>
                               ) : (
-                                productCardPrice(product)
+                                <span className={styles.imageFallback}>Sin fotografía</span>
                               )}
                             </span>
-                            <span className="composer-product-action">Elegir</span>
+                            <span className={styles.productInfo}>
+                              <span className={styles.productName}>{product.name}</span>
+                              <span className={styles.productPrice}>
+                                {product.category === 'chicken' ? (
+                                  <>
+                                    <span>{formatSoles(product.priceCents)}</span>
+                                    <small>{productCardPrice(product)}</small>
+                                  </>
+                                ) : (
+                                  productCardPrice(product)
+                                )}
+                              </span>
+                              <span className={styles.addLabel}>Agregar</span>
+                            </span>
                           </motion.button>
-                          {editorProductId === product.id && editor !== null && (
-                            <div>
-                              <ItemEditor
-                                product={product}
-                                sauces={sauces}
-                                editor={editor}
-                                onChange={setEditor}
-                                onAdd={() => addToCart(product)}
-                              />
-                            </div>
-                          )}
                         </li>
                       ))}
                     </ul>
@@ -806,72 +1040,91 @@ function OrderComposer({
             </>
           )}
         </div>
-        <aside className="composer-cart" aria-label="Pedido por enviar">
-          <header className="composer-cart-heading">
-            <p className="composer-cart-title">Tanda sin enviar</p>
-            <p>
-              {table?.name ?? 'Mesa'}
-              {orderId !== undefined ? ` · Pedido #${orderId}` : ''}
-            </p>
-          </header>
-          <section className="space-y-3">
-            <CartSection
-              lines={cart}
-              lineErrors={lineErrors}
-              onQuantity={(key, value) => {
-                touchCart(
-                  cart.map((line) =>
-                    line.key === key
-                      ? { ...line, quantity: Math.max(1, Math.floor(Number(value) || 1)) }
-                      : line,
-                  ),
-                );
-              }}
-              onRemove={(key) => {
-                touchCart(cart.filter((line) => line.key !== key));
-              }}
-            />
-            {cart.length === 0 && (
-              <p className="composer-cart-empty">Agrega productos de la carta.</p>
-            )}
-            <div className="composer-cart-total">
-              <span>Total de tanda</span>
-              <strong>
-                {formatSoles(cart.reduce((total, line) => total + linePrice(line), 0))}
-              </strong>
-            </div>
-            {cartError !== undefined && <p role="alert">{cartError}</p>}
-            {sendFailed && (
-              <div className="space-y-2">
-                <p role="alert">No se pudo enviar el pedido.</p>
-                {sendErrors.map((message) => (
-                  <p key={message}>{message}</p>
-                ))}
-              </div>
-            )}
-            {!sendFailed &&
-              sendErrors.map((message) => (
-                <p key={message} role="alert">
-                  {message}
-                </p>
-              ))}
-            <div className="flex flex-wrap gap-3">
-              <Button
-                className="min-h-12"
-                isDisabled={cart.length === 0 || send.isPending || orderId === undefined}
-                onPress={doSend}
-              >
-                {send.isPending ? 'Enviando...' : `Enviar a cocina (${cart.length})`}
-              </Button>
-              {sendFailed && (
-                <Button className="min-h-12" isDisabled={send.isPending} onPress={doSend}>
-                  Reintentar envío
-                </Button>
-              )}
-            </div>
-          </section>
-        </aside>
+        {isDesktop && (
+          <aside className={styles.cart} aria-label="Pedido por enviar">
+            {cartContent}
+          </aside>
+        )}
       </div>
+      {!isDesktop && (
+        <>
+          <div className={styles.mobileCartBar}>
+            <Button
+              className={styles.mobileCartButton}
+              onPress={() => setCartOpen(true)}
+              aria-label={`Ver pedido, ${unitCount} unidades, ${formatSoles(totalCents)}`}
+            >
+              <span>Ver pedido</span>
+              <span>{unitCount}</span>
+              <strong>{formatSoles(totalCents)}</strong>
+            </Button>
+          </div>
+          <ModalOverlay
+            isOpen={cartOpen}
+            isDismissable
+            onOpenChange={setCartOpen}
+            className={styles.cartOverlay}
+          >
+            <Modal className={styles.cartModal}>
+              <Dialog aria-labelledby="mobile-order-title" className={styles.cartDialog}>
+                <header className={styles.mobileCartHeading}>
+                  <h2 id="mobile-order-title">Pedido por enviar</h2>
+                  <Button
+                    variant="secondary"
+                    className={styles.returnToCatalog}
+                    onPress={() => setCartOpen(false)}
+                  >
+                    Volver al catálogo
+                  </Button>
+                </header>
+                {cartContent}
+              </Dialog>
+            </Modal>
+          </ModalOverlay>
+        </>
+      )}
+      <ModalOverlay
+        isOpen={editorProduct !== undefined && editor !== null}
+        isDismissable
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setEditorProductId(null);
+            setEditor(null);
+          }
+        }}
+        className={styles.dialogOverlay}
+      >
+        <Modal className={styles.editorModal}>
+          <Dialog aria-labelledby="product-editor-title" className={styles.editorDialog}>
+            {editorProduct && editor && (
+              <>
+                <header className={styles.editorHeading}>
+                  <h2 id="product-editor-title">Personalizar {editorProduct.name}</h2>
+                  <Button
+                    variant="secondary"
+                    aria-label="Cerrar personalización"
+                    className={styles.closeEditor}
+                    onPress={() => {
+                      setEditorProductId(null);
+                      setEditor(null);
+                    }}
+                  >
+                    Cerrar personalización
+                  </Button>
+                </header>
+                {cartError !== undefined && <p role="alert">{cartError}</p>}
+                <ItemEditor
+                  product={editorProduct}
+                  sauces={sauces}
+                  editor={editor}
+                  onChange={setEditor}
+                  onAdd={() => addToCart(editorProduct)}
+                />
+              </>
+            )}
+          </Dialog>
+        </Modal>
+      </ModalOverlay>
     </>
   );
 }
@@ -914,7 +1167,7 @@ export default function Page() {
       </ScreenState>
     );
   return (
-    <RoleGuard area="/mozo">
+    <RoleGuard area="/mozo" appearance="pos">
       <OrderComposer
         tableId={tableId}
         products={menu.data}

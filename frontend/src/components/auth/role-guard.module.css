@@ -1,0 +1,414 @@
+.posShell {
+  --pos-v1-canvas: #f5f6f8;
+  --pos-v1-ink: #20242b;
+  --pos-v1-muted: #626a77;
+  --pos-v1-primary: #0967d2;
+  --pos-v1-line: #e2e5ea;
+  --pos-v1-success-bg: #eaf5ee;
+  --pos-v1-success-ink: #17613c;
+  --pos-v1-warning-bg: #fff5df;
+  --pos-v1-warning-ink: #774900;
+  --pos-v1-ready-bg: #eaf2ff;
+  --pos-v1-ready-ink: #0967d2;
+  --pos-v1-bill-bg: #f3ebfc;
+  --pos-v1-bill-ink: #6d369d;
+}
+
+.authRoot {
+  --nav-ink: #20242b;
+  --nav-muted: #626a77;
+  --nav-primary: #0967d2;
+  --nav-line: #e2e5ea;
+  min-height: 100dvh;
+}
+
+.appLayout {
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: minmax(0, 1fr);
+  background: #f5f6f8;
+  color: var(--nav-ink);
+  font-family: 'Nunito Variable', Nunito, Arial, sans-serif;
+}
+
+.appLayout :global(.workspace-main) {
+  min-width: 0;
+}
+
+.brand {
+  display: flex;
+  min-height: 48px;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: var(--nav-ink);
+  text-decoration: none;
+}
+
+.brand:hover {
+  color: var(--nav-ink);
+}
+
+.brandMark {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--nav-primary);
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.brand strong {
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100dvh;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  border-right: 1px solid var(--nav-line);
+  background: #fff;
+  padding: 22px 14px 16px;
+}
+
+.sidebar > .brand {
+  padding: 0 8px;
+  margin-bottom: 30px;
+}
+
+.primaryNavigation,
+.adminNavigation {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.navigationLink,
+.adminLink {
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  gap: 12px;
+  border-radius: 10px;
+  color: var(--nav-muted);
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.navigationLink:hover,
+.adminLink:hover {
+  background: #f5f6f8;
+  color: var(--nav-ink);
+}
+
+.navigationLink[aria-current],
+.adminLink[aria-current] {
+  background: #eaf2fc;
+  color: var(--nav-primary);
+}
+
+.areaIcon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.adminNavigation {
+  border-top: 1px solid var(--nav-line);
+  margin-top: 20px;
+  padding-top: 14px;
+}
+
+.adminLink {
+  min-height: 44px;
+  padding-left: 44px;
+  font-size: 0.9rem;
+}
+
+.sidebarFooter {
+  margin-top: auto;
+  border-top: 1px solid var(--nav-line);
+  padding-top: 16px;
+}
+
+.sidebarFooter :global(.session-header),
+.drawerFooter :global(.session-header) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.sidebarFooter :global(.session-name),
+.drawerFooter :global(.session-name) {
+  max-width: none;
+  color: var(--nav-ink);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.sidebarFooter :global(.session-actions),
+.drawerFooter :global(.session-actions) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.sidebarFooter :global(.session-actions a),
+.drawerFooter :global(.session-actions a) {
+  min-height: 44px;
+  color: var(--nav-primary);
+  font-size: 0.9rem;
+  padding-inline: 10px;
+}
+
+.sidebarFooter :global(.session-actions button),
+.drawerFooter :global(.session-actions button) {
+  width: 100%;
+}
+
+.mobileTopbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--nav-line);
+  background: #fff;
+  padding: 8px 16px;
+}
+
+.openNavigation,
+.closeNavigation {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  place-items: center;
+  border: 1px solid var(--nav-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--nav-ink);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.drawerBackdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  background: rgb(32 36 43 / 44%);
+  overscroll-behavior: contain;
+}
+
+.drawer {
+  display: flex;
+  width: min(88vw, 340px);
+  min-height: 100dvh;
+  flex-direction: column;
+  overflow-y: auto;
+  background: #fff;
+  padding: 18px 16px max(18px, env(safe-area-inset-bottom));
+  box-shadow: 8px 0 28px rgb(32 36 43 / 16%);
+}
+
+.drawer:focus {
+  outline: 2px solid var(--nav-primary);
+  outline-offset: -4px;
+}
+
+.drawerHeading {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.drawerHeading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.drawer > .brand {
+  margin-bottom: 24px;
+}
+
+.drawerFooter {
+  margin-top: auto;
+  border-top: 1px solid var(--nav-line);
+  padding-top: 16px;
+}
+
+.mobileTopbar :global(a:focus-visible),
+.sidebar :global(a:focus-visible),
+.drawer :global(a:focus-visible),
+.mobileTopbar button:focus-visible,
+.drawer button:focus-visible {
+  outline: 3px solid var(--nav-primary);
+  outline-offset: 2px;
+}
+
+@media (min-width: 1024px) {
+  .appLayout {
+    grid-template-columns: 216px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .mobileTopbar,
+  .drawerBackdrop {
+    display: none;
+  }
+
+  .appLayout :global(.workspace-main) {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    min-height: 100dvh;
+    margin: 0;
+  }
+}
+
+.posSession:global(.session-header) {
+  align-items: stretch;
+}
+
+.posSession :global(.session-name) {
+  color: var(--pos-v1-ink);
+  font-weight: 700;
+}
+
+.posSession :global(.session-actions a) {
+  color: var(--pos-v1-primary);
+}
+
+.posSession:global(.session-header) :global(.session-actions button.button--secondary) {
+  min-height: 44px;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: #f5f6f8 !important;
+  color: #20242b !important;
+  padding-inline: 12px;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.posWorkspace:global(.workspace-main) {
+  min-height: 100dvh;
+  background: var(--pos-v1-canvas);
+  color: var(--pos-v1-ink);
+  padding: 32px;
+}
+
+.posWorkspace:global(.workspace-main) > * + * {
+  margin-top: 0;
+}
+
+.posWorkspace :global([data-slot='button'][data-variant='primary']),
+.posWorkspace:global(.workspace-main) :global(button[data-variant='primary']),
+.posWorkspace:global(.workspace-main) :global(.button--primary),
+.posWorkspace:global(.workspace-main) :global(a.bg-accent) {
+  min-height: 48px;
+  border: 1px solid var(--pos-v1-primary) !important;
+  border-radius: 12px !important;
+  background: var(--pos-v1-primary) !important;
+  color: #fff !important;
+  padding-inline: 16px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.posWorkspace :global([data-slot='button'][data-variant='secondary']),
+.posWorkspace:global(.workspace-main) :global(button[data-variant='secondary']),
+.posWorkspace:global(.workspace-main) :global(.button--secondary) {
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  background: #f5f6f8 !important;
+  color: var(--pos-v1-ink) !important;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.posWorkspace :global(.text-accent) {
+  color: var(--pos-v1-primary) !important;
+}
+
+.posWorkspace :global(.text-muted) {
+  color: var(--pos-v1-muted) !important;
+}
+
+.posWorkspace :global(a:focus-visible),
+.posWorkspace :global(button:focus-visible) {
+  outline: 3px solid var(--pos-v1-primary);
+  outline-offset: 3px;
+}
+
+@media (max-width: 1023px) {
+  .appLayout :global(.workspace-main) {
+    width: 100%;
+    min-height: calc(100dvh - 64px);
+    margin: 0;
+    padding-bottom: 32px;
+  }
+}
+
+@media (max-width: 640px) {
+  .posSession:global(.session-header) {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .posSession :global(.session-name) {
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .posWorkspace:global(.workspace-main) {
+    padding: 20px 16px 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appLayout *,
+  .appLayout *::before,
+  .appLayout *::after {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}

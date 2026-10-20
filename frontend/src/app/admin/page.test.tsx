@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,7 +7,10 @@ import { server } from '../../../tests/msw-server.ts';
 import AdminPage from './page.tsx';
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace }),
+  usePathname: () => window.location.pathname,
+}));
 vi.mock('../../lib/navigation.ts', () => ({ hardNavigate: vi.fn() }));
 
 function show(node: ReactNode) {
@@ -34,7 +37,8 @@ describe('004: enlace a Usuarios en Administración', () => {
     expect(
       await screen.findByRole('heading', { name: 'Administraci\u00F3n', level: 1 }),
     ).toBeVisible();
-    const link = screen.getByRole('link', { name: 'Usuarios' });
+    const dashboard = within(screen.getByRole('main'));
+    const link = dashboard.getByRole('link', { name: 'Usuarios' });
     expect(link).toBeVisible();
     expect(link).toHaveAttribute('href', '/admin/usuarios');
   });
@@ -59,10 +63,11 @@ describe('008: enlace a Carta en Administración', () => {
     expect(
       await screen.findByRole('heading', { name: 'Administraci\u00F3n', level: 1 }),
     ).toBeVisible();
-    const carta = screen.getByRole('link', { name: 'Carta' });
+    const dashboard = within(screen.getByRole('main'));
+    const carta = dashboard.getByRole('link', { name: 'Carta' });
     expect(carta).toBeVisible();
     expect(carta).toHaveAttribute('href', '/admin/carta');
-    expect(screen.getByRole('link', { name: 'Usuarios' })).toHaveAttribute(
+    expect(dashboard.getByRole('link', { name: 'Usuarios' })).toHaveAttribute(
       'href',
       '/admin/usuarios',
     );
@@ -90,13 +95,14 @@ describe('012: enlace a Mesas en Administración', () => {
     expect(
       await screen.findByRole('heading', { name: 'Administraci\u00F3n', level: 1 }),
     ).toBeVisible();
-    const mesas = screen.getByRole('link', { name: 'Mesas' });
+    const dashboard = within(screen.getByRole('main'));
+    const mesas = dashboard.getByRole('link', { name: 'Mesas' });
     expect(mesas).toBeVisible();
     expect(mesas).toHaveAttribute('href', '/admin/mesas');
-    expect(screen.getByRole('link', { name: 'Usuarios' })).toHaveAttribute(
+    expect(dashboard.getByRole('link', { name: 'Usuarios' })).toHaveAttribute(
       'href',
       '/admin/usuarios',
     );
-    expect(screen.getByRole('link', { name: 'Carta' })).toHaveAttribute('href', '/admin/carta');
+    expect(dashboard.getByRole('link', { name: 'Carta' })).toHaveAttribute('href', '/admin/carta');
   });
 });

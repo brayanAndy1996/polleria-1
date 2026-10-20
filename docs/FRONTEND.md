@@ -5,6 +5,29 @@ El área de trabajo de interfaz es `frontend/`. El backend se conserva en
 
 ## Composición visual en Figma
 
+La referencia estructural vigente es
+`frontend/references/original-c26bfacac66444e44e4a120777feca92.webp`:
+representa la toma de productos tras seleccionar una mesa. Incluye sidebar
+compartida y drawer móvil ([alcance](specs/pos-sidebar/spec.md)), popup de
+acciones de mesa, catálogo y pedido adaptable
+([flujo POS](specs/pos-order-flow/spec.md)).
+
+En `/mozo`, seleccionar una mesa abre sus acciones sin crear pedidos. Una
+mesa libre se abre solo al confirmar y luego lleva directamente al catálogo.
+Las ocupadas permiten agregar productos o ver el detalle existente. Búsqueda,
+categorías horizontales con conteos y filtros trabajan sobre la carta real;
+cada tarjeta abre su personalización antes de agregar a la tanda.
+Desde 1024px el pedido sin enviar aparece a la derecha. En móvil, «Ver pedido»
+muestra unidades y total; abre un panel inferior desplazable hasta el envío.
+Cerrar o redimensionar conserva esa tanda en memoria; recargar o abandonar
+la página no es un mecanismo de guardado. No confundirla con toda la cuenta.
+
+La [propuesta POS v1](https://www.figma.com/design/Hkuwm8zQT2kNj1SSSyWJwO/?node-id=40-56)
+se implementó tras la aprobación inicial, pero el usuario rechazó el resultado
+visual y cambió de referencia. Se conserva como historial, no como aprobación
+vigente de la navegación. Las integraciones de Next steps siguen fuera del
+rediseño; no implementar cobros/reservas/delivery por aparecer en una imagen.
+
 La [UI actual editable](https://www.figma.com/design/Hkuwm8zQT2kNj1SSSyWJwO?node-id=28-2)
 se exportó el 2026-10-16: 23 pantallas y estados, incluidas tres vistas móviles
 de 390 px, organizados en acceso, salón/pedidos, administración y caja/cocina.
@@ -76,6 +99,10 @@ configurar una base válida. La preparación de tablas y usuarios corresponde
 a la [guía de demo](PROBAR-DEMO.md), con el responsable del backend.
 
 ## Dónde editar
+
+Para organizar estilos nuevos y continuar la extracción incremental, consulta
+la [guía de CSS Modules de Pollería](../frontend/docs/styles.md). El primer
+bloque es el tablero de Mesas; no se reemplazan Tailwind ni HeroUI.
 
 | Necesidad | Ubicación |
 | --- | --- |
